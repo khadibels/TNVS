@@ -38,15 +38,8 @@
     <div class="p-3 border-top mb-2">
       <a class="nav-link text-danger" href="/login.php">
         <ion-icon name="log-out-outline"></ion-icon> Logout
-
-
-
-
-
-        
       </a>
       </a>
     </div>
   </div>
 </div>
-a
