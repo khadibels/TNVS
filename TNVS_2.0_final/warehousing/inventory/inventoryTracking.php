@@ -60,19 +60,19 @@ require_login();
           </div>
 
           <div class="d-flex align-items-center gap-2">
-  <!-- New Add Item button -->
-  <button class="btn btn-violet" data-bs-toggle="modal" data-bs-target="#addModal">
-    <ion-icon name="add-outline"></ion-icon> Add Item
-  </button>
+          <!-- New Add Item button -->
+          <button class="btn btn-violet" data-bs-toggle="modal" data-bs-target="#addModal">
+            <ion-icon name="add-outline"></ion-icon> Add Item
+          </button>
 
-  <!-- Profile info -->
-  <img src="../../img/profile.jpg" class="rounded-circle" width="36" height="36" alt="">
-  <div class="small">
-    <strong>Nicole Malitao</strong><br/>
-    <span class="text-muted">Warehouse Manager</span>
-  </div>
-</div>
-</div>
+          <!-- Profile info -->
+          <img src="../../img/profile.jpg" class="rounded-circle" width="36" height="36" alt="">
+          <div class="small">
+            <strong>Nicole Malitao</strong><br/>
+            <span class="text-muted">Warehouse Manager</span>
+            </div>
+            </div>
+          </div>
 
 
         <!-- KPI Cards -->

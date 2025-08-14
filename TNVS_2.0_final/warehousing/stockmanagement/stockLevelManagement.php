@@ -155,8 +155,8 @@ $err = isset($_GET["err"]) ? htmlspecialchars($_GET["err"]) : "";
 
   <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
   <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
-<script src="../../js/sidebar-toggle.js"></script>
-</head>
+  <script src="../../js/sidebar-toggle.js"></script>
+  </head>
 <body>
   <div class="container-fluid p-0">
     <div class="row g-0">
