@@ -13,7 +13,6 @@ if (defined('BASE_URL') && BASE_URL) {
 } else {
   $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
   $host   = $_SERVER['HTTP_HOST'] ?? 'localhost';
-  // this file lives at /procurement/supplier/quote.php => base is /procurement
   $prefix = rtrim(dirname(dirname($_SERVER['REQUEST_URI'] ?? '/procurement/supplier/quote.php')), '/');
   $base   = $scheme.'://'.$host.$prefix;
 }
