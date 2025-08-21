@@ -1,0 +1,195 @@
+/* ========================= GLOBAL LAYOUT (sidebar/topbar) ========================= */
+
+/* Sidebar */
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1040;
+  width: 220px;
+  height: 100vh;
+  min-height: 100vh;
+  padding: 1rem 0.3rem;
+  background: #181818;
+  color: #fff;
+  border: none;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  transition: left 0.3s ease-in-out;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.sidebar::-webkit-scrollbar {
+  display: none;
+}
+
+.sidebar.show {
+  left: 0;
+}
+.sidebar.hide {
+  left: -220px;
+}
+
+.sidebar h6 {
+  margin-bottom: 1em;
+  font-weight: 500;
+  font-size: 1.1rem;
+  color: #fff;
+  text-transform: uppercase;
+}
+
+#logo {
+  margin-bottom: 2em;
+}
+
+/* Links */
+.sidebar a {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.45rem 0.7rem;
+  margin-bottom: 0.1rem;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  color: #bfc7d1;
+  font-size: 0.95rem;
+  text-align: left;
+  white-space: nowrap;
+  transition: background 0.2s, color 0.2s;
+}
+.sidebar a ion-icon {
+  min-width: 1.3rem;
+  font-size: 1.3rem;
+}
+
+/* Active/Hover gradient */
+.sidebar a.active,
+.sidebar a:hover {
+  background: linear-gradient(90deg, #9a66ff 0%, #4311a5 100%);
+  color: #fff;
+}
+
+/* Normalize icon sizes (Chrome-friendly) */
+.sidebar .nav-link ion-icon {
+  width: 22px;
+  height: 22px;
+  font-size: 22px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  vertical-align: -2px;
+}
+
+/* Optional: bump Document Management icon only */
+.sidebar .nav-link[href="documents.php"] ion-icon {
+  width: 24px;
+  height: 24px;
+  font-size: 24px;
+  --ionicon-stroke-width: 44px;
+}
+
+/* Keep logout pinned at the bottom */
+.logout-section {
+  margin-top: auto;
+  padding: 1rem;
+  border-top: 1px solid #ffefef;
+}
+.sidebar .nav {
+  flex-grow: 1;
+}
+.sidebar .nav-link.text-danger {
+  color: #ff4747;
+  font-weight: 600;
+}
+
+/* Main content shifts when sidebar is visible (desktop) */
+@media (min-width: 900px) {
+  .main-content {
+    margin-left: 220px;
+    padding: 2rem;
+  }
+}
+
+/* ========================= MOBILE SIDEBAR ========================= */
+@media (max-width: 1000px) {
+  .sidebar {
+    left: -240px;
+    width: 220px;
+  }
+  .sidebar.show {
+    left: 0;
+  }
+  .sidebar.hide {
+    left: -200px;
+  }
+  .main-content {
+    margin-left: 0;
+    padding: 1rem 0.5rem;
+  }
+}
+
+/* Sidebar toggle */
+.sidebar-toggle {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0.5rem;
+  font-size: 1.3rem;
+  color: rgba(150, 150, 255);
+  transition: background 0.2s ease;
+}
+.sidebar-toggle:hover {
+  background: rgba(150, 150, 255, 0.2);
+  border-radius: 5px;
+}
+.sidebar-toggle ion-icon {
+  font-size: 1.5rem;
+}
+
+/* ========================= TOPBAR / PROFILE ========================= */
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #fff;
+  padding: 0.7rem 1.2rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+.topbar .profile {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.topbar .profile-img {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.topbar .profile-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  line-height: 1.1;
+}
+.topbar .profile-info strong {
+  font-size: 1rem;
+  color: #22223b;
+}
+.topbar .profile-info small {
+  font-size: 0.9rem;
+  color: #6c757d;
+  margin-top: 2px;
+}
+
+/* ========================= RESPONSIVE ICON TWEAKS ========================= */
+@media (max-width: 1000px) {
+  .sidebar a ion-icon {
+    font-size: 1.5rem;
+  }
+}

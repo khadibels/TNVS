@@ -1,0 +1,324 @@
+/* ========== TNVS Modules ========== */
+
+/* Logo */
+.logo-wrapper img {
+  height: 55px;
+}
+
+/* ---------- KPI Grid & Cards ---------- */
+.stats-cards {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 576px) {
+  .stats-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (min-width: 992px) {
+  .stats-cards {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+.stats-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  background: #fff;
+  border: 1px solid #e9e9f2;
+  border-radius: 1rem;
+  padding: 1.2rem 1.4rem;
+  min-height: 110px;
+  box-shadow: 0 8px 20px rgba(16, 24, 40, 0.06);
+  transition: transform 0.12s ease, box-shadow 0.2s ease;
+  text-align: center;
+}
+
+.stats-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(16, 24, 40, 0.1);
+}
+
+.stats-card .icon {
+  width: 50px;
+  height: 50px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(101, 50, 201, 0.1);
+  font-size: 30px;
+  color: #6532c9;
+}
+
+.stats-card .label {
+  font-weight: 600;
+  color: #5e6572;
+  font-size: 1.05rem;
+  margin-top: 8px;
+}
+
+.stats-card .value {
+  font-weight: 700;
+  font-size: 1.5rem;
+  color: #6f42c1;
+  margin-top: -5px;
+}
+
+/* ---------- Buttons ---------- */
+.btn-viahale {
+  background: #6532c9;
+  color: #fff;
+  font-weight: 600;
+  border-radius: 8px;
+  padding: 0.7rem 1.2rem;
+  border: 0;
+}
+.btn-viahale:hover {
+  filter: brightness(0.95);
+  color: #fff;
+}
+
+.btn-violet {
+  background: #6532c9;
+  color: #fff;
+  border-radius: 8px;
+  font-weight: 600;
+  padding: 0.7rem 1.2rem;
+  border: 0;
+}
+.btn-violet:hover {
+  background: #5520b0;
+  color: #fff;
+}
+
+/* Confirm actions */
+.btn-green {
+  background: #28a745;
+  border-color: #28a745;
+  color: #fff;
+}
+.btn-green:hover {
+  background: #218838;
+  border-color: #218838;
+  color: #fff;
+}
+
+/* ---------- Cards & Sections ---------- */
+.dashboard-col {
+  border: 1px solid #e9e9f2;
+  border-radius: 12px;
+}
+.dashboard-col > h5 {
+  padding: 1rem 1.25rem;
+  margin: 0;
+  border-bottom: 1px solid #e9e9f2;
+  font-weight: 600;
+}
+
+/* ---------- Tables ---------- */
+.table thead th {
+  background: #fafafa;
+  border-bottom: 1px solid #e9e9f2;
+  font-weight: 600;
+  color: #374151;
+}
+.table td,
+.table th {
+  padding: 0.75rem 0.9rem;
+}
+.table td {
+  vertical-align: middle;
+}
+
+/* Bootstrap badges look */
+.badge {
+  border-radius: 999px;
+  padding: 0.45rem 0.7rem;
+  font-weight: 700;
+}
+
+.status-badge {
+  display: inline-block;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 50px;
+}
+
+.status-badge.bg-success {
+  background: #28a745;
+  color: #fff;
+}
+.status-badge.bg-warning {
+  background: #ffc107;
+  color: #111;
+}
+.status-badge.bg-danger {
+  background: #dc3545;
+  color: #fff;
+}
+
+/* ---------- Pagination ---------- */
+.pagination {
+  justify-content: center;
+}
+
+/* ---------- Modals ---------- */
+#addModal .modal-header {
+  padding: 1.25rem 1.25rem;
+  min-height: 72px;
+}
+#addModal .modal-title {
+  font-size: 1.25rem;
+  line-height: 1.3;
+}
+
+/* button sizing and icon alignment across modules */
+.btn,
+.page-link {
+  border-radius: 10px;
+} /* matches your vibe */
+.btn-sm {
+  padding: 0.35rem 0.6rem;
+  font-size: 0.875rem;
+}
+
+.btn-primary {
+  --bs-btn-bg: #6c5ce7;
+  --bs-btn-border-color: #6c5ce7;
+}
+.btn-outline-primary {
+  --bs-btn-color: #6c5ce7;
+  --bs-btn-border-color: #6c5ce7;
+}
+
+.btn-success {
+  --bs-btn-bg: #00b894;
+  --bs-btn-border-color: #00b894;
+}
+.btn-warning {
+  --bs-btn-bg: #fdcb6e;
+  --bs-btn-border-color: #fdcb6e;
+  color: #000;
+}
+.btn-secondary {
+  --bs-btn-bg: #636e72;
+  --bs-btn-border-color: #636e72;
+}
+
+.btn ion-icon,
+.nav .nav-link ion-icon,
+.table .btn ion-icon {
+  font-size: 18px;
+  vertical-align: -2px;
+  margin-right: 0.25rem;
+}
+
+/* Pagination look */
+.pagination .page-link {
+  padding: 0.35rem 0.65rem;
+  font-weight: 500;
+}
+.pagination .page-item.active .page-link {
+  background-color: #6c5ce7;
+  border-color: #6c5ce7;
+}
+
+/* Stock Management: clamp recent transactions height */
+.tx-scroll {
+  max-height: 360px;
+  overflow-y: auto;
+}
+.tx-scroll .table {
+  margin-bottom: 0;
+}
+.tx-scroll thead th {
+  position: sticky;
+  top: 0;
+  background: #fff;
+  z-index: 1;
+}
+
+.levels-scroll {
+  max-height: 60vh;
+  overflow: auto;
+}
+.levels-scroll thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--bs-body-bg);
+}
+
+/* track shipments =) */
+.shipments-scroll {
+  max-height: 60vh;
+  overflow: auto;
+}
+.sticky-th th {
+  position: sticky;
+  top: 0;
+  background: #fff;
+  z-index: 1;
+}
+
+/* create button on shipment =) */
+.btn-primary:not(:disabled):hover,
+.btn-primary:focus {
+  background-color: #6933f0;
+  border-color: #6933f0;
+  color: #fff;
+}
+
+/* ====== PRINT LAYOUT FOR REPORTS ====== */
+@media print {
+  @page {
+    margin: 12mm;
+  }
+  .sidebar,
+  .sidebar-toggle {
+    display: none !important;
+  }
+  .main-content {
+    width: 100% !important;
+    margin: 0 !important;
+  }
+  .card,
+  .chart-card,
+  .table-responsive {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .chart-card canvas {
+    height: 240px !important;
+    width: 100% !important;
+  }
+
+  .sticky-th,
+  .table .sticky-th {
+    position: static !important;
+    top: auto !important;
+  }
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+.kpi-card .icon-wrap {
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+}
+.settings-tab .nav-link {
+  gap: 0.4rem;
+}
