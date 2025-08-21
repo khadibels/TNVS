@@ -31,7 +31,9 @@ try {
 
   // ---- items ----
   $st = $pdo->prepare("
-    SELECT id, descr, qty, price, (qty*price) AS line_total
+    SELECT id, descr, qty, price,
+           COALESCE(qty_received,0) AS qty_received,
+           (qty*price) AS line_total
     FROM purchase_order_items
     WHERE po_id = ?
     ORDER BY id

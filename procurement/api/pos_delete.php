@@ -18,9 +18,8 @@ try {
   $st->execute([$id]);
   $status=$st->fetchColumn();
   if ($status===false){ $pdo->rollBack(); bad('PO not found',404); }
-  if ($status!=='draft'){ $pdo->rollBack(); bad('Only draft POs can be deleted',409); }
+  if (strtolower($status)!=='draft'){ $pdo->rollBack(); bad('Only draft POs can be deleted',409); }
 
-  // items will cascade delete via FK ON DELETE CASCADE if you prefer; but we delete explicitly too:
   $pdo->prepare("DELETE FROM purchase_order_items WHERE po_id=?")->execute([$id]);
   $pdo->prepare("DELETE FROM purchase_orders WHERE id=?")->execute([$id]);
   $pdo->commit();

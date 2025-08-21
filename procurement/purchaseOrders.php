@@ -285,13 +285,25 @@ async function loadPOs(){
       <td>${esc(r.issue_date ?? '-')}</td>
       <td>${esc(r.expected_date ?? '-')}</td>
       <td>${badge(r.status)}</td>
-      <td class="text-end">
-        <button class="btn btn-sm btn-outline-secondary me-1" onclick='openEdit(${r.id})'>Edit</button>
-        ${(String(r.status||'').toLowerCase()!=='received' && String(r.status||'').toLowerCase()!=='closed')
-          ? `<button class="btn btn-sm btn-success me-1" onclick='markReceived(${r.id})'>Mark Received</button>` : ``}
-        ${(String(r.status||'').toLowerCase()==='draft')
-          ? `<button class="btn btn-sm btn-outline-danger" onclick='deletePO(${r.id})'>Delete</button>` : ``}
-      </td>
+
+
+     <td class="text-end">
+  <button class="btn btn-sm btn-outline-secondary me-1" onclick='openEdit(${r.id})'>Edit</button>
+
+  ${!['received','closed'].includes(String(r.status||'').toLowerCase())
+    ? `
+      <button class="btn btn-sm btn-outline-success me-1" onclick="quickReceiveSome(${r.id})">Receive</button>
+      <button class="btn btn-sm btn-success me-1" onclick="quickReceiveAll(${r.id})">Receive All</button>
+    `
+    : ``}
+
+  ${String(r.status||'').toLowerCase()==='draft'
+    ? `<button class="btn btn-sm btn-outline-danger" onclick='deletePO(${r.id})'>Delete</button>`
+    : ``}
+</td>
+
+
+
     </tr>
   `).join('') : `<tr><td colspan="7" class="text-center py-4 text-muted">No POs found.</td></tr>`;
 
@@ -330,6 +342,47 @@ async function loadSuppliers(selectEl){
   const rows = Array.isArray(resp) ? resp : (resp.rows || []);
   selectEl.innerHTML = rows.map(s=>`<option value="${s.id}">${esc(s.code)} — ${esc(s.name)}</option>`).join('');
 }
+
+async function quickReceiveAll(poId){
+  if(!confirm('Receive all remaining quantities for this PO?')) return;
+  try{
+    const j = await fetchJSON('./api/pos_get.php?id=' + poId);
+    const form = new FormData();
+    form.set('po_id', poId);
+    (j.items || []).forEach(it=>{
+      const remaining = Math.max(0, (parseFloat(it.qty)||0) - (parseFloat(it.qty_received)||0));
+      if (remaining > 0) form.set(`items[${it.id}][qty]`, String(remaining));
+    });
+    const res = await fetchJSON('./api/pos_receive.php', { method:'POST', body: form });
+    toast(`Received • ${res.lines_updated} line(s) • status: ${res.status}`);
+    loadPOs();
+  }catch(e){ alert(parseErr(e)); }
+}
+
+async function quickReceiveSome(poId){
+  try{
+    const j = await fetchJSON('./api/pos_get.php?id=' + poId);
+    const form = new FormData();
+    form.set('po_id', poId);
+
+    for (const it of (j.items||[])) {
+      const remaining = Math.max(0, (parseFloat(it.qty)||0) - (parseFloat(it.qty_received)||0));
+      if (remaining <= 0) continue;
+      const ans = prompt(`Receive "${it.descr}"\nOrdered: ${it.qty}\nReceived: ${it.qty_received}\nRemaining: ${remaining}\n\nEnter qty to receive now:`, remaining);
+      if (ans===null) continue;
+      const n = parseFloat(ans);
+      if (!isNaN(n) && n>0) form.set(`items[${it.id}][qty]`, String(n));
+    }
+
+    const hasLines = Array.from(form.keys()).some(k=>k.startsWith('items['));
+    if (!hasLines) { toast('No lines chosen', 'warning'); return; }
+
+    const res = await fetchJSON('./api/pos_receive.php', { method:'POST', body: form });
+    toast(`Received • ${res.lines_updated} line(s) • status: ${res.status}`);
+    loadPOs();
+  }catch(e){ alert(parseErr(e)); }
+}
+
 
 // ===== items grid =====
 function addItemRow(row={descr:'', qty:'', price:''}){
@@ -445,14 +498,7 @@ document.querySelectorAll('#poItemsBody tr').forEach(tr=>{
 
 
 
-window.markReceived = async (id)=>{
-  if(!confirm('Mark this PO as RECEIVED?')) return;
-  try{
-    const fd = new FormData(); fd.set('id', id); fd.set('status','received');
-    await fetchJSON(api.setSt, { method:'POST', body:fd });
-    toast('PO marked as received'); loadPOs();
-  }catch(e){ alert(parseErr(e)); }
-};
+
 
 window.deletePO = async (id)=>{
   if(!confirm('Delete this PO? (Only drafts can be deleted)')) return;

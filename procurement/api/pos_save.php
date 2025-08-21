@@ -60,14 +60,19 @@ try {
     }
   }
 
-  if ($id === 0) {
-    $po_no = gen_po_no($pdo);
-    $st = $pdo->prepare("
-      INSERT INTO purchase_orders (po_no, supplier_id, order_date, expected_date, status, notes, total)
-      VALUES (?, ?, ?, ?, ?, ?, 0)
-    ");
-    $st->execute([$po_no, $supplier_id, $order_date ?: null, $expected_date ?: null, $status, $notes]);
-    $id = (int)$pdo->lastInsertId();
+ if ($id === 0) {
+  $po_no = gen_po_no($pdo);
+
+  //insert header (new po)
+$st = $pdo->prepare("
+  INSERT INTO purchase_orders
+    (po_no, supplier_id, order_date, expected_date, status, notes, total)
+  VALUES
+    (?,     ?,           ?,          ?,            ?,     ?,     0)
+");
+$st->execute([$po_no, $supplier_id, $order_date ?: null, $expected_date ?: null, $status, $notes]);
+
+  $id = (int)$pdo->lastInsertId();
   } else {
     $st = $pdo->prepare("
       UPDATE purchase_orders

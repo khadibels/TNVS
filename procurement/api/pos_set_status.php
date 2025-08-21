@@ -37,7 +37,6 @@ try {
   }
 
   $pdo->prepare("UPDATE purchase_orders SET status=? WHERE id=?")->execute([$new,$id]);
-
   $pdo->commit();
   echo json_encode(['ok'=>true]);
 } catch (Throwable $e) {

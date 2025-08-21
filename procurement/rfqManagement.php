@@ -512,41 +512,6 @@ document.getElementById('awardForm').addEventListener('submit', async (ev)=>{
   }
 });
 
-// ====== Quotes modal + seed button ======
-
-// inject a single "Add sample quote" button in the modal footer
-(function () {
-  const footer = document.querySelector('#mdlQuotes .modal-footer');
-  if (!footer) return;
-
-  let seedBtn = document.createElement('button');
-  seedBtn.id = 'seedQuoteBtn';
-  seedBtn.type = 'button';
-  seedBtn.className = 'btn btn-outline-primary me-auto';
-  seedBtn.textContent = 'Add sample quote';
-  seedBtn.style.display = 'none';
-  footer.prepend(seedBtn);
-
-  seedBtn.addEventListener('click', async () => {
-    const rfqId = Number(seedBtn.getAttribute('data-rfq-id') || '0');
-    if (!rfqId) return;
-    seedBtn.disabled = true;
-    try {
-      await fetchJSON('./api/quotes_seed.php?rfq_id=' + rfqId);
-      toast('Sample quote added'); openQuotes(rfqId); // refresh
-    } catch (e) {
-      alert(parseErr(e));
-    } finally {
-      seedBtn.disabled = false;
-    }
-  });
-
-  // called by openQuotes to show/hide and set RFQ id
-  window._showSeedBtnForRFQ = (rfqId, rfqStatus='') => {
-    seedBtn.setAttribute('data-rfq-id', String(rfqId));
-    seedBtn.style.display = (rfqStatus === 'awarded') ? 'none' : '';
-  };
-})();
 
 // Quotes button (delegated)
 document.addEventListener('click', (e) => {
@@ -566,8 +531,7 @@ window.openQuotes = async (rfqId, rfqStatus='') => {
   tbody.innerHTML = `<tr><td colspan="6" class="text-center py-4">Loading…</td></tr>`;
   m.show();
 
-  // show/hide seed button for this RFQ
-  window._showSeedBtnForRFQ?.(rfqId, rfqStatus);
+ 
 
   try {
     const rows = await fetchJSON('./api/quotes_list.php?rfq_id=' + encodeURIComponent(rfqId));

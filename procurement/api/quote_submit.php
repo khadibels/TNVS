@@ -1,53 +1,50 @@
 <?php
-// procurement/api/quote_info.php
+// procurement/api/quote_submit.php
 declare(strict_types=1);
-require_once __DIR__.'/../../includes/config.php';
-// NO auth here (public link for suppliers)
+require_once __DIR__ . '/../../includes/config.php';
 header('Content-Type: application/json; charset=utf-8');
 
+function bad($m,$c=400){ http_response_code($c); echo json_encode(['error'=>$m]); exit; }
+
 try {
-  $token = trim($_GET['token'] ?? '');
-  if ($token === '') throw new Exception('Missing token');
+  if ($_SERVER['REQUEST_METHOD'] !== 'POST') bad('POST required');
 
-  // recipient (token) -> rfq + supplier
-  $sql = "SELECT rr.rfq_id, rr.supplier_id, rr.token, rr.sent_at,
-                 r.rfq_no, r.title, r.due_date, r.notes AS rfq_notes,
-                 s.code AS supplier_code, s.name AS supplier_name, s.email AS supplier_email
+  $token = trim($_POST['token'] ?? '');
+  if ($token==='') bad('Missing token');
+
+  // token -> rfq + supplier
+  $sql = "SELECT rr.rfq_id, rr.supplier_id, r.due_date
           FROM rfq_recipients rr
-          JOIN rfqs r      ON r.id = rr.rfq_id
-          JOIN suppliers s ON s.id = rr.supplier_id
+          JOIN rfqs r ON r.id = rr.rfq_id
           WHERE rr.token = ?";
-  $stmt = $pdo->prepare($sql);
-  $stmt->execute([$token]);
-  $row = $stmt->fetch(PDO::FETCH_ASSOC);
-  if (!$row) throw new Exception('Invalid token');
+  $st = $pdo->prepare($sql);
+  $st->execute([$token]);
+  $rec = $st->fetch(PDO::FETCH_ASSOC);
+  if (!$rec) bad('Invalid token', 404);
 
-  // latest quote (per supplier per rfq)
-  $sqlQ = "SELECT id, total_amount, lead_time_days, notes, is_final, submitted_at
-           FROM quotes
-           WHERE rfq_id = ? AND supplier_id = ?
-           ORDER BY id DESC LIMIT 1";
-  $stmt = $pdo->prepare($sqlQ);
-  $stmt->execute([$row['rfq_id'], $row['supplier_id']]);
-  $q = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
+  // (optional) block after due date
+  // if (!empty($rec['due_date']) && date('Y-m-d') > $rec['due_date']) bad('RFQ is past due', 409);
 
-  echo json_encode([
-    'rfq' => [
-      'id' => (int)$row['rfq_id'],
-      'rfq_no' => $row['rfq_no'],
-      'title' => $row['title'],
-      'due_date' => $row['due_date'],
-      'notes' => $row['rfq_notes'],
-    ],
-    'supplier' => [
-      'id' => (int)$row['supplier_id'],
-      'code' => $row['supplier_code'],
-      'name' => $row['supplier_name'],
-      'email'=> $row['supplier_email'],
-    ],
-    'quote' => $q
+  // inputs from supplier
+  $total = (float)($_POST['total_amount'] ?? $_POST['total'] ?? 0);
+  $lead  = (int)($_POST['lead_time_days'] ?? $_POST['lead'] ?? 0);
+  $notes = trim($_POST['notes'] ?? '');
+  $is_final = (int)($_POST['is_final'] ?? 1);
+
+  if ($total <= 0) bad('Total amount must be > 0');
+  if ($lead < 0)  bad('Lead time must be >= 0');
+
+  // insert new quote row (allow multiple submissions; newest wins in lists)
+  $now = date('Y-m-d H:i:s');
+  $sql = "INSERT INTO quotes (rfq_id, supplier_id, total_amount, lead_time_days, notes, is_final, submitted_at)
+          VALUES (?,?,?,?,?,?,?)";
+  $pdo->prepare($sql)->execute([
+    (int)$rec['rfq_id'],
+    (int)$rec['supplier_id'],
+    $total, $lead, $notes, $is_final, $now
   ]);
+
+  echo json_encode(['ok'=>true, 'quote_id'=>(int)$pdo->lastInsertId()]);
 } catch (Throwable $e) {
-  http_response_code(400);
-  echo json_encode(['error'=>$e->getMessage()]);
+  bad('server_error: '.$e->getMessage(), 500);
 }
