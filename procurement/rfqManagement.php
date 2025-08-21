@@ -245,6 +245,40 @@ if (function_exists("current_user")) {
   </div>
 </div>
 
+<!-- Invite Links Modal -->
+<div class="modal fade" id="mdlLinks" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Supplier Invite Links</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="table-responsive">
+          <table class="table table-sm align-middle">
+            <thead>
+              <tr>
+                <th>Supplier</th>
+                <th>Email</th>
+                <th>Link</th>
+                <th class="text-end">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="linksBody">
+              <tr><td colspan="4" class="text-center py-3">Generating…</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="small text-muted">Tip: Click “Email” to open your mail app with the link prefilled, or “Copy” to put the link on your clipboard.</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
 <!-- Toasts -->
 <div class="toast-container position-fixed top-0 end-0 p-3" id="toasts" style="z-index:1080"></div>
 
@@ -421,18 +455,63 @@ async function loadActiveSuppliersInto(selectEl){
 }
 
 // --- Send invites (records sent_at + tokens server-side if implemented) ---
+// --- Send invites (generate/ensure tokens, show links modal)
 window.sendInvites = async (id)=>{
-  if (!confirm('Send RFQ invitations to selected suppliers?')) return;
+  if (!confirm('Generate invite links for this RFQ?')) return;
+
+  const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById('mdlLinks'));
+  const body  = document.getElementById('linksBody');
+  body.innerHTML = `<tr><td colspan="4" class="text-center py-3">Generating…</td></tr>`;
+  modal.show();
+
   try{
     const res = await fetchJSON('./api/rfqs_send.php', {
       method:'POST',
       headers:{'Content-Type':'application/x-www-form-urlencoded'},
       body:'rfq_id='+encodeURIComponent(id)
     });
-    toast(`Sent invites to ${res.sent ?? 0} supplier(s)`);
+
+    const esc = s => String(s||'').replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[m]));
+    const rows = Array.isArray(res.links) ? res.links : [];
+
+    if (!rows.length) {
+      body.innerHTML = `<tr><td colspan="4" class="text-center py-3 text-muted">No recipients found for this RFQ.</td></tr>`;
+      return;
+    }
+
+    body.innerHTML = rows.map(r => `
+      <tr>
+        <td>${esc(r.name)}</td>
+        <td>${esc(r.email)}</td>
+        <td class="text-truncate" style="max-width:360px">
+          <a href="${esc(r.link)}" target="_blank" rel="noopener">${esc(r.link)}</a>
+        </td>
+        <td class="text-end">
+          <button class="btn btn-sm btn-outline-primary" data-copy="${esc(r.link)}">Copy</button>
+          <a class="btn btn-sm btn-outline-secondary" href="${r.mailto}" target="_blank" rel="noopener">Email</a>
+        </td>
+      </tr>
+    `).join('');
+
+    // (optional) refresh list counts/status after generating links
     loadRFQs();
-  }catch(e){ alert(parseErr(e)); }
+    toast(`Links ready for ${rows.length} supplier(s)`);
+  }catch(e){
+    body.innerHTML = `<tr><td colspan="4" class="text-danger py-3 text-center">${esc(parseErr(e))}</td></tr>`;
+  }
 };
+
+
+document.addEventListener('click', async (e)=>{
+  const btn = e.target.closest('button[data-copy]');
+  if (!btn) return;
+  try{
+    await navigator.clipboard.writeText(btn.getAttribute('data-copy'));
+    toast('Link copied');
+  }catch{
+    alert('Copy failed');
+  }
+});
 
 // --- New RFQ modal ---
 window.openAddRFQ = async ()=>{

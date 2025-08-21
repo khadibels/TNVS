@@ -1,5 +1,4 @@
 <?php
-// procurement/api/quotes_info.php
 declare(strict_types=1);
 require_once __DIR__.'/../../includes/config.php';
 header('Content-Type: application/json; charset=utf-8');
@@ -14,10 +13,9 @@ try {
   $token = trim($_GET['token'] ?? '');
   if ($token === '') throw new Exception('Missing token');
 
-  // decide which column your DB has
-  $tokCol = col_exists($pdo,'rfq_recipients','token') ? 'token'
-           : (col_exists($pdo,'rfq_recipients','invite_token') ? 'invite_token' : null);
-  if (!$tokCol) throw new Exception('No token column on rfq_recipients');
+  $tokCol = col_exists($pdo,'rfq_recipients','invite_token') ? 'invite_token'
+         : (col_exists($pdo,'rfq_recipients','token') ? 'token' : null);
+  if (!$tokCol) throw new Exception('Token column not found on rfq_recipients');
 
   $sql = "SELECT rr.rfq_id, rr.supplier_id, rr.$tokCol AS token, rr.sent_at,
                  r.rfq_no, r.title, r.due_date, r.notes AS rfq_notes,
@@ -31,13 +29,11 @@ try {
   $row = $stmt->fetch(PDO::FETCH_ASSOC);
   if (!$row) throw new Exception('Invalid token');
 
-  // latest quote
-  $stmt = $pdo->prepare("
-      SELECT id, total_amount, lead_time_days, notes, is_final, submitted_at
-      FROM quotes
-      WHERE rfq_id = ? AND supplier_id = ?
-      ORDER BY id DESC LIMIT 1
-  ");
+  $sqlQ = "SELECT id, total_amount, lead_time_days, notes, is_final, submitted_at
+           FROM quotes
+           WHERE rfq_id = ? AND supplier_id = ?
+           ORDER BY id DESC LIMIT 1";
+  $stmt = $pdo->prepare($sqlQ);
   $stmt->execute([$row['rfq_id'], $row['supplier_id']]);
   $q = $stmt->fetch(PDO::FETCH_ASSOC) ?: null;
 
