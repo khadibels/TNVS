@@ -474,7 +474,7 @@ document.getElementById('poForm').addEventListener('submit', async (ev)=>{
     if (d && d.value.trim()==='' && (qv>0 || pv>0)) d.value = `Item ${i+1}`;
   });
 
-  // ✅ run native HTML5 validation now that fields are filled
+  
   if (!form.reportValidity()) return;
 
   try{
