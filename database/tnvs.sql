@@ -2,10 +2,10 @@
 -- version 5.2.1
 -- https://www.phpmyadmin.net/
 --
--- Host: localhost
--- Generation Time: Aug 22, 2025 at 06:28 AM
--- Server version: 10.4.28-MariaDB
--- PHP Version: 8.2.4
+-- Host: 127.0.0.1
+-- Generation Time: Aug 23, 2025 at 07:01 PM
+-- Server version: 10.4.32-MariaDB
+-- PHP Version: 8.0.30
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -90,16 +90,18 @@ CREATE TABLE `purchase_orders` (
   `created_by` int(11) DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
   `po_no` varchar(32) NOT NULL,
-  `total` decimal(14,2) NOT NULL DEFAULT 0.00
+  `total` decimal(14,2) NOT NULL DEFAULT 0.00,
+  `pr_id` int(11) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
 -- Dumping data for table `purchase_orders`
 --
 
-INSERT INTO `purchase_orders` (`id`, `supplier_id`, `order_date`, `expected_date`, `status`, `notes`, `created_by`, `created_at`, `po_no`, `total`) VALUES
-(1, 5, '2025-08-22', '2025-08-22', 'received', '', NULL, '2025-08-22 04:16:05', 'PO-202508-0001', 100.00),
-(2, 5, '2025-08-22', '2025-08-22', 'received', 'From RFQ #1', NULL, '2025-08-22 04:16:18', 'PO-202508-0002', 10.00);
+INSERT INTO `purchase_orders` (`id`, `supplier_id`, `order_date`, `expected_date`, `status`, `notes`, `created_by`, `created_at`, `po_no`, `total`, `pr_id`) VALUES
+(1, 5, '2025-08-22', '2025-08-22', 'received', '', NULL, '2025-08-22 04:16:05', 'PO-202508-0001', 100.00, NULL),
+(2, 5, '2025-08-22', '2025-08-22', 'received', 'From RFQ #1', NULL, '2025-08-22 04:16:18', 'PO-202508-0002', 10.00, NULL),
+(3, 5, '2025-08-23', '2025-08-24', 'received', 'From RFQ #2', NULL, '2025-08-23 16:58:42', 'PO-202508-0003', 12.00, NULL);
 
 -- --------------------------------------------------------
 
@@ -127,7 +129,8 @@ CREATE TABLE `purchase_order_items` (
 
 INSERT INTO `purchase_order_items` (`id`, `po_id`, `descr`, `item_id`, `location_id`, `qty_ordered`, `qty_received`, `unit_cost`, `note`, `qty`, `price`) VALUES
 (1, 1, 'item', NULL, NULL, NULL, 10, 0.00, NULL, 10.0000, 10.0000),
-(2, 2, 'Awarded total', NULL, NULL, NULL, 1, 0.00, NULL, 1.0000, 10.0000);
+(2, 2, 'Awarded total', NULL, NULL, NULL, 1, 0.00, NULL, 1.0000, 10.0000),
+(4, 3, 'Awarded total', NULL, NULL, NULL, 0, 0.00, NULL, 1.0000, 12.0000);
 
 -- --------------------------------------------------------
 
@@ -152,7 +155,8 @@ CREATE TABLE `quotes` (
 --
 
 INSERT INTO `quotes` (`id`, `rfq_id`, `supplier_id`, `submitted_at`, `lead_time_days`, `notes`, `total_cache`, `is_final`, `total_amount`) VALUES
-(1, 1, 5, '2025-08-22 06:15:38', 1, '', NULL, 1, 10.00);
+(1, 1, 5, '2025-08-22 06:15:38', 1, '', NULL, 1, 10.00),
+(2, 2, 5, '2025-08-23 18:58:35', 1, '', NULL, 1, 12.00);
 
 -- --------------------------------------------------------
 
@@ -208,7 +212,8 @@ CREATE TABLE `rfqs` (
 --
 
 INSERT INTO `rfqs` (`id`, `rfq_no`, `title`, `due_date`, `status`, `notes`, `created_at`, `sent_at`, `awarded_supplier_id`) VALUES
-(1, 'RFQ-20250822-0002', 'Nicole Sample', '2025-08-22', 'awarded', '', '2025-08-22 04:15:30', NULL, 5);
+(1, 'RFQ-20250822-0002', 'Nicole Sample', '2025-08-22', 'awarded', '', '2025-08-22 04:15:30', NULL, 5),
+(2, 'RFQ-20250823-0001', 'sample 20424', '2025-08-24', 'awarded', '', '2025-08-23 16:58:24', NULL, 5);
 
 -- --------------------------------------------------------
 
@@ -228,7 +233,8 @@ CREATE TABLE `rfq_counters` (
 INSERT INTO `rfq_counters` (`day`, `seq`) VALUES
 ('20250818', 161959),
 ('20250819', 4),
-('20250822', 2);
+('20250822', 2),
+('20250823', 1);
 
 -- --------------------------------------------------------
 
@@ -279,7 +285,8 @@ CREATE TABLE `rfq_recipients` (
 --
 
 INSERT INTO `rfq_recipients` (`id`, `rfq_id`, `supplier_id`, `email`, `invite_token`, `token_expires_at`, `sent_at`, `opened_at`) VALUES
-(1, 1, 5, 'nicole@viahale.com', 'b7c86c71ef1bb69c2e7478553349d00216c04628d2b6982713972ffa4ec8cbaa', '2025-08-29 06:15:32', '2025-08-22 12:15:32', NULL);
+(1, 1, 5, 'nicole@viahale.com', 'b7c86c71ef1bb69c2e7478553349d00216c04628d2b6982713972ffa4ec8cbaa', '2025-08-29 06:15:32', '2025-08-22 12:15:32', NULL),
+(2, 2, 5, 'nicole@viahale.com', 'a840f1b4239925bac6d523ced8f0298f1bbf83d9eb983e417e69356150d96c10', '2025-08-30 18:58:26', '2025-08-24 00:58:26', NULL);
 
 -- --------------------------------------------------------
 
@@ -578,7 +585,8 @@ ALTER TABLE `purchase_orders`
   ADD UNIQUE KEY `uniq_po_no` (`po_no`),
   ADD UNIQUE KEY `po_no_UNIQUE` (`po_no`),
   ADD KEY `idx_po_supplier_status` (`supplier_id`,`status`),
-  ADD KEY `idx_po_supplier` (`supplier_id`);
+  ADD KEY `idx_po_supplier` (`supplier_id`),
+  ADD KEY `pr_id` (`pr_id`);
 
 --
 -- Indexes for table `purchase_order_items`
@@ -746,19 +754,19 @@ ALTER TABLE `inventory_items`
 -- AUTO_INCREMENT for table `purchase_orders`
 --
 ALTER TABLE `purchase_orders`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `purchase_order_items`
 --
 ALTER TABLE `purchase_order_items`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT for table `quotes`
 --
 ALTER TABLE `quotes`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `quote_attachments`
@@ -776,7 +784,7 @@ ALTER TABLE `quote_items`
 -- AUTO_INCREMENT for table `rfqs`
 --
 ALTER TABLE `rfqs`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `rfq_items`
@@ -794,7 +802,7 @@ ALTER TABLE `rfq_quotes`
 -- AUTO_INCREMENT for table `rfq_recipients`
 --
 ALTER TABLE `rfq_recipients`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
 
 --
 -- AUTO_INCREMENT for table `rfq_suppliers`
