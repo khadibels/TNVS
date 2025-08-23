@@ -459,7 +459,6 @@ async function loadActiveSuppliersInto(selectEl){
   selectEl.innerHTML = list.map(s=>`<option value="${s.id}">${esc(s.code)} — ${esc(s.name)}</option>`).join('');
 }
 
-// --- Send invites (records sent_at + tokens server-side if implemented) ---
 // --- Send invites (generate/ensure tokens, show links modal)
 window.sendInvites = async (id)=>{
   if (!confirm('Generate invite links for this RFQ?')) return;
@@ -597,7 +596,7 @@ document.getElementById('awardForm').addEventListener('submit', async (ev)=>{
 });
 
 
-// Quotes button (delegated)
+
 document.addEventListener('click', (e) => {
   const btn = e.target.closest('[data-open-quotes]');
   if (!btn) return;
