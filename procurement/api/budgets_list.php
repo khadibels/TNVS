@@ -1,5 +1,4 @@
 <?php
-// /procurement/api/budgets_list.php
 declare(strict_types=1);
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/auth.php';
@@ -10,7 +9,6 @@ function qcol(PDO $pdo, string $sql, array $p=[]){
   $st=$pdo->prepare($sql); $st->execute($p); return $st->fetchColumn();
 }
 
-// single row fetch (used by openEdit)
 if (isset($_GET['id']) && $_GET['id']!=='') {
   $id=(int)$_GET['id'];
   $st=$pdo->prepare("SELECT * FROM budgets WHERE id=?");
@@ -31,17 +29,16 @@ $where=[]; $p=[];
 if ($year!==''){ $where[]='b.fiscal_year=?'; $p[]=$year; }
 if ($month!==''){ $where[]='b.month=?';       $p[]=$month; }
 if ($dept!==''){ $where[]='b.department_id=?';$p[]=$dept; }
-if ($cat!==''){  $where[]='b.category_id=?';  $p[]=$cat; }
+if ($cat!==''){  $where[]='c.name=?';         $p[]=$cat; } // filter by category text
 $sqlWhere = $where ? 'WHERE '.implode(' AND ',$where) : '';
 
-$total = (int)qcol($pdo, "SELECT COUNT(*) FROM budgets b $sqlWhere", $p);
+$total = (int)qcol($pdo, "SELECT COUNT(*) FROM budgets b LEFT JOIN inventory_categories c ON c.id=b.category_id $sqlWhere", $p);
 
 $sql = "SELECT
           b.*,
           d.name AS department,
           c.name AS category,
-          CASE WHEN b.month IS NULL THEN NULL
-               ELSE DATE_FORMAT(STR_TO_DATE(b.month, '%m'), '%M') END AS month_name
+          CASE WHEN b.month IS NULL THEN NULL ELSE DATE_FORMAT(STR_TO_DATE(b.month, '%m'), '%M') END AS month_name
         FROM budgets b
         LEFT JOIN departments d ON d.id=b.department_id
         LEFT JOIN inventory_categories c ON c.id=b.category_id
