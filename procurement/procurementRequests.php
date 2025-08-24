@@ -19,12 +19,14 @@ if (function_exists("current_user")) {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Procurement Requests | Procurement</title>
+
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="../css/style.css" rel="stylesheet" />
   <link href="../css/modules.css" rel="stylesheet" />
   <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
   <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
   <script src="../js/sidebar-toggle.js"></script>
+
   <style>
     .table-items td { vertical-align: middle; }
     .table-items input { text-align: right; }
@@ -57,9 +59,9 @@ if (function_exists("current_user")) {
       </div>
     </div>
 
-
     <!-- Main -->
     <div class="col main-content p-3 p-lg-4">
+      <!-- Topbar -->
       <div class="d-flex justify-content-between align-items-center mb-3">
         <div class="d-flex align-items-center gap-3">
           <button class="sidebar-toggle d-lg-none btn btn-outline-secondary btn-sm" id="sidebarToggle2" aria-label="Toggle sidebar">
@@ -102,10 +104,10 @@ if (function_exists("current_user")) {
               </select>
             </div>
             <div class="col-12 col-md-2 d-grid d-md-flex justify-content-md-end">
-              <button id="btnFilter" class="btn btn-outline-primary me-md-2">
+              <button id="btnFilter" class="btn btn-outline-primary me-md-2" type="button">
                 <ion-icon name="search-outline"></ion-icon> Search
               </button>
-              <button id="btnReset" class="btn btn-outline-secondary">Reset</button>
+              <button id="btnReset" class="btn btn-outline-secondary" type="button">Reset</button>
             </div>
           </div>
         </div>
@@ -116,7 +118,7 @@ if (function_exists("current_user")) {
         <div class="card-body">
           <div class="d-flex justify-content-between align-items-center mb-3">
             <h5 class="mb-0">Internal Requests</h5>
-            <button class="btn btn-violet" onclick="openAddPR()">
+            <button class="btn btn-violet" type="button" id="btnNewPR">
               <ion-icon name="add-circle-outline"></ion-icon> New Request
             </button>
           </div>
@@ -207,7 +209,7 @@ if (function_exists("current_user")) {
 
           <div class="d-flex justify-content-between align-items-center mb-2">
             <h6 class="mb-0">Requested Items</h6>
-            <button type="button" class="btn btn-sm btn-outline-primary" onclick="addItemRow()">Add Item</button>
+            <button type="button" class="btn btn-sm btn-outline-primary" id="btnAddItem">Add Item</button>
           </div>
 
           <div class="table-responsive">
@@ -236,7 +238,7 @@ if (function_exists("current_user")) {
         </div>
 
         <div class="modal-footer">
-          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button>
           <button class="btn btn-primary" type="submit">Save Request</button>
         </div>
       </form>
@@ -262,7 +264,7 @@ function toast(msg, variant='success', delay=2200){
   wrap.appendChild(el); const t=new bootstrap.Toast(el,{delay}); t.show(); el.addEventListener('hidden.bs.toast',()=>el.remove());
 }
 
-// ===== endpoints =====
+// ===== endpoints (keep names EXACT) =====
 const api = {
   list   : './api/pr_list.php',
   get    : './api/pr_get.php',
@@ -270,13 +272,12 @@ const api = {
   setSt  : './api/pr_set_status.php',
   convert: './api/pr_convert_to_po.php',
   del    : './api/pr_delete.php',
-  depts  : './api/departments_list.php',  // optional
-  users  : './api/users_list.php'         // optional
+  depts  : './api/departments_list.php'  // optional
 };
 
 // ===== state & filters =====
 let state = { page:1, perPage:10, search:'', status:'', sort:'newest' };
-const mapSort = (v)=>v;
+const mapSort = v=>v;
 
 // ===== list loader =====
 async function loadPRs(){
@@ -302,30 +303,18 @@ async function loadPRs(){
       <td class="text-end">${fmtMoney(r.estimated_total)}</td>
       <td>${badge(r.status)}</td>
       <td class="text-end">
-        <button class="btn btn-sm btn-outline-secondary me-1" onclick='openEdit(${r.id})'>Edit</button>
-
-        ${String(r.status||'').toLowerCase()==='draft'
-          ? `<button class="btn btn-sm btn-primary me-1" onclick='setStatus(${r.id},"submitted")'>Submit</button>`
-          : ``}
-
-        ${String(r.status||'').toLowerCase()==='submitted'
-          ? `
-            <button class="btn btn-sm btn-success me-1" onclick='setStatus(${r.id},"approved")'>Approve</button>
-            <button class="btn btn-sm btn-outline-danger me-1" onclick='setStatus(${r.id},"rejected")'>Reject</button>
-          `
-          : ``}
-
-        ${String(r.status||'').toLowerCase()==='approved'
-          ? `<button class="btn btn-sm btn-violet me-1" onclick='convertToPO(${r.id})'>Convert to PO</button>`
-          : ``}
-
-        ${['approved','submitted'].includes(String(r.status||'').toLowerCase())
-          ? `<button class="btn btn-sm btn-outline-dark me-1" onclick='setStatus(${r.id},"cancelled")'>Cancel</button>`
-          : ``}
-
-        ${String(r.status||'').toLowerCase()==='draft'
-          ? `<button class="btn btn-sm btn-outline-danger" onclick='deletePR(${r.id})'>Delete</button>`
-          : ``}
+        <button type="button" class="btn btn-sm btn-outline-secondary me-1" data-action="edit"    data-id="${r.id}">Edit</button>
+        ${String(r.status||'').toLowerCase()==='draft' ? `
+          <button type="button" class="btn btn-sm btn-primary me-1" data-action="submit"  data-id="${r.id}">Submit</button>` : ``}
+        ${String(r.status||'').toLowerCase()==='submitted' ? `
+          <button type="button" class="btn btn-sm btn-success me-1" data-action="approve" data-id="${r.id}">Approve</button>
+          <button type="button" class="btn btn-sm btn-outline-danger me-1" data-action="reject"  data-id="${r.id}">Reject</button>` : ``}
+        ${String(r.status||'').toLowerCase()==='approved' ? `
+          <button type="button" class="btn btn-sm btn-violet me-1" data-action="convert" data-id="${r.id}">Convert to PO</button>` : ``}
+        ${['approved','submitted'].includes(String(r.status||'').toLowerCase()) ? `
+          <button type="button" class="btn btn-sm btn-outline-dark me-1" data-action="cancel"  data-id="${r.id}">Cancel</button>` : ``}
+        ${String(r.status||'').toLowerCase()==='draft' ? `
+          <button type="button" class="btn btn-sm btn-outline-danger" data-action="delete" data-id="${r.id}">Delete</button>` : ``}
       </td>
     </tr>
   `).join('') : `<tr><td colspan="8" class="text-center py-4 text-muted">No requests found.</td></tr>`;
@@ -403,8 +392,8 @@ function recalcAll(){
 }
 
 // ===== open modals =====
-window.openAddPR = async ()=>{
-  const m = bootstrap.Modal.getOrCreateInstance(document.getElementById('mdlPR')); m.show();
+async function openAddPR(){
+  const m = bootstrap.Modal.getOrCreateInstance(document.getElementById('mdlPR')); 
   const f = document.getElementById('prForm');
   f.reset(); $('#prId').value='';
   $('#prStatus').value='draft';
@@ -412,11 +401,10 @@ window.openAddPR = async ()=>{
   $('#prErr').classList.add('d-none');
   await loadDepartmentsInto(document.getElementById('prDept'));
   recalcAll();
-};
-
-window.openEdit = async (id)=>{
-  const m = bootstrap.Modal.getOrCreateInstance(document.getElementById('mdlPR')); 
   m.show();
+}
+async function openEdit(id){
+  const m = bootstrap.Modal.getOrCreateInstance(document.getElementById('mdlPR')); 
   const f = document.getElementById('prForm'); 
   f.reset();
   $('#prId').value = id;
@@ -427,8 +415,6 @@ window.openEdit = async (id)=>{
 
   try {
     const j = await fetchJSON(api.get + '?id=' + id);
-
-    // header
     $('#prTitle').value     = j.header.title ?? '';
     $('#prNeeded').value    = j.header.needed_by ?? '';
     $('#prPriority').value  = j.header.priority ?? 'normal';
@@ -436,25 +422,23 @@ window.openEdit = async (id)=>{
     $('#prDept').value      = j.header.department_id ?? '';
     $('#prStatus').value    = j.header.status ?? 'draft';
     $('#prNotes').value     = j.header.notes ?? '';
-
-    // items
-    (j.items || []).forEach(it=>{
-      addItemRow({descr:it.descr, qty:it.qty, price:it.price});
-    });
+    (j.items || []).forEach(it=> addItemRow({descr:it.descr, qty:it.qty, price:it.price}));
     if (!(j.items||[]).length) addItemRow();
     recalcAll();
-
+    m.show();
   } catch(e) {
     alert(parseErr(e));
   }
-};
+}
+document.getElementById('btnNewPR').addEventListener('click', openAddPR);
+document.getElementById('btnAddItem').addEventListener('click', ()=>addItemRow());
 
-// ===== save PR =====
+// ===== save (create/update) =====
 document.getElementById('prForm').addEventListener('submit', async (ev)=>{
   ev.preventDefault();
   const form = ev.target;
 
-
+  // auto-fill blank descriptions if qty/price entered
   document.querySelectorAll('#prItemsBody tr').forEach((tr, i)=>{
     const d  = tr.querySelector('input[name="items[descr][]"]');
     const q  = tr.querySelector('input[name="items[qty][]"]');
@@ -462,55 +446,70 @@ document.getElementById('prForm').addEventListener('submit', async (ev)=>{
     const qv = parseFloat(q?.value || '0'), pv = parseFloat(p?.value || '0');
     if (d && d.value.trim()==='' && (qv>0 || pv>0)) d.value = `Item ${i+1}`;
   });
-
   if (!form.reportValidity()) return;
 
   try{
     $('#prErr').classList.add('d-none');
     const fd = new FormData(form);
-    const j  = await fetchJSON(api.save, { method:'POST', body:fd });
+    await fetchJSON(api.save, { method:'POST', body:fd });
     bootstrap.Modal.getOrCreateInstance(document.getElementById('mdlPR')).hide();
-    toast('Request saved'); loadPRs();
+    toast('Request saved');
+    loadPRs();
   }catch(e){
     const el = document.getElementById('prErr'); el.textContent = parseErr(e); el.classList.remove('d-none');
+  }
+});
+
+// ===== delegated actions (one listener only – fixes “two clicks”) =====
+document.getElementById('prBody').addEventListener('click', async (e)=>{
+  const btn = e.target.closest('button[data-action]');
+  if (!btn) return;
+  const id  = btn.dataset.id;
+  const act = btn.dataset.action;
+
+  try {
+    if (act==='edit')    return openEdit(id);
+    if (act==='submit')  return setStatus(id,'submitted');
+    if (act==='approve') return setStatus(id,'approved');
+    if (act==='reject')  return setStatus(id,'rejected');
+    if (act==='cancel')  return setStatus(id,'cancelled');
+    if (act==='convert') return convertToPO(id);
+    if (act==='delete')  return deletePR(id);
+  } catch (err) {
+    alert(parseErr(err));
   }
 });
 
 // ===== status change =====
 async function setStatus(id, status){
   if (!confirm(`Set status to ${status.toUpperCase()}?`)) return;
-  try{
-    const fd = new URLSearchParams(); fd.set('id', id); fd.set('status', status);
-    await fetchJSON(api.setSt, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:fd });
-    toast('Status updated'); loadPRs();
-  }catch(e){ alert(parseErr(e)); }
+  const fd = new URLSearchParams(); fd.set('id', id); fd.set('status', status);
+  await fetchJSON(api.setSt, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:fd });
+  toast('Status updated'); loadPRs();
 }
 
 // ===== convert to PO =====
 async function convertToPO(id){
   if (!confirm('Create a Purchase Order from this request?')) return;
-  try{
-    const res = await fetchJSON(api.convert, {
-      method:'POST',
-      headers:{'Content-Type':'application/x-www-form-urlencoded'},
-      body:'id='+encodeURIComponent(id)
-    });
-    toast(`PO ${res.po_no || res.po_number || '#?'} created from PR`);
-    loadPRs();
-  }catch(e){ alert(parseErr(e)); }
+  const res = await fetchJSON(api.convert, {
+    method:'POST',
+    headers:{'Content-Type':'application/x-www-form-urlencoded'},
+    body:'id='+encodeURIComponent(id)
+  });
+  toast(`PO ${res.po_no || res.po_number || '#?'} created from PR`);
+  window.location.href = './purchaseOrders.php?pr_id=' + encodeURIComponent(id);
 }
 
 // ===== delete PR (drafts only) =====
-window.deletePR = async (id)=>{
+async function deletePR(id){
   if(!confirm('Delete this request? (Only drafts can be deleted)')) return;
-  try{
-    await fetchJSON(api.del, { method:'POST',
-      headers:{'Content-Type':'application/x-www-form-urlencoded'},
-      body:'id='+encodeURIComponent(id)
-    });
-    toast('Request deleted'); loadPRs();
-  }catch(e){ alert(parseErr(e)); }
-};
+  await fetchJSON(api.del, {
+    method:'POST',
+    headers:{'Content-Type':'application/x-www-form-urlencoded'},
+    body:'id='+encodeURIComponent(id)
+  });
+  toast('Request deleted'); loadPRs();
+}
 
 // ===== initial =====
 loadPRs().catch(e=>alert(parseErr(e)));

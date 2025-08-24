@@ -1,29 +1,37 @@
 <?php
 declare(strict_types=1);
-require_once __DIR__ . '/../../includes/config.php';
-if (file_exists(__DIR__ . '/../../includes/auth.php')) require_once __DIR__ . '/../../includes/auth.php';
-if (function_exists('require_login')) require_login();
+require_once __DIR__.'/../../includes/config.php';
+require_once __DIR__.'/../../includes/auth.php';
+require_login();
 header('Content-Type: application/json; charset=utf-8');
 
-try {
-  // Read filters (not used yet)
-  $page  = max(1, (int)($_GET['page'] ?? 1));
-  $per   = max(1, min(100, (int)($_GET['per_page'] ?? 10)));
-  $data = [
-    [
-      'id'=>1, 'pr_no'=>'PR-0001', 'title'=>'Monitors for Devs', 'requestor'=>'Jane D.',
-      'department'=>'IT', 'needed_by'=>'2025-09-15', 'estimated_total'=>45000, 'status'=>'submitted'
-    ],
-    [
-      'id'=>2, 'pr_no'=>'PR-0002', 'title'=>'Office Chairs', 'requestor'=>'Mark S.',
-      'department'=>'Admin', 'needed_by'=>'2025-10-01', 'estimated_total'=>32000, 'status'=>'draft'
-    ]
-  ];
-  echo json_encode([
-    'data' => $data,
-    'pagination' => ['page'=>$page, 'perPage'=>$per, 'total'=>count($data)]
-  ]);
-} catch (Throwable $e) {
-  http_response_code(500);
-  echo json_encode(['error' => 'server_error: '.$e->getMessage()]);
-}
+$page=max(1,(int)($_GET['page']??1));
+$per =max(1,min(100,(int)($_GET['per_page']??10)));
+$search=trim($_GET['search']??'');
+$status=trim($_GET['status']??'');
+$sort=$_GET['sort']??'newest';
+
+$where=[];$args=[];
+if($search!==''){ $where[]="(pr_no LIKE ? OR title LIKE ? OR requestor LIKE ?)"; $like="%$search%"; array_push($args,$like,$like,$like); }
+if($status!==''){ $where[]="status=?"; $args[]=$status; }
+$whereSql=$where?('WHERE '.implode(' AND ',$where)):'';
+
+$order="pr.id DESC";
+if($sort==='needed') $order="pr.needed_by ASC, pr.id DESC";
+if($sort==='title')  $order="pr.title ASC";
+
+$total=$pdo->prepare("SELECT COUNT(*) FROM procurement_requests pr $whereSql");
+$total->execute($args);
+$total=(int)$total->fetchColumn();
+$offset=($page-1)*$per;
+
+$sql="SELECT pr.*, d.name AS department
+      FROM procurement_requests pr
+      LEFT JOIN departments d ON d.id=pr.department_id
+      $whereSql
+      ORDER BY $order
+      LIMIT $per OFFSET $offset";
+$st=$pdo->prepare($sql); $st->execute($args);
+$rows=$st->fetchAll(PDO::FETCH_ASSOC);
+
+echo json_encode(['data'=>$rows,'pagination'=>['page'=>$page,'perPage'=>$per,'total'=>$total]]);
