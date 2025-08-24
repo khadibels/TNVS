@@ -1,5 +1,4 @@
 <?php
-// /procurement/procurementRequests.php
 $inc = __DIR__ . "/../includes";
 if (file_exists($inc . "/config.php")) require_once $inc . "/config.php";
 if (file_exists($inc . "/auth.php"))   require_once $inc . "/auth.php";
@@ -19,14 +18,12 @@ if (function_exists("current_user")) {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Procurement Requests | Procurement</title>
-
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="../css/style.css" rel="stylesheet" />
   <link href="../css/modules.css" rel="stylesheet" />
   <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
   <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
   <script src="../js/sidebar-toggle.js"></script>
-
   <style>
     .table-items td { vertical-align: middle; }
     .table-items input { text-align: right; }
@@ -35,8 +32,6 @@ if (function_exists("current_user")) {
 <body>
 <div class="container-fluid p-0">
   <div class="row g-0">
-
-    <!-- Sidebar -->
     <div class="sidebar d-flex flex-column">
       <div class="d-flex justify-content-center align-items-center mb-4 mt-3">
         <img src="../img/logo.png" id="logo" class="img-fluid me-2" style="height:55px" alt="Logo">
@@ -48,7 +43,7 @@ if (function_exists("current_user")) {
         <a class="nav-link" href="./rfqManagement.php"><ion-icon name="mail-open-outline"></ion-icon><span>RFQs & Sourcing</span></a>
         <a class="nav-link" href="./purchaseOrders.php"><ion-icon name="document-text-outline"></ion-icon><span>Purchase Orders</span></a>
         <a class="nav-link active" href="./procurementRequests.php"><ion-icon name="clipboard-outline"></ion-icon><span>Procurement Requests</span></a>
-        <a class="nav-link" href="./inventory.php"><ion-icon name="archive-outline"></ion-icon><span>Inventory Management</span></a>
+        <a class="nav-link" href="./inventoryView.php"><ion-icon name="archive-outline"></ion-icon><span>Inventory Management</span></a>
         <a class="nav-link" href="./budgetReports.php"><ion-icon name="analytics-outline"></ion-icon><span>Budget & Reports</span></a>
         <a class="nav-link" href="./settings.php"><ion-icon name="settings-outline"></ion-icon><span>Settings</span></a>
       </nav>
@@ -59,9 +54,7 @@ if (function_exists("current_user")) {
       </div>
     </div>
 
-    <!-- Main -->
     <div class="col main-content p-3 p-lg-4">
-      <!-- Topbar -->
       <div class="d-flex justify-content-between align-items-center mb-3">
         <div class="d-flex align-items-center gap-3">
           <button class="sidebar-toggle d-lg-none btn btn-outline-secondary btn-sm" id="sidebarToggle2" aria-label="Toggle sidebar">
@@ -78,7 +71,6 @@ if (function_exists("current_user")) {
         </div>
       </div>
 
-      <!-- Filters -->
       <section class="card shadow-sm mb-3">
         <div class="card-body">
           <div class="row g-2 align-items-center">
@@ -113,7 +105,6 @@ if (function_exists("current_user")) {
         </div>
       </section>
 
-      <!-- List -->
       <section class="card shadow-sm">
         <div class="card-body">
           <div class="d-flex justify-content-between align-items-center mb-3">
@@ -151,7 +142,6 @@ if (function_exists("current_user")) {
   </div>
 </div>
 
-<!-- Create/Edit PR Modal -->
 <div class="modal fade" id="mdlPR" tabindex="-1">
   <div class="modal-dialog modal-xl">
     <div class="modal-content">
@@ -235,6 +225,7 @@ if (function_exists("current_user")) {
           </div>
 
           <div class="alert alert-danger d-none" id="prErr"></div>
+          <div class="alert alert-warning d-none" id="prWarn"></div>
         </div>
 
         <div class="modal-footer">
@@ -246,12 +237,10 @@ if (function_exists("current_user")) {
   </div>
 </div>
 
-<!-- Toasts -->
 <div class="toast-container position-fixed top-0 end-0 p-3" id="toasts" style="z-index:1080"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-// ===== helpers =====
 const $ = (s, r=document)=>r.querySelector(s);
 async function fetchJSON(url, opts={}){ const res = await fetch(url, opts); if(!res.ok) throw new Error(await res.text()||res.statusText); return res.json(); }
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[m]));}
@@ -264,7 +253,6 @@ function toast(msg, variant='success', delay=2200){
   wrap.appendChild(el); const t=new bootstrap.Toast(el,{delay}); t.show(); el.addEventListener('hidden.bs.toast',()=>el.remove());
 }
 
-// ===== endpoints (keep names EXACT) =====
 const api = {
   list   : './api/pr_list.php',
   get    : './api/pr_get.php',
@@ -272,14 +260,12 @@ const api = {
   setSt  : './api/pr_set_status.php',
   convert: './api/pr_convert_to_po.php',
   del    : './api/pr_delete.php',
-  depts  : './api/departments_list.php'  // optional
+  depts  : './api/departments_list.php'
 };
 
-// ===== state & filters =====
 let state = { page:1, perPage:10, search:'', status:'', sort:'newest' };
 const mapSort = v=>v;
 
-// ===== list loader =====
 async function loadPRs(){
   const qs = new URLSearchParams({ page:state.page, per_page:state.perPage, search:state.search, status:state.status, sort:state.sort });
   const { data, pagination } = await fetchJSON(api.list+'?'+qs.toString());
@@ -334,7 +320,6 @@ async function loadPRs(){
 }
 window.go=(p)=>{ if(!p||p<1) return; state.page=p; loadPRs().catch(e=>alert(parseErr(e))); };
 
-// filters
 document.getElementById('btnFilter').addEventListener('click', ()=>{
   state.page=1;
   state.search=$('#fSearch').value.trim();
@@ -348,7 +333,6 @@ document.getElementById('btnReset').addEventListener('click', ()=>{
   loadPRs().catch(e=>alert(parseErr(e)));
 });
 
-// ===== selects =====
 async function loadDepartmentsInto(selectEl){
   try{
     const resp = await fetchJSON(api.depts+'?sort=name&select=1');
@@ -360,7 +344,6 @@ async function loadDepartmentsInto(selectEl){
   }
 }
 
-// ===== items grid =====
 function addItemRow(row={descr:'', qty:'', price:''}){
   const tr=document.createElement('tr');
   tr.innerHTML=`
@@ -391,25 +374,27 @@ function recalcAll(){
   document.getElementById('prGrand').textContent = sum.toLocaleString(undefined,{minimumFractionDigits:2, maximumFractionDigits:2});
 }
 
-// ===== open modals =====
 async function openAddPR(){
-  const m = bootstrap.Modal.getOrCreateInstance(document.getElementById('mdlPR')); 
+  const m = bootstrap.Modal.getOrCreateInstance(document.getElementById('mdlPR'));
   const f = document.getElementById('prForm');
   f.reset(); $('#prId').value='';
   $('#prStatus').value='draft';
   $('#prItemsBody').innerHTML=''; addItemRow(); addItemRow();
   $('#prErr').classList.add('d-none');
+  $('#prWarn').classList.add('d-none');
   await loadDepartmentsInto(document.getElementById('prDept'));
   recalcAll();
   m.show();
 }
+
 async function openEdit(id){
-  const m = bootstrap.Modal.getOrCreateInstance(document.getElementById('mdlPR')); 
-  const f = document.getElementById('prForm'); 
+  const m = bootstrap.Modal.getOrCreateInstance(document.getElementById('mdlPR'));
+  const f = document.getElementById('prForm');
   f.reset();
   $('#prId').value = id;
   $('#prItemsBody').innerHTML = '';
   $('#prErr').classList.add('d-none');
+  $('#prWarn').classList.add('d-none');
 
   await loadDepartmentsInto(document.getElementById('prDept'));
 
@@ -425,20 +410,33 @@ async function openEdit(id){
     (j.items || []).forEach(it=> addItemRow({descr:it.descr, qty:it.qty, price:it.price}));
     if (!(j.items||[]).length) addItemRow();
     recalcAll();
+
+    const status = String(j.header.status || 'draft').toLowerCase();
+    if (['fulfilled','cancelled'].includes(status)) {
+      const warnEl = document.getElementById('prWarn');
+      warnEl.textContent = `This request is already ${status.toUpperCase()} and should not be modified.`;
+      warnEl.classList.remove('d-none');
+    }
     m.show();
   } catch(e) {
     alert(parseErr(e));
   }
 }
+
 document.getElementById('btnNewPR').addEventListener('click', openAddPR);
 document.getElementById('btnAddItem').addEventListener('click', ()=>addItemRow());
 
-// ===== save (create/update) =====
 document.getElementById('prForm').addEventListener('submit', async (ev)=>{
+  const status = document.getElementById('prStatus').value.toLowerCase();
+  if (['fulfilled','cancelled'].includes(status)) {
+    ev.preventDefault();
+    alert('This request is already ' + status.toUpperCase() + ' and cannot be modified.');
+    return;
+  }
+
   ev.preventDefault();
   const form = ev.target;
 
-  // auto-fill blank descriptions if qty/price entered
   document.querySelectorAll('#prItemsBody tr').forEach((tr, i)=>{
     const d  = tr.querySelector('input[name="items[descr][]"]');
     const q  = tr.querySelector('input[name="items[qty][]"]');
@@ -460,7 +458,6 @@ document.getElementById('prForm').addEventListener('submit', async (ev)=>{
   }
 });
 
-// ===== delegated actions (one listener only – fixes “two clicks”) =====
 document.getElementById('prBody').addEventListener('click', async (e)=>{
   const btn = e.target.closest('button[data-action]');
   if (!btn) return;
@@ -480,7 +477,6 @@ document.getElementById('prBody').addEventListener('click', async (e)=>{
   }
 });
 
-// ===== status change =====
 async function setStatus(id, status){
   if (!confirm(`Set status to ${status.toUpperCase()}?`)) return;
   const fd = new URLSearchParams(); fd.set('id', id); fd.set('status', status);
@@ -488,39 +484,23 @@ async function setStatus(id, status){
   toast('Status updated'); loadPRs();
 }
 
-// ===== convert to PO =====
 async function convertToPO(id){
   if (!confirm('Create a Purchase Order from this request?')) return;
-
   try {
     const res = await fetch(api.convert, {
       method: 'POST',
       headers: {'Content-Type': 'application/x-www-form-urlencoded'},
       body: 'id=' + encodeURIComponent(id),
-      credentials: 'same-origin' // make sure cookies (session) are sent
+      credentials: 'same-origin'
     });
-
     const raw = await res.text();
-    let json;
-    try { json = JSON.parse(raw); } catch {
-      // If the server returned HTML (e.g., login redirect), show it
-      throw new Error('Non-JSON response from server: ' + raw.slice(0,120));
-    }
-
-    if (!res.ok || json.error) {
-      throw new Error(json.error || (res.status + ' ' + res.statusText));
-    }
-
+    let json; try { json = JSON.parse(raw); } catch { throw new Error('Non-JSON response from server: ' + raw.slice(0,120)); }
+    if (!res.ok || json.error) throw new Error(json.error || (res.status + ' ' + res.statusText));
     toast(`PO ${json.po_no || json.po_number || '#?'} created from PR`);
-    // redirect only on success
     window.location.href = './purchaseOrders.php?pr_id=' + encodeURIComponent(id);
-
-  } catch (e) {
-    alert(parseErr(e));
-  }
+  } catch (e) { alert(parseErr(e)); }
 }
 
-// ===== delete PR (drafts only) =====
 async function deletePR(id){
   if(!confirm('Delete this request? (Only drafts can be deleted)')) return;
   await fetchJSON(api.del, {
@@ -531,7 +511,6 @@ async function deletePR(id){
   toast('Request deleted'); loadPRs();
 }
 
-// ===== initial =====
 loadPRs().catch(e=>alert(parseErr(e)));
 </script>
 </body>
