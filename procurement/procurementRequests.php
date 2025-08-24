@@ -491,13 +491,33 @@ async function setStatus(id, status){
 // ===== convert to PO =====
 async function convertToPO(id){
   if (!confirm('Create a Purchase Order from this request?')) return;
-  const res = await fetchJSON(api.convert, {
-    method:'POST',
-    headers:{'Content-Type':'application/x-www-form-urlencoded'},
-    body:'id='+encodeURIComponent(id)
-  });
-  toast(`PO ${res.po_no || res.po_number || '#?'} created from PR`);
-  window.location.href = './purchaseOrders.php?pr_id=' + encodeURIComponent(id);
+
+  try {
+    const res = await fetch(api.convert, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: 'id=' + encodeURIComponent(id),
+      credentials: 'same-origin' // make sure cookies (session) are sent
+    });
+
+    const raw = await res.text();
+    let json;
+    try { json = JSON.parse(raw); } catch {
+      // If the server returned HTML (e.g., login redirect), show it
+      throw new Error('Non-JSON response from server: ' + raw.slice(0,120));
+    }
+
+    if (!res.ok || json.error) {
+      throw new Error(json.error || (res.status + ' ' + res.statusText));
+    }
+
+    toast(`PO ${json.po_no || json.po_number || '#?'} created from PR`);
+    // redirect only on success
+    window.location.href = './purchaseOrders.php?pr_id=' + encodeURIComponent(id);
+
+  } catch (e) {
+    alert(parseErr(e));
+  }
 }
 
 // ===== delete PR (drafts only) =====
