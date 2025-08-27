@@ -229,34 +229,18 @@ if (function_exists('current_user')) {
 const $ = (s, r=document)=>r.querySelector(s);
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[m]));}
 
-// ---------- Build API URLs RELATIVE to this page (bullet-proof) ----------
-const API_BASE = new URL('./api/', window.location.href);
-const api = {
-  list:  new URL('plt_shipments_list.php', API_BASE).toString(),
-  save:  new URL('plt_shipments_save.php', API_BASE).toString(),
-  setSt: new URL('plt_shipments_set_status.php', API_BASE).toString(),
-  proj:  new URL('plt_projects_select.php', API_BASE).toString()
-};
-
-// strict fetch: require JSON; if HTML comes back (redirect/wrong path), throw
-async function fetchJSON(url, opts = {}) {
-  const res = await fetch(url, {
-    credentials: 'same-origin',
-    headers: { 'Accept': 'application/json', ...(opts.headers||{}) },
-    redirect: 'follow',
-    ...opts
-  });
+// strict fetch: throw on HTTP error or {"error": "..."}
+async function fetchJSON(url, opts={}) {
+  const res = await fetch(url, opts);
   const text = await res.text();
   let data; try { data = JSON.parse(text); } catch {}
-  if (!res.ok || !data) {
-    const looksHTML = /^\s*<!doctype html/i.test(text);
-    const hint = looksHTML ? 'Got HTML instead of JSON (likely wrong API path or a redirect by auth/CSRF).' : (text || res.statusText);
-    throw new Error(hint);
+  if (!res.ok || (data && data.error)) {
+    throw new Error((data && data.error) ? data.error : (text || res.statusText));
   }
-  if (data.error) throw new Error(data.error);
+  if (data === undefined) throw new Error(text || 'Non-JSON response');
   return data;
 }
-function parseErr(e){ return e?.message || 'Request failed'; }
+function parseErr(e){ try{const j=JSON.parse(e.message); if(j.error) return j.error;}catch{} return e.message||'Request failed'; }
 function toast(msg, variant='success', delay=2200){
   let wrap=document.getElementById('toasts');
   if(!wrap){wrap=document.createElement('div');wrap.id='toasts';wrap.className='toast-container position-fixed top-0 end-0 p-3';wrap.style.zIndex=1080;document.body.appendChild(wrap);}
@@ -265,7 +249,13 @@ function toast(msg, variant='success', delay=2200){
   wrap.appendChild(el); const t=new bootstrap.Toast(el,{delay}); t.show(); el.addEventListener('hidden.bs.toast',()=>el.remove());
 }
 
-// ---------- State ----------
+const api = {
+  list: './api/plt_shipments_list.php',
+  save: './api/plt_shipments_save.php',
+  setSt: './api/plt_shipments_set_status.php',
+  proj: './api/plt_projects_select.php'
+};
+
 let state = { page:1, perPage:10, search:'', status:'', sort:'newest' };
 const mapSort=v=>v;
 
@@ -285,7 +275,7 @@ function badgeStatus(s){
   return `<span class="badge bg-${cls}">${label}</span>`;
 }
 
-// ---------- List ----------
+// render table
 async function loadShipments(){
   const qs=new URLSearchParams({page:state.page,per_page:state.perPage,search:state.search,status:state.status,sort:state.sort});
   try{
@@ -296,6 +286,7 @@ async function loadShipments(){
       const route=`<div class="route">${esc(r.origin||'-')} &rarr; ${esc(r.destination||'-')}</div>`;
       const vd=`${esc(r.vehicle||'-')}<br><span class="chip">${esc(r.driver||'')}</span>`;
 
+      // allowed actions (server also validates)
       const canPicked     = r.status!=='picked'    && r.status!=='in_transit' && r.status!=='delivered' && r.status!=='cancelled';
       const canInTransit  = r.status!=='in_transit' && r.status!=='delivered' && r.status!=='cancelled';
       const canDelivered  = r.status!=='delivered' && r.status!=='cancelled';
@@ -351,7 +342,6 @@ document.getElementById('btnReset').addEventListener('click', ()=>{
   loadShipments();
 });
 
-// ---------- Modal ----------
 async function openNew(){
   const m=bootstrap.Modal.getOrCreateInstance(document.getElementById('mdlShip'));
   const f=document.getElementById('shipForm');
@@ -396,21 +386,11 @@ document.getElementById('shipForm').addEventListener('submit', async (ev)=>{
   }
 });
 
-// ---------- Status buttons ----------
 async function setStatus(id,status){
   if(!confirm('Set status to '+status.toUpperCase()+'?')) return;
-  const body = new URLSearchParams({ id:String(id), status:String(status), _t: Date.now().toString() });
+  const body=new URLSearchParams({id:String(id),status:String(status)});
   try{
-    await fetchJSON(api.setSt,{
-      method:'POST',
-      credentials:'same-origin',
-      headers:{
-        'Content-Type':'application/x-www-form-urlencoded',
-        'Accept':'application/json',
-        'X-Requested-With': 'XMLHttpRequest'
-      },
-      body
-    });
+    await fetchJSON(api.setSt,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body});
     toast('Status updated'); loadShipments();
   }catch(e){ alert(parseErr(e)); }
 }

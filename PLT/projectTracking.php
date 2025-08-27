@@ -1,6 +1,4 @@
 <?php
-// /plt/projectTracking.php — admin-only (no roles)
-// Reuses your shared includes + look & feel
 $inc = __DIR__ . '/../includes';
 if (file_exists($inc . '/config.php')) require_once $inc . '/config.php';
 if (file_exists($inc . '/auth.php'))  require_once $inc . '/auth.php';
@@ -237,7 +235,23 @@ if (function_exists('current_user')) {
 <script>
 const $ = (s, r=document)=>r.querySelector(s);
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[m]));}
-async function fetchJSON(url, opts={}){ const res=await fetch(url,opts); const t=await res.text(); try{return JSON.parse(t);}catch{throw new Error(t||res.statusText);} }
+
+// ✅ STRICT fetch: throws on HTTP errors or {"error": "..."}
+async function fetchJSON(url, opts = {}) {
+  const res = await fetch(url, opts);
+  const text = await res.text();
+
+  let data;
+  try { data = JSON.parse(text); } catch { /* not JSON */ }
+
+  if (!res.ok || (data && data.error)) {
+    const msg = (data && data.error) ? data.error : (text || res.statusText);
+    throw new Error(msg);
+  }
+  if (data === undefined) throw new Error(text || 'Non-JSON response');
+  return data;
+}
+
 function parseErr(e){ try{const j=JSON.parse(e.message); if(j.error) return j.error;}catch{} return e.message||'Request failed'; }
 function toast(msg, variant='success', delay=2200){
   let wrap=document.getElementById('toasts');
@@ -252,8 +266,7 @@ const api = {
   save: './api/plt_projects_save.php',
   setSt:'./api/plt_projects_set_status.php',
   msList:'./api/plt_milestones_list.php',
-  msSave:'./api/plt_milestones_save.php',
-  close :'./api/plt_project_close.php'
+  close :'./api/plt_projects_close.php'
 };
 
 let state = { page:1, perPage:10, search:'', status:'', sort:'newest' };
@@ -270,53 +283,61 @@ function span(m){ return m?`<span class="chip">${esc(m)}</span>`:''; }
 
 async function loadProjects(){
   const qs=new URLSearchParams({page:state.page,per_page:state.perPage,search:state.search,status:state.status,sort:state.sort});
-  const {data,pagination}=await fetchJSON(api.list+'?'+qs.toString());
-  const tbody=document.getElementById('projBody');
-  tbody.innerHTML = data.length ? data.map(r=>{
-    const tl = `${esc(r.start_date||'-')} → ${esc(r.deadline_date||'-')}`;
-    const ms = r.milestone_summary ? r.milestone_summary.split('|').map(span).join(' ') : '';
-    return `
-      <tr>
-        <td class="fw-semibold">${esc(r.code||('PRJ-'+r.id))}</td>
-        <td><div>${esc(r.name)}</div><div class="text-muted small">${esc(r.scope||'')}</div></td>
-        <td>${esc(r.owner_name||'-')}</td>
-        <td>${tl}</td>
-        <td>${ms||'-'}</td>
-        <td>${badge(r.status)}</td>
-        <td class="text-end">
-          <button class="btn btn-sm btn-outline-secondary me-1" onclick="openEdit(${r.id})">Edit</button>
-          ${r.status!=='closed'
-            ? `<button class="btn btn-sm btn-success me-1" onclick="tryClose(${r.id})">Close Project</button>` : ``}
-          ${r.status!=='delayed'
-            ? `<button class="btn btn-sm btn-outline-warning me-1" onclick="quickStatus(${r.id},'delayed')">Mark Delayed</button>`:``}
-          ${r.status!=='ongoing'
-            ? `<button class="btn btn-sm btn-primary" onclick="quickStatus(${r.id},'ongoing')">Mark Ongoing</button>`:``}
-        </td>
-      </tr>`;
-  }).join('') : `<tr><td colspan="7" class="text-center py-4 text-muted">No projects found.</td></tr>`;
+  try{
+    const {data,pagination}=await fetchJSON(api.list+'?'+qs.toString());
+    const tbody=document.getElementById('projBody');
+    tbody.innerHTML = data.length ? data.map(r=>{
+      const tl = `${esc(r.start_date||'-')} → ${esc(r.deadline_date||'-')}`;
+      const ms = r.milestone_summary ? r.milestone_summary.split('|').map(span).join(' ') : '';
+      return `
+        <tr>
+          <td class="fw-semibold">${esc(r.code||('PRJ-'+r.id))}</td>
+          <td><div>${esc(r.name)}</div><div class="text-muted small">${esc(r.scope||'')}</div></td>
+          <td>${esc(r.owner_name||'-')}</td>
+          <td>${tl}</td>
+          <td>${ms||'-'}</td>
+          <td>${badge(r.status)}</td>
+          <td class="text-end">
+            <button class="btn btn-sm btn-outline-secondary me-1" onclick="openEdit(${r.id})">Edit</button>
+            ${r.status!=='closed'
+              ? `<button class="btn btn-sm btn-success me-1" onclick="tryClose(${r.id})">Close Project</button>` : ``}
+            ${r.status!=='delayed'
+              ? `<button class="btn btn-sm btn-outline-warning me-1" onclick="quickStatus(${r.id},'delayed')">Mark Delayed</button>`:``}
+            ${r.status!=='ongoing'
+              ? `<button class="btn btn-sm btn-primary" onclick="quickStatus(${r.id},'ongoing')">Mark Ongoing</button>`:``}
+          </td>
+        </tr>`;
+    }).join('') : `<tr><td colspan="7" class="text-center py-4 text-muted">No projects found.</td></tr>`;
 
-  const {page,perPage,total}=pagination;
-  const totalPages=Math.max(1,Math.ceil(total/perPage));
-  document.getElementById('pageInfo').textContent=`Page ${page} of ${totalPages} • ${total} result(s)`;
-  const pager=document.getElementById('pager'); pager.innerHTML='';
-  const li=(p,l=p,d=false,a=false)=>`<li class="page-item ${d?'disabled':''} ${a?'active':''}"><a class="page-link" href="#" onclick="go(${p});return false;">${l}</a></li>`;
-  pager.insertAdjacentHTML('beforeend', li(page-1,'&laquo;', page<=1));
-  for(let p=Math.max(1,page-2); p<=Math.min(totalPages,page+2); p++) pager.insertAdjacentHTML('beforeend', li(p,p,false,p===page));
-  pager.insertAdjacentHTML('beforeend', li(page+1,'&raquo;', page>=totalPages));
+    const {page,perPage,total}=pagination;
+    const totalPages=Math.max(1,Math.ceil(total/perPage));
+    document.getElementById('pageInfo').textContent=`Page ${page} of ${totalPages} • ${total} result(s)`;
+    const pager=document.getElementById('pager'); pager.innerHTML='';
+    const li=(p,l=p,d=false,a=false)=>`<li class="page-item ${d?'disabled':''} ${a?'active':''}"><a class="page-link" href="#" onclick="go(${p});return false;">${l}</a></li>`;
+    pager.insertAdjacentHTML('beforeend', li(page-1,'&laquo;', page<=1));
+    for(let p=Math.max(1,page-2); p<=Math.min(totalPages,page+2); p++) pager.insertAdjacentHTML('beforeend', li(p,p,false,p===page));
+    pager.insertAdjacentHTML('beforeend', li(page+1,'&raquo;', page>=totalPages));
+  }catch(e){
+    // Friendly error row
+    const tbody=document.getElementById('projBody');
+    tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger">Error loading projects: ${esc(parseErr(e))}</td></tr>`;
+    document.getElementById('pageInfo').textContent='';
+    document.getElementById('pager').innerHTML='';
+  }
 }
-window.go=(p)=>{ if(!p||p<1) return; state.page=p; loadProjects().catch(e=>alert(parseErr(e))); };
+window.go=(p)=>{ if(!p||p<1) return; state.page=p; loadProjects(); };
 
 document.getElementById('btnFilter').addEventListener('click', ()=>{
   state.page=1;
   state.search=$('#fSearch').value.trim();
   state.status=$('#fStatus').value;
   state.sort=mapSort($('#fSort').value);
-  loadProjects().catch(e=>alert(parseErr(e)));
+  loadProjects();
 });
 document.getElementById('btnReset').addEventListener('click', ()=>{
   $('#fSearch').value=''; $('#fStatus').value=''; $('#fSort').value='newest';
   state={page:1,perPage:10,search:'',status:'',sort:'newest'};
-  loadProjects().catch(e=>alert(parseErr(e)));
+  loadProjects();
 });
 
 // ---------- modal + milestones ----------
@@ -370,7 +391,7 @@ async function openEdit(id){
       const w=document.getElementById('projWarn'); w.textContent='This project is already CLOSED.'; w.classList.remove('d-none');
     }
     m.show();
-  }catch(e){ alert(parseErr(e)); }
+  }catch(e){ const el=document.getElementById('projErr'); el.textContent=parseErr(e); el.classList.remove('d-none'); }
 }
 
 document.getElementById('projForm').addEventListener('submit', async (ev)=>{
@@ -378,7 +399,6 @@ document.getElementById('projForm').addEventListener('submit', async (ev)=>{
   try{
     $('#projErr').classList.add('d-none');
     const fd=new FormData(ev.target);
-    // Flatten milestone arrays as JSON
     const msRows=[...document.querySelectorAll('#msBody tr')].map(tr=>{
       const get=n=>tr.querySelector(`[name="${n}"]`)||tr.querySelector(`[name="${n}[]"]`);
       return {
@@ -392,7 +412,8 @@ document.getElementById('projForm').addEventListener('submit', async (ev)=>{
 
     await fetchJSON(api.save,{method:'POST',body:fd});
     bootstrap.Modal.getOrCreateInstance(document.getElementById('mdlProj')).hide();
-    toast('Project saved'); loadProjects();
+    toast('Project saved');
+    loadProjects();
   }catch(e){
     const el=document.getElementById('projErr'); el.textContent=parseErr(e); el.classList.remove('d-none');
   }
@@ -406,7 +427,6 @@ async function quickStatus(id,status){
   }catch(e){ alert(parseErr(e)); }
 }
 
-// Close = verify docs + deliveries server-side
 async function tryClose(id){
   if(!confirm('Close this project? System will verify required docs and delivered shipments.')) return;
   try{
@@ -416,7 +436,7 @@ async function tryClose(id){
   }catch(e){ alert(parseErr(e)); }
 }
 
-loadProjects().catch(e=>alert(parseErr(e)));
+loadProjects();
 </script>
 </body>
 </html>
