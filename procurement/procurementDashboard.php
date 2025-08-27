@@ -1,14 +1,11 @@
 <?php
-// If your procurement system also uses the same includes, this will work.
-// If not, you can remove these two requires.
+// procurement/procurementDashboard.php
 $inc = __DIR__ . '/../includes';
 if (file_exists($inc . '/config.php')) require_once $inc . '/config.php';
 if (file_exists($inc . '/auth.php'))  require_once $inc . '/auth.php';
-
-// Optional login guard (remove if you don't want auth here yet)
 if (function_exists('require_login')) require_login();
 
-/* ---------- Helpers (safe even without DB) ---------- */
+/* -------------------- helpers -------------------- */
 function table_exists(PDO $pdo = null, string $name = ''): bool {
   if (!$pdo || !$name) return false;
   try { $s = $pdo->prepare("SHOW TABLES LIKE ?"); $s->execute([$name]); return (bool)$s->fetchColumn(); }
@@ -25,96 +22,139 @@ function fetch_val(PDO $pdo = null, string $sql = '', array $params = [], $fallb
   catch (Throwable $e) { return $fallback; }
 }
 
-/* ---------- Detect tables (ok if they don't exist yet) ---------- */
-$hasDB  = isset($pdo) && $pdo instanceof PDO;
-$hasSup = $hasDB && table_exists($pdo, 'suppliers');
-$hasPO  = $hasDB && table_exists($pdo, 'purchase_orders');
-$hasPOI = $hasDB && table_exists($pdo, 'purchase_order_items');
-$hasRFQ = $hasDB && table_exists($pdo, 'rfqs');
-$hasPR  = $hasDB && table_exists($pdo, 'procurement_requests');
+/* -------------------- detect tables / columns -------------------- */
+$hasDB = isset($pdo) && $pdo instanceof PDO;
 
-/* ---------- KPIs ---------- */
+// your APIs use pos_*; some installs used purchase_orders*
+// try both shapes
+$poHeaderTbl = null;
+$poItemTbl   = null;
+if ($hasDB) {
+  if     (table_exists($pdo,'pos'))               $poHeaderTbl = 'pos';
+  elseif (table_exists($pdo,'purchase_orders'))    $poHeaderTbl = 'purchase_orders';
+
+  if     (table_exists($pdo,'po_items'))          $poItemTbl   = 'po_items';
+  elseif (table_exists($pdo,'purchase_order_items')) $poItemTbl = 'purchase_order_items';
+}
+
+$dateCols = [];
+if ($poHeaderTbl) {
+  foreach (['issue_date','order_date','created_at','date'] as $c) {
+    if (column_exists($pdo,$poHeaderTbl,$c)) $dateCols[] = $c;
+  }
+}
+$poDateCol = $dateCols[0] ?? null; // prefer 'issue_date' if it exists
+
+$totalCols = [];
+if ($poHeaderTbl) {
+  foreach (['total','total_amount','grand_total'] as $c) {
+    if (column_exists($pdo,$poHeaderTbl,$c)) $totalCols[] = $c;
+  }
+}
+$poTotalCol = $totalCols[0] ?? null;
+
+$hasSup = $hasDB && table_exists($pdo,'suppliers');
+$hasRFQ = $hasDB && table_exists($pdo,'rfqs');
+$hasPR  = $hasDB && table_exists($pdo,'procurement_requests');
+
+/* -------------------- user (optional) -------------------- */
+$userName = 'Procurement User'; $userRole = 'Procurement';
+if (function_exists('current_user')) {
+  $u = current_user();
+  $userName = $u['name'] ?? $userName;
+  $userRole = $u['role'] ?? $userRole;
+}
+
+/* -------------------- KPIs -------------------- */
 $activeSuppliers = $hasSup
-  ? (int) fetch_val($pdo, "SELECT COUNT(*) FROM suppliers WHERE IFNULL(is_active,1)=1", [], 0)
+  ? (int) fetch_val($pdo,"SELECT COUNT(*) FROM suppliers WHERE IFNULL(is_active,1)=1",[],0)
   : 0;
 
 $openRFQs = $hasRFQ
-  ? (int) fetch_val($pdo, "SELECT COUNT(*) FROM rfqs WHERE status IN ('open','sent','pending')", [], 0)
+  ? (int) fetch_val($pdo,"SELECT COUNT(*) FROM rfqs WHERE status IN ('open','sent','pending','draft')",[],0)
   : 0;
 
-$openPOs = $hasPO
-  ? (int) fetch_val($pdo, "SELECT COUNT(*) FROM purchase_orders WHERE status IN ('draft','ordered','partially_received')", [], 0)
-  : 0;
-
-$pendingPRs = $hasPR
-  ? (int) fetch_val($pdo, "SELECT COUNT(*) FROM procurement_requests WHERE status IN ('pending','for_approval','approved')", [], 0)
-  : 0;
-
-/* Spend this month — try PO items first, fall back to PO.total_amount if present */
-$spendThisMonth = 0.0;
-if ($hasPO && $hasPOI) {
-  $spendThisMonth = (float) fetch_val(
+$openPOs = 0;
+if ($poHeaderTbl) {
+  // cover your statuses: draft/approved/ordered/partially_received
+  $openPOs = (int) fetch_val(
     $pdo,
-    "SELECT COALESCE(SUM(poi.qty_ordered * poi.unit_cost),0)
-     FROM purchase_orders p
-     JOIN purchase_order_items poi ON poi.po_id = p.id
-     WHERE DATE_FORMAT(p.order_date,'%Y-%m') = DATE_FORMAT(CURDATE(),'%Y-%m')",
+    "SELECT COUNT(*) FROM `$poHeaderTbl`
+     WHERE LOWER(IFNULL(status,'')) IN ('draft','approved','ordered','partially_received')",
     [],
-    0.0
-  );
-} elseif ($hasPO && column_exists($pdo, 'purchase_orders', 'total_amount')) {
-  $spendThisMonth = (float) fetch_val(
-    $pdo,
-    "SELECT COALESCE(SUM(total_amount),0)
-     FROM purchase_orders
-     WHERE DATE_FORMAT(order_date,'%Y-%m') = DATE_FORMAT(CURDATE(),'%Y-%m')",
-    [],
-    0.0
+    0
   );
 }
 
-/* ---------- Charts ---------- */
-/* PO Status breakdown */
-$poStatusLabels = ['draft','ordered','partially_received','received','cancelled'];
-$poStatusData   = [0,0,0,0,0];
-if ($hasPO) {
+$pendingPRs = $hasPR
+  ? (int) fetch_val($pdo,"SELECT COUNT(*) FROM procurement_requests WHERE status IN ('pending','for_approval','approved','submitted')",[],0)
+  : 0;
+
+// Spend (this month)
+$spendThisMonth = 0.0;
+if ($poHeaderTbl && $poDateCol) {
   try {
-    $st = $pdo->query("SELECT status, COUNT(*) c FROM purchase_orders GROUP BY status");
-    $map = [];
-    foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) $map[$r['status']] = (int)$r['c'];
+    if ($poItemTbl && column_exists($pdo,$poItemTbl,'qty') && column_exists($pdo,$poItemTbl,'price')) {
+      // compute from items: SUM(qty*price) for POs in current month
+      $sql = "SELECT COALESCE(SUM(i.qty * i.price),0)
+              FROM `$poHeaderTbl` p
+              JOIN `$poItemTbl` i ON " . (column_exists($pdo,$poItemTbl,'po_id') ? "i.po_id=p.id" : "i.purchase_order_id=p.id") . "
+              WHERE DATE_FORMAT(p.`$poDateCol`,'%Y-%m') = DATE_FORMAT(CURDATE(),'%Y-%m')";
+      $spendThisMonth = (float) fetch_val($pdo,$sql,[],0.0);
+    } elseif ($poTotalCol) {
+      $sql = "SELECT COALESCE(SUM(p.`$poTotalCol`),0)
+              FROM `$poHeaderTbl` p
+              WHERE DATE_FORMAT(p.`$poDateCol`,'%Y-%m') = DATE_FORMAT(CURDATE(),'%Y-%m')";
+      $spendThisMonth = (float) fetch_val($pdo,$sql,[],0.0);
+    }
+  } catch (Throwable $e) { /* leave zero */ }
+}
+
+/* -------------------- Charts -------------------- */
+// PO Status
+$poStatusLabels = ['draft','approved','ordered','partially_received','received','closed','cancelled'];
+$poStatusData   = array_fill(0, count($poStatusLabels), 0);
+if ($poHeaderTbl) {
+  try {
+    $st = $pdo->query("SELECT LOWER(IFNULL(status,'')) s, COUNT(*) c FROM `$poHeaderTbl` GROUP BY s");
+    $map=[];
+    foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) $map[$r['s']] = (int)$r['c'];
     foreach ($poStatusLabels as $i=>$s) $poStatusData[$i] = $map[$s] ?? 0;
   } catch (Throwable $e) { /* keep zeros */ }
 }
 
-/* Monthly spend (last 6 months) — PO items preferred */
+// Monthly Spend (last 6 months)
 $monLabels = []; $monAmounts = [];
-if ($hasPO) {
+if ($poHeaderTbl && $poDateCol) {
   $tz = new DateTimeZone('Asia/Manila');
   $first = new DateTime('first day of this month', $tz);
   $buckets = [];
   for ($i=5; $i>=0; $i--) {
     $d = (clone $first)->modify("-$i months");
-    $key = $d->format('Y-m');
+    $ym = $d->format('Y-m');
     $monLabels[] = $d->format('M Y');
-    $buckets[$key] = 0.0;
+    $buckets[$ym] = 0.0;
   }
+
   try {
-    if ($hasPOI) {
-      $sql = "SELECT DATE_FORMAT(p.order_date,'%Y-%m') ym,
-                     SUM(poi.qty_ordered * poi.unit_cost) amt
-              FROM purchase_orders p
-              JOIN purchase_order_items poi ON poi.po_id=p.id
-              WHERE p.order_date >= DATE_SUB(DATE_FORMAT(CURDATE(),'%Y-%m-01'), INTERVAL 5 MONTH)
-              GROUP BY DATE_FORMAT(p.order_date,'%Y-%m')";
-    } elseif (column_exists($pdo,'purchase_orders','total_amount')) {
-      $sql = "SELECT DATE_FORMAT(order_date,'%Y-%m') ym,
-                     SUM(total_amount) amt
-              FROM purchase_orders
-              WHERE order_date >= DATE_SUB(DATE_FORMAT(CURDATE(),'%Y-%m-01'), INTERVAL 5 MONTH)
-              GROUP BY DATE_FORMAT(order_date,'%Y-%m')";
-    } else {
-      $sql = null;
-    }
+    if ($poItemTbl && column_exists($pdo,$poItemTbl,'qty') && column_exists($pdo,$poItemTbl,'price')) {
+      $joinKey = column_exists($pdo,$poItemTbl,'po_id') ? 'po_id' : (column_exists($pdo,$poItemTbl,'purchase_order_id') ? 'purchase_order_id' : null);
+      if ($joinKey) {
+        $sql = "SELECT DATE_FORMAT(p.`$poDateCol`,'%Y-%m') ym,
+                       SUM(i.qty*i.price) amt
+                FROM `$poHeaderTbl` p
+                JOIN `$poItemTbl` i ON i.`$joinKey` = p.id
+                WHERE p.`$poDateCol` >= DATE_SUB(DATE_FORMAT(CURDATE(),'%Y-%m-01'), INTERVAL 5 MONTH)
+                GROUP BY DATE_FORMAT(p.`$poDateCol`,'%Y-%m')";
+      } else $sql = null;
+    } elseif ($poTotalCol) {
+      $sql = "SELECT DATE_FORMAT(p.`$poDateCol`,'%Y-%m') ym,
+                     SUM(p.`$poTotalCol`) amt
+              FROM `$poHeaderTbl` p
+              WHERE p.`$poDateCol` >= DATE_SUB(DATE_FORMAT(CURDATE(),'%Y-%m-01'), INTERVAL 5 MONTH)
+              GROUP BY DATE_FORMAT(p.`$poDateCol`,'%Y-%m')";
+    } else $sql = null;
+
     if ($sql) {
       $st = $pdo->query($sql);
       foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
@@ -122,43 +162,40 @@ if ($hasPO) {
         if (isset($buckets[$ym])) $buckets[$ym] = $amt;
       }
     }
-  } catch (Throwable $e) { /* leave zeros */ }
+  } catch (Throwable $e) { /* keep zeros */ }
+
   foreach ($buckets as $amt) $monAmounts[] = (float)$amt;
 }
 
-/* Top Suppliers (last 90 days) */
+// Top Suppliers (last 90 days)
 $topSupLabels = []; $topSupAmts = [];
-if ($hasSup && $hasPO) {
+if ($hasDB && $hasSup && $poHeaderTbl && $poDateCol) {
   try {
-    if ($hasPOI) {
-      $sql = "SELECT s.name, SUM(poi.qty_ordered * poi.unit_cost) amt
-              FROM suppliers s
-              JOIN purchase_orders p ON p.supplier_id=s.id
-              JOIN purchase_order_items poi ON poi.po_id=p.id
-              WHERE p.order_date >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)
+    if ($poItemTbl && column_exists($pdo,$poItemTbl,'qty') && column_exists($pdo,$poItemTbl,'price')) {
+      $joinKey = column_exists($pdo,$poItemTbl,'po_id') ? 'po_id' : (column_exists($pdo,$poItemTbl,'purchase_order_id') ? 'purchase_order_id' : null);
+      if ($joinKey && column_exists($pdo,$poHeaderTbl,'supplier_id')) {
+        $sql = "SELECT s.name, SUM(i.qty*i.price) amt
+                FROM `$poHeaderTbl` p
+                JOIN suppliers s ON s.id = p.supplier_id
+                JOIN `$poItemTbl` i ON i.`$joinKey` = p.id
+                WHERE p.`$poDateCol` >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)
+                GROUP BY s.id
+                ORDER BY amt DESC LIMIT 6";
+      } else $sql = null;
+    } elseif ($poTotalCol && column_exists($pdo,$poHeaderTbl,'supplier_id')) {
+      $sql = "SELECT s.name, SUM(p.`$poTotalCol`) amt
+              FROM `$poHeaderTbl` p
+              JOIN suppliers s ON s.id = p.supplier_id
+              WHERE p.`$poDateCol` >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)
               GROUP BY s.id
               ORDER BY amt DESC LIMIT 6";
-    } elseif (column_exists($pdo,'purchase_orders','total_amount')) {
-      $sql = "SELECT s.name, SUM(p.total_amount) amt
-              FROM suppliers s
-              JOIN purchase_orders p ON p.supplier_id=s.id
-              WHERE p.order_date >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)
-              GROUP BY s.id
-              ORDER BY amt DESC LIMIT 6";
-    } else { $sql = null; }
+    } else $sql = null;
+
     if ($sql) {
       $st = $pdo->query($sql);
-      foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) { $topSupLabels[]=$r['name']; $topSupAmts[]=(float)$r['amt']; }
+      foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) { $topSupLabels[] = $r['name']; $topSupAmts[] = (float)$r['amt']; }
     }
   } catch (Throwable $e) { /* empty */ }
-}
-
-/* ---------- User display (optional) ---------- */
-$userName = 'Procurement User'; $userRole = 'Procurement';
-if (function_exists('current_user')) {
-  $u = current_user();
-  $userName = $u['name'] ?? $userName;
-  $userRole = $u['role'] ?? $userRole;
 }
 ?>
 <!DOCTYPE html>
@@ -184,7 +221,7 @@ if (function_exists('current_user')) {
   <div class="container-fluid p-0">
     <div class="row g-0">
 
-      <!-- Sidebar -->
+      <!-- Sidebar (mirrors Smart Warehousing look) -->
       <div class="sidebar d-flex flex-column">
         <div class="d-flex justify-content-center align-items-center mb-4 mt-3">
           <img src="../img/logo.png" id="logo" class="img-fluid me-2" style="height:55px" alt="Logo">
@@ -209,7 +246,7 @@ if (function_exists('current_user')) {
         </div>
       </div>
 
-      <!-- Main -->
+      <!-- Main Content -->
       <div class="col main-content p-3 p-lg-4">
         <!-- Topbar -->
         <div class="d-flex justify-content-between align-items-center mb-3">
@@ -217,7 +254,7 @@ if (function_exists('current_user')) {
             <button class="sidebar-toggle d-lg-none btn btn-outline-secondary btn-sm" id="sidebarToggle2" aria-label="Toggle sidebar">
               <ion-icon name="menu-outline"></ion-icon>
             </button>
-            <h2 class="m-0">Procurement Dashboard</h2>
+            <h2 class="m-0">Dashboard</h2>
           </div>
           <div class="d-flex align-items-center gap-2">
             <img src="../img/profile.jpg" class="rounded-circle" width="36" height="36" alt="">
@@ -233,7 +270,9 @@ if (function_exists('current_user')) {
           <div class="col-6 col-md-3">
             <div class="card shadow-sm kpi-card h-100">
               <div class="card-body d-flex align-items-center gap-3">
-                <div class="icon-wrap bg-primary-subtle"><ion-icon name="people-outline" style="font-size:20px"></ion-icon></div>
+                <div class="icon-wrap bg-primary-subtle">
+                  <ion-icon name="people-outline" style="font-size:20px"></ion-icon>
+                </div>
                 <div>
                   <div class="text-muted small">Active Suppliers</div>
                   <div class="h4 m-0"><?= number_format($activeSuppliers) ?></div>
@@ -241,10 +280,13 @@ if (function_exists('current_user')) {
               </div>
             </div>
           </div>
+
           <div class="col-6 col-md-3">
             <div class="card shadow-sm kpi-card h-100">
               <div class="card-body d-flex align-items-center gap-3">
-                <div class="icon-wrap bg-info-subtle"><ion-icon name="mail-open-outline" style="font-size:20px"></ion-icon></div>
+                <div class="icon-wrap bg-info-subtle">
+                  <ion-icon name="mail-open-outline" style="font-size:20px"></ion-icon>
+                </div>
                 <div>
                   <div class="text-muted small">Open RFQs</div>
                   <div class="h4 m-0"><?= number_format($openRFQs) ?></div>
@@ -252,10 +294,13 @@ if (function_exists('current_user')) {
               </div>
             </div>
           </div>
+
           <div class="col-6 col-md-3">
             <div class="card shadow-sm kpi-card h-100">
               <div class="card-body d-flex align-items-center gap-3">
-                <div class="icon-wrap bg-warning-subtle"><ion-icon name="document-text-outline" style="font-size:20px"></ion-icon></div>
+                <div class="icon-wrap bg-warning-subtle">
+                  <ion-icon name="document-text-outline" style="font-size:20px"></ion-icon>
+                </div>
                 <div>
                   <div class="text-muted small">Open POs</div>
                   <div class="h4 m-0"><?= number_format($openPOs) ?></div>
@@ -263,20 +308,23 @@ if (function_exists('current_user')) {
               </div>
             </div>
           </div>
+
           <div class="col-6 col-md-3">
             <div class="card shadow-sm kpi-card h-100">
               <div class="card-body d-flex align-items-center gap-3">
-                <div class="icon-wrap bg-success-subtle"><ion-icon name="cash-outline" style="font-size:20px"></ion-icon></div>
+                <div class="icon-wrap bg-success-subtle">
+                  <ion-icon name="cash-outline" style="font-size:20px"></ion-icon>
+                </div>
                 <div>
                   <div class="text-muted small">Spend (This Month)</div>
-                  <div class="h4 m-0">₱<?= number_format($spendThisMonth, 2) ?></div>
+                  <div class="h4 m-0">₱<?= number_format($spendThisMonth,2) ?></div>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Charts -->
+        <!-- Charts Row 1 -->
         <div class="row g-3 mb-3">
           <div class="col-12 col-lg-6">
             <div class="card shadow-sm chart-card h-100">
@@ -285,13 +333,14 @@ if (function_exists('current_user')) {
                   <h5 class="card-title m-0">PO Status</h5>
                   <ion-icon name="pie-chart-outline"></ion-icon>
                 </div>
-                <canvas id="poStatus"></canvas>
-                <?php if (!$hasPO): ?>
-                  <div class="text-muted small mt-2">Tip: create a <code>purchase_orders</code> table with a <code>status</code> column.</div>
+                <canvas id="chartStatus"></canvas>
+                <?php if (!$poHeaderTbl): ?>
+                  <div class="text-muted small mt-2">Tip: ensure a <code>pos</code> or <code>purchase_orders</code> table with a <code>status</code> column.</div>
                 <?php endif; ?>
               </div>
             </div>
           </div>
+
           <div class="col-12 col-lg-6">
             <div class="card shadow-sm chart-card h-100">
               <div class="card-body">
@@ -299,26 +348,27 @@ if (function_exists('current_user')) {
                   <h5 class="card-title m-0">Monthly Spend</h5>
                   <ion-icon name="stats-chart-outline"></ion-icon>
                 </div>
-                <canvas id="poMonthly"></canvas>
-                <?php if (!$hasPO): ?>
-                  <div class="text-muted small mt-2">Tip: add POs to see month-to-month trends.</div>
+                <canvas id="chartMonth"></canvas>
+                <?php if (!$poHeaderTbl || !$poDateCol): ?>
+                  <div class="text-muted small mt-2">Tip: add a date column like <code>issue_date</code> or <code>order_date</code> to your PO header.</div>
                 <?php endif; ?>
               </div>
             </div>
           </div>
         </div>
 
+        <!-- Charts Row 2 -->
         <div class="row g-3">
           <div class="col-12">
             <div class="card shadow-sm chart-card h-100">
               <div class="card-body">
                 <div class="d-flex justify-content-between align-items-center mb-2">
-                  <h5 class="card-title m-0">Top Suppliers (90 days)</h5>
+                  <h5 class="card-title m-0">Top Suppliers (last 90 days)</h5>
                   <ion-icon name="ribbon-outline"></ion-icon>
                 </div>
-                <canvas id="topSup"></canvas>
-                <?php if (!$hasSup || !$hasPO): ?>
-                  <div class="text-muted small mt-2">Tip: add <code>suppliers</code> and POs to populate this.</div>
+                <canvas id="chartSup"></canvas>
+                <?php if (!$hasSup || !$poHeaderTbl): ?>
+                  <div class="text-muted small mt-2">Tip: ensure <code>suppliers</code> and POs are linked via <code>supplier_id</code>.</div>
                 <?php endif; ?>
               </div>
             </div>
@@ -330,36 +380,45 @@ if (function_exists('current_user')) {
   </div><!-- /container -->
 
 <script>
-  // Pass PHP data to JS
+  // inject data from PHP
   const poStatusLabels = <?= json_encode($poStatusLabels) ?>;
   const poStatusData   = <?= json_encode($poStatusData) ?>;
 
-  const monLabels  = <?= json_encode($monLabels) ?>;
-  const monAmounts = <?= json_encode($monAmounts) ?>;
+  const monLabels      = <?= json_encode($monLabels) ?>;
+  const monAmounts     = <?= json_encode($monAmounts) ?>;
 
-  const topSupLabels = <?= json_encode($topSupLabels) ?>;
-  const topSupAmts   = <?= json_encode($topSupAmts) ?>;
+  const topSupLabels   = <?= json_encode($topSupLabels) ?>;
+  const topSupAmts     = <?= json_encode($topSupAmts) ?>;
 
-  // Match your UI’s font/colors
+  // match SW dashboard's look
   Chart.defaults.font.family = getComputedStyle(document.body).fontFamily || 'system-ui';
   Chart.defaults.color = getComputedStyle(document.body).color || '#222';
 
-  new Chart(document.getElementById('poStatus'), {
+  new Chart(document.getElementById('chartStatus'), {
     type: 'doughnut',
-    data: { labels: poStatusLabels, datasets: [{ data: poStatusData, borderWidth:1 }] },
+    data: { labels: poStatusLabels, datasets: [{ data: poStatusData, borderWidth: 1 }] },
     options: { maintainAspectRatio:false, plugins:{ legend:{ position:'bottom' } } }
   });
 
-  new Chart(document.getElementById('poMonthly'), {
+  new Chart(document.getElementById('chartMonth'), {
     type: 'bar',
     data: { labels: monLabels, datasets: [{ label:'Spend', data: monAmounts, borderWidth:1 }] },
-    options: { maintainAspectRatio:false, scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } } }, plugins:{ legend:{ display:false } } }
+    options: {
+      maintainAspectRatio:false,
+      scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } } },
+      plugins:{ legend:{ display:false }, tooltip:{ mode:'index', intersect:false } }
+    }
   });
 
-  new Chart(document.getElementById('topSup'), {
+  new Chart(document.getElementById('chartSup'), {
     type: 'bar',
     data: { labels: topSupLabels, datasets: [{ label:'Amount', data: topSupAmts, borderWidth:1 }] },
-    options: { maintainAspectRatio:false, indexAxis:'y', scales:{ x:{ beginAtZero:true, ticks:{ precision:0 } } }, plugins:{ legend:{ display:false } } }
+    options: {
+      maintainAspectRatio:false,
+      indexAxis:'y',
+      scales:{ x:{ beginAtZero:true, ticks:{ precision:0 } } },
+      plugins:{ legend:{ display:false } }
+    }
   });
 </script>
 </body>

@@ -1,4 +1,5 @@
 <?php
+// procurement/budgetReports.php
 $inc = __DIR__ . "/../includes";
 if (file_exists($inc . "/config.php")) require_once $inc . "/config.php";
 if (file_exists($inc . "/auth.php"))   require_once $inc . "/auth.php";
@@ -7,9 +8,11 @@ if (function_exists("require_login"))  require_login();
 $userName = $_SESSION["user"]["name"] ?? "Procurement User";
 $userRole = $_SESSION["user"]["role"] ?? "Procurement";
 
-$depts = $pdo->query("SELECT id, name FROM departments ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
-$cats  = $pdo->query("SELECT DISTINCT category FROM inventory_items WHERE category<>'' AND category IS NOT NULL ORDER BY category")->fetchAll(PDO::FETCH_COLUMN);
-$years = $pdo->query("SELECT DISTINCT fiscal_year FROM budgets ORDER BY fiscal_year DESC")->fetchAll(PDO::FETCH_COLUMN);
+// dropdown data
+$depts   = $pdo->query("SELECT id, name FROM departments ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+$cats    = $pdo->query("SELECT DISTINCT category FROM inventory_items WHERE category IS NOT NULL AND category<>'' ORDER BY category")->fetchAll(PDO::FETCH_COLUMN);
+$years   = $pdo->query("SELECT DISTINCT fiscal_year FROM budgets ORDER BY fiscal_year DESC")->fetchAll(PDO::FETCH_COLUMN);
+$catMap  = $pdo->query("SELECT id, name FROM inventory_categories ORDER BY name")->fetchAll(PDO::FETCH_KEY_PAIR); // for modal options
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -35,6 +38,7 @@ $years = $pdo->query("SELECT DISTINCT fiscal_year FROM budgets ORDER BY fiscal_y
 <div class="container-fluid p-0">
   <div class="row g-0">
 
+    <!-- Sidebar (Procurement) -->
     <div class="sidebar d-flex flex-column">
       <div class="d-flex justify-content-center align-items-center mb-4 mt-3">
         <img src="../img/logo.png" id="logo" class="img-fluid me-2" style="height:55px" alt="Logo">
@@ -57,6 +61,7 @@ $years = $pdo->query("SELECT DISTINCT fiscal_year FROM budgets ORDER BY fiscal_y
       </div>
     </div>
 
+    <!-- Main -->
     <div class="col main-content p-3 p-lg-4">
       <div class="d-flex justify-content-between align-items-center mb-3">
         <div class="d-flex align-items-center gap-3">
@@ -87,7 +92,7 @@ $years = $pdo->query("SELECT DISTINCT fiscal_year FROM budgets ORDER BY fiscal_y
           <section class="card shadow-sm mb-3">
             <div class="card-body">
               <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="mb-0">Budget Lines</h5>
+                <h5 class="mb-0 d-flex align-items-center gap-2"><ion-icon name="wallet-outline"></ion-icon> Budget Lines</h5>
                 <button class="btn btn-violet" id="btnNew"><ion-icon name="add-circle-outline"></ion-icon> New Budget</button>
               </div>
               <div class="row g-2 mb-2">
@@ -150,7 +155,7 @@ $years = $pdo->query("SELECT DISTINCT fiscal_year FROM budgets ORDER BY fiscal_y
         <div class="tab-pane fade" id="tabReports" role="tabpanel">
           <section class="card shadow-sm mb-3">
             <div class="card-body">
-              <div class="row g-2 align-items-end">
+              <form class="row g-2 align-items-end" id="rFilter">
                 <div class="col-6 col-md-2">
                   <label class="form-label">From</label>
                   <input id="rFrom" type="date" class="form-control">
@@ -173,41 +178,77 @@ $years = $pdo->query("SELECT DISTINCT fiscal_year FROM budgets ORDER BY fiscal_y
                     <?php foreach($cats as $c): ?><option value="<?= htmlspecialchars($c) ?>"><?= htmlspecialchars($c) ?></option><?php endforeach; ?>
                   </select>
                 </div>
-                <div class="col-12 col-md-2 d-grid d-md-flex justify-content-md-end">
-                  <button class="btn btn-outline-primary me-md-2" id="rRun"><ion-icon name="search-outline"></ion-icon> Run</button>
-                  <button class="btn btn-outline-secondary" id="rReset">Reset</button>
+                <div class="col-12 col-md-2 d-grid d-md-flex gap-2 justify-content-md-end">
+                  <button class="btn btn-violet" id="rRun" type="button"><ion-icon name="play-circle-outline"></ion-icon> Run</button>
+                  <button class="btn btn-outline-secondary" id="rReset" type="button">Reset</button>
+                  <button class="btn btn-outline-secondary" id="rCsv" type="button"><ion-icon name="download-outline"></ion-icon> CSV</button>
+                  <button class="btn btn-outline-secondary" id="rPrint" type="button"><ion-icon name="print-outline"></ion-icon> Print</button>
                 </div>
-              </div>
+              </form>
             </div>
           </section>
 
+          <!-- KPI row (Smart Warehousing style) -->
           <div class="row g-3">
-            <div class="col-md-3">
-              <div class="card shadow-sm stat p-3">
-                <div class="small text-muted">Allocated Budget</div>
-                <div class="h4 mb-0" id="kBudget">0.00</div>
+            <div class="col-6 col-md-3">
+              <div class="card shadow-sm kpi-card h-100">
+                <div class="card-body d-flex align-items-center gap-3">
+                  <div class="icon-wrap bg-primary-subtle"><ion-icon name="wallet-outline" style="font-size:20px"></ion-icon></div>
+                  <div><div class="text-muted small">Allocated Budget</div><div class="h4 m-0" id="kBudget">0.00</div></div>
+                </div>
               </div>
             </div>
-            <div class="col-md-3">
-              <div class="card shadow-sm stat p-3">
-                <div class="small text-muted">Actual Spend (PO)</div>
-                <div class="h4 mb-0" id="kSpend">0.00</div>
+            <div class="col-6 col-md-3">
+              <div class="card shadow-sm kpi-card h-100">
+                <div class="card-body d-flex align-items-center gap-3">
+                  <div class="icon-wrap bg-success-subtle"><ion-icon name="card-outline" style="font-size:20px"></ion-icon></div>
+                  <div><div class="text-muted small">Actual Spend (PO)</div><div class="h4 m-0" id="kSpend">0.00</div></div>
+                </div>
               </div>
             </div>
-            <div class="col-md-3">
-              <div class="card shadow-sm stat p-3">
-                <div class="small text-muted">Remaining</div>
-                <div class="h4 mb-0" id="kRemain">0.00</div>
+            <div class="col-6 col-md-3">
+              <div class="card shadow-sm kpi-card h-100">
+                <div class="card-body d-flex align-items-center gap-3">
+                  <div class="icon-wrap bg-info-subtle"><ion-icon name="cash-outline" style="font-size:20px"></ion-icon></div>
+                  <div><div class="text-muted small">Remaining</div><div class="h4 m-0" id="kRemain">0.00</div></div>
+                </div>
               </div>
             </div>
-            <div class="col-md-3">
-              <div class="card shadow-sm stat p-3">
-                <div class="small text-muted">Utilization %</div>
-                <div class="h4 mb-0" id="kUtil">0%</div>
+            <div class="col-6 col-md-3">
+              <div class="card shadow-sm kpi-card h-100">
+                <div class="card-body d-flex align-items-center gap-3">
+                  <div class="icon-wrap bg-warning-subtle"><ion-icon name="speedometer-outline" style="font-size:20px"></ion-icon></div>
+                  <div><div class="text-muted small">Utilization %</div><div class="h4 m-0" id="kUtil">0%</div></div>
+                </div>
               </div>
             </div>
           </div>
 
+          <!-- Charts row -->
+          <div class="row g-3 mt-1">
+            <div class="col-12 col-lg-6">
+              <div class="card shadow-sm chart-card h-100">
+                <div class="card-body">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="m-0 d-flex align-items-center gap-2"><ion-icon name="business-outline"></ion-icon> Top Suppliers (Spend)</h6>
+                  </div>
+                  <canvas id="chSuppliers"></canvas>
+                </div>
+              </div>
+            </div>
+            <div class="col-12 col-lg-6">
+              <div class="card shadow-sm chart-card h-100">
+                <div class="card-body">
+                  <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="m-0 d-flex align-items-center gap-2"><ion-icon name="pricetags-outline"></ion-icon> Spend by Category</h6>
+                  </div>
+                  <canvas id="chCategories"></canvas>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tables -->
           <section class="card shadow-sm mt-3">
             <div class="card-body">
               <div class="row g-3">
@@ -272,13 +313,13 @@ $years = $pdo->query("SELECT DISTINCT fiscal_year FROM budgets ORDER BY fiscal_y
           </section>
         </div>
       </div>
-    </div>
-
+    </div> <!-- /Main -->
   </div>
 </div>
 
 <div class="toast-container position-fixed top-0 end-0 p-3" id="toasts" style="z-index:1080"></div>
 
+<!-- Modal: New/Edit Budget -->
 <div class="modal fade" id="mdlB" tabindex="-1">
   <div class="modal-dialog">
     <form class="modal-content" id="bForm">
@@ -308,10 +349,7 @@ $years = $pdo->query("SELECT DISTINCT fiscal_year FROM budgets ORDER BY fiscal_y
             <label class="form-label">Category (optional)</label>
             <select class="form-select" name="category_id">
               <option value="">— Any —</option>
-              <?php
-                // map text category to id if you keep IDs in budgets; otherwise remove this block
-                $catMap = $pdo->query("SELECT id, name FROM inventory_categories ORDER BY name")->fetchAll(PDO::FETCH_KEY_PAIR);
-                foreach($catMap as $cid=>$cname): ?>
+              <?php foreach($catMap as $cid=>$cname): ?>
                 <option value="<?= (int)$cid ?>"><?= htmlspecialchars($cname) ?></option>
               <?php endforeach; ?>
             </select>
@@ -350,7 +388,7 @@ const api = {
   rpt_progress : './api/report_budget_progress.php'
 };
 
-/* Budgets list */
+/* ---------------- Budgets list ---------------- */
 let bState = { page:1, year:'', month:'', dept:'', cat:'' };
 
 async function loadBudgets(){
@@ -384,7 +422,6 @@ async function loadBudgets(){
   pager.insertAdjacentHTML('beforeend', li(page+1,'&raquo;', page>=totalPages));
 }
 window.bGo=(p)=>{ if(!p||p<1) return; bState.page=p; loadBudgets().catch(e=>alert(parseErr(e))); };
-
 document.getElementById('bSearch').addEventListener('click', ()=>{
   bState.page=1;
   bState.year = $('#bYear').value || '';
@@ -442,57 +479,162 @@ async function delBudget(id){
   toast('Deleted'); loadBudgets();
 }
 
-/* Reports */
+/* ------------- Reports (Smart Warehousing style) ------------- */
+let chSuppliers, chCategories;
+
+function writeFiltersToQS(){
+  const params = new URLSearchParams({
+    from:$('#rFrom')?.value || '',
+    to:$('#rTo')?.value || '',
+    dept:$('#rDept')?.value || '',
+    cat:$('#rCat')?.value || ''
+  });
+  history.replaceState(null,'','?'+params.toString());
+}
+function prefillFromQS(){
+  const u = new URLSearchParams(location.search);
+  if (u.has('from')) $('#rFrom').value = u.get('from');
+  if (u.has('to'))   $('#rTo').value   = u.get('to');
+  if (u.has('dept')) $('#rDept').value = u.get('dept');
+  if (u.has('cat'))  $('#rCat').value  = u.get('cat');
+}
+
+function disableChartAnimation(disable=true){
+  [chSuppliers, chCategories].forEach(ch=>{
+    if(!ch) return;
+    ch.options.animation = !disable;
+    ch.resize();
+    ch.update(disable ? 'none' : undefined);
+  });
+}
+
+document.getElementById('rPrint').addEventListener('click', ()=>{
+  disableChartAnimation(true);
+  setTimeout(()=>window.print(), 120);
+}, {capture:true});
+
+document.getElementById('rReset').addEventListener('click', ()=>{
+  $('#rFrom').value=''; $('#rTo').value=''; $('#rDept').value=''; $('#rCat').value='';
+  writeFiltersToQS();
+  runReports().catch(e=>alert(parseErr(e)));
+});
+document.getElementById('rRun').addEventListener('click', ()=>{
+  writeFiltersToQS();
+  runReports().catch(e=>alert(parseErr(e)));
+});
+
+function fmt(v){ return Number(v??0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}); }
+
 async function runReports(){
-  const qs1 = new URLSearchParams({ from: $('#rFrom').value, to: $('#rTo').value, dept: $('#rDept').value, cat: $('#rCat').value });
-  const sum = await fetchJSON(api.rpt_summary+'?'+qs1.toString());
-
-  const qs2 = new URLSearchParams({ from: $('#rFrom').value, to: $('#rTo').value, dept: $('#rDept').value, cat: $('#rCat').value });
-  const prog = await fetchJSON(api.rpt_progress+'?'+qs2.toString());
-
-  const fmt = v=>Number(v??0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+  const qs = new URLSearchParams({ from:$('#rFrom').value, to:$('#rTo').value, dept:$('#rDept').value, cat:$('#rCat').value });
+  const sum  = await fetchJSON(api.rpt_summary +'?'+qs.toString());
+  const prog = await fetchJSON(api.rpt_progress+'?'+qs.toString());
 
   // KPIs
-  document.getElementById('kBudget').textContent = fmt(prog.totals.budget);
-  document.getElementById('kSpend').textContent  = fmt(prog.totals.spend);
-  document.getElementById('kRemain').textContent = fmt(prog.totals.budget - prog.totals.spend);
-  document.getElementById('kUtil').textContent   = (prog.totals.utilization||0) + '%';
+  document.getElementById('kBudget').textContent = fmt(prog.totals?.budget || 0);
+  document.getElementById('kSpend').textContent  = fmt(prog.totals?.spend  || 0);
+  const remain = (prog.totals?.budget || 0) - (prog.totals?.spend || 0);
+  document.getElementById('kRemain').textContent = fmt(remain);
+  document.getElementById('kUtil').textContent   = ((prog.totals?.utilization || 0)) + '%';
 
-  // supplier
+  // Tables
   const sup = document.getElementById('rBySupplier');
-  sup.innerHTML = sum.by_supplier.length ? sum.by_supplier.map(r=>`<tr><td>${r.supplier||'-'}</td><td class="text-end">${fmt(r.total)}</td></tr>`).join('') : '<tr><td colspan="2" class="text-muted">No data</td></tr>';
+  sup.innerHTML = (sum.by_supplier||[]).map(r=>`<tr><td>${r.supplier||'-'}</td><td class="text-end">${fmt(r.total)}</td></tr>`).join('') || '<tr><td colspan="2" class="text-muted">No data</td></tr>';
 
-  // category (spend)
   const cat = document.getElementById('rByCategory');
-  cat.innerHTML = sum.by_category.length ? sum.by_category.map(r=>`<tr><td>${r.category||'-'}</td><td class="text-end">${fmt(r.total)}</td></tr>`).join('') : '<tr><td colspan="2" class="text-muted">No data</td></tr>';
+  cat.innerHTML = (sum.by_category||[]).map(r=>`<tr><td>${r.category||'-'}</td><td class="text-end">${fmt(r.total)}</td></tr>`).join('') || '<tr><td colspan="2" class="text-muted">No data</td></tr>';
 
-  // month
   const mon = document.getElementById('rByMonth');
-  mon.innerHTML = sum.by_month.length ? sum.by_month.map(r=>`<tr><td>${r.period}</td><td class="text-end">${fmt(r.total)}</td></tr>`).join('') : '<tr><td colspan="2" class="text-muted">No data</td></tr>';
+  mon.innerHTML = (sum.by_month||[]).map(r=>`<tr><td>${r.period}</td><td class="text-end">${fmt(r.total)}</td></tr>`).join('') || '<tr><td colspan="2" class="text-muted">No data</td></tr>';
 
-  // Budget vs Spend by Dept
   const dTbl = document.getElementById('rDeptUtil');
   dTbl.innerHTML = (prog.by_dept||[]).map(r=>{
     const util = r.budget>0 ? Math.round((r.spend/r.budget)*100) : 0;
     return `<tr><td>${r.department||'-'}</td><td class="text-end">${fmt(r.budget)}</td><td class="text-end">${fmt(r.spend)}</td><td class="text-end">${util}%</td></tr>`;
   }).join('') || '<tr><td colspan="4" class="text-muted">No data</td></tr>';
 
-  // Budget vs Spend by Category
   const cTbl = document.getElementById('rCatUtil');
   cTbl.innerHTML = (prog.by_cat||[]).map(r=>{
     const util = r.budget>0 ? Math.round((r.spend/r.budget)*100) : 0;
     return `<tr><td>${r.category||'-'}</td><td class="text-end">${fmt(r.budget)}</td><td class="text-end">${fmt(r.spend)}</td><td class="text-end">${util}%</td></tr>`;
   }).join('') || '<tr><td colspan="4" class="text-muted">No data</td></tr>';
+
+  // Charts (top 8 suppliers; categories doughnut)
+  const sTop = (sum.by_supplier||[]).slice(0,8);
+  const sLabels = sTop.map(r=>r.supplier || '—');
+  const sVals   = sTop.map(r=>+r.total||0);
+  if (chSuppliers) chSuppliers.destroy();
+  chSuppliers = new Chart(document.getElementById('chSuppliers'), {
+    type:'bar',
+    data:{ labels:sLabels, datasets:[{ label:'Spend', data:sVals, borderWidth:1 }] },
+    options:{ maintainAspectRatio:false, scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } } }, plugins:{ legend:{ display:false } } }
+  });
+
+  const cTop = (sum.by_category||[]);
+  const cLabels = cTop.map(r=>r.category || '—');
+  const cVals   = cTop.map(r=>+r.total||0);
+  if (chCategories) chCategories.destroy();
+  chCategories = new Chart(document.getElementById('chCategories'), {
+    type:'doughnut',
+    data:{ labels:cLabels, datasets:[{ data:cVals, borderWidth:1 }] },
+    options:{ maintainAspectRatio:false, plugins:{ legend:{ position:'bottom' } } }
+  });
 }
-document.getElementById('rRun').addEventListener('click', ()=>runReports().catch(e=>alert(parseErr(e))));
-document.getElementById('rReset').addEventListener('click', ()=>{
-  $('#rFrom').value=''; $('#rTo').value=''; $('#rDept').value=''; $('#rCat').value='';
-  runReports().catch(e=>alert(parseErr(e)));
+
+// CSV (client-side)
+document.getElementById('rCsv').addEventListener('click', async ()=>{
+  try{
+    const qs = new URLSearchParams({ from:$('#rFrom').value, to:$('#rTo').value, dept:$('#rDept').value, cat:$('#rCat').value });
+    const sum  = await fetchJSON(api.rpt_summary +'?'+qs.toString());
+    const prog = await fetchJSON(api.rpt_progress+'?'+qs.toString());
+    const lines = [];
+    lines.push('Section,Label,Value');
+    lines.push(`Totals,Budget,${prog.totals?.budget||0}`);
+    lines.push(`Totals,Spend,${prog.totals?.spend||0}`);
+    const remain = (prog.totals?.budget||0) - (prog.totals?.spend||0);
+    lines.push(`Totals,Remaining,${remain}`);
+    lines.push(`Totals,Utilization %,${prog.totals?.utilization||0}`);
+
+    lines.push('');
+    lines.push('Spend by Supplier,Supplier,Total');
+    (sum.by_supplier||[]).forEach(r=>lines.push(`Supplier,${(r.supplier||'-').replace(/,/g,' ')},${r.total||0}`));
+
+    lines.push('');
+    lines.push('Spend by Category,Category,Total');
+    (sum.by_category||[]).forEach(r=>lines.push(`Category,${(r.category||'-').replace(/,/g,' ')},${r.total||0}`));
+
+    lines.push('');
+    lines.push('Spend by Month,Month,Total');
+    (sum.by_month||[]).forEach(r=>lines.push(`Month,${r.period},${r.total||0}`));
+
+    lines.push('');
+    lines.push('Dept Utilization,Department,Budget,Spend,Util %');
+    (prog.by_dept||[]).forEach(r=>{
+      const util = r.budget>0 ? Math.round((r.spend/r.budget)*100) : 0;
+      lines.push(`Dept,${(r.department||'-').replace(/,/g,' ')},${r.budget||0},${r.spend||0},${util}`);
+    });
+
+    lines.push('');
+    lines.push('Category Utilization,Category,Budget,Spend,Util %');
+    (prog.by_cat||[]).forEach(r=>{
+      const util = r.budget>0 ? Math.round((r.spend/r.budget)*100) : 0;
+      lines.push(`Cat,${(r.category||'-').replace(/,/g,' ')},${r.budget||0},${r.spend||0},${util}`);
+    });
+
+    const blob = new Blob([lines.join('\n')], {type:'text/csv;charset=utf-8;'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'procurement_budget_reports.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+  }catch(e){ alert(parseErr(e)); }
 });
 
-/* Init */
-loadBudgets().catch(e=>alert(parseErr(e)));
-runReports().catch(e=>alert(parseErr(e)));
+document.addEventListener('DOMContentLoaded', ()=>{
+  prefillFromQS();
+  loadBudgets().catch(e=>alert(parseErr(e)));
+  runReports().catch(e=>alert(parseErr(e)));
+});
 </script>
 </body>
 </html>
