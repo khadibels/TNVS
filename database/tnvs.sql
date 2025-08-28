@@ -1,11 +1,11 @@
 -- phpMyAdmin SQL Dump
--- version 5.2.1
+-- version 5.2.2
 -- https://www.phpmyadmin.net/
 --
--- Host: 127.0.0.1
--- Generation Time: Aug 23, 2025 at 07:01 PM
--- Server version: 10.4.32-MariaDB
--- PHP Version: 8.0.30
+-- Host: localhost
+-- Generation Time: Aug 28, 2025 at 02:57 PM
+-- Server version: 10.4.28-MariaDB
+-- PHP Version: 8.2.4
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -20,6 +20,51 @@ SET time_zone = "+00:00";
 --
 -- Database: `tnvs`
 --
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `budgets`
+--
+
+CREATE TABLE `budgets` (
+  `id` int(11) NOT NULL,
+  `fiscal_year` int(11) NOT NULL,
+  `month` tinyint(4) DEFAULT NULL,
+  `department_id` int(11) DEFAULT NULL,
+  `category_id` int(11) DEFAULT NULL,
+  `amount` decimal(14,2) NOT NULL DEFAULT 0.00,
+  `notes` varchar(255) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NULL DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `budgets`
+--
+
+INSERT INTO `budgets` (`id`, `fiscal_year`, `month`, `department_id`, `category_id`, `amount`, `notes`, `created_at`, `updated_at`) VALUES
+(2, 2025, 12, 2, 2, 24000.00, '', '2025-08-28 12:31:18', NULL);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `departments`
+--
+
+CREATE TABLE `departments` (
+  `id` int(11) NOT NULL,
+  `name` varchar(120) NOT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `departments`
+--
+
+INSERT INTO `departments` (`id`, `name`, `is_active`) VALUES
+(1, 'IT Department', 1),
+(2, 'Financial Department', 1);
 
 -- --------------------------------------------------------
 
@@ -77,12 +122,228 @@ INSERT INTO `inventory_items` (`id`, `sku`, `name`, `category`, `stock`, `reorde
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `plt_documents`
+--
+
+CREATE TABLE `plt_documents` (
+  `id` int(11) NOT NULL,
+  `project_id` int(11) DEFAULT NULL,
+  `shipment_id` int(11) DEFAULT NULL,
+  `doc_type` enum('POD','DR','BOL','OTHER') NOT NULL,
+  `ref_no` varchar(80) DEFAULT NULL,
+  `file_path` varchar(255) DEFAULT NULL,
+  `uploaded_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `plt_drivers`
+--
+
+CREATE TABLE `plt_drivers` (
+  `id` int(11) NOT NULL,
+  `name` varchar(120) NOT NULL,
+  `phone` varchar(40) DEFAULT NULL,
+  `license_no` varchar(60) DEFAULT NULL,
+  `notes` text DEFAULT NULL,
+  `active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `plt_milestones`
+--
+
+CREATE TABLE `plt_milestones` (
+  `id` int(11) NOT NULL,
+  `project_id` int(11) NOT NULL,
+  `title` varchar(200) NOT NULL,
+  `due_date` date DEFAULT NULL,
+  `status` enum('pending','ongoing','done','delayed') DEFAULT 'pending',
+  `owner` varchar(120) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `plt_milestones`
+--
+
+INSERT INTO `plt_milestones` (`id`, `project_id`, `title`, `due_date`, `status`, `owner`, `created_at`) VALUES
+(6, 7, 'Secure Permits', '2025-08-31', 'ongoing', 'Nicole', '2025-08-28 08:55:53'),
+(7, 9, 'Secure Permits', NULL, 'ongoing', 'khads', '2025-08-28 09:24:53'),
+(12, 10, 'Secure Permits', '2025-09-10', 'pending', 'Ops', '2025-08-28 12:29:51'),
+(13, 10, 'Carrier Booked', '2025-09-10', 'pending', 'Logistics', '2025-08-28 12:29:51');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `plt_projects`
+--
+
+CREATE TABLE `plt_projects` (
+  `id` int(11) NOT NULL,
+  `code` varchar(40) DEFAULT NULL,
+  `name` varchar(160) NOT NULL,
+  `scope` text DEFAULT NULL,
+  `start_date` date DEFAULT NULL,
+  `deadline_date` date DEFAULT NULL,
+  `owner_name` varchar(120) DEFAULT NULL,
+  `owner_user_id` int(11) DEFAULT NULL,
+  `status` enum('planned','ongoing','completed','delayed','closed') DEFAULT 'planned',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `plt_projects`
+--
+
+INSERT INTO `plt_projects` (`id`, `code`, `name`, `scope`, `start_date`, `deadline_date`, `owner_name`, `owner_user_id`, `status`, `created_at`) VALUES
+(7, 'PRJ-250827-8131', 'Office Expansion Q3', 'urgent delivery', '2025-08-26', '2025-08-30', 'Nicole', NULL, 'closed', '2025-08-27 15:35:10'),
+(9, 'PRJ-250828-9983', 'Office Expansion Q6', 'urgent delivery', '2025-08-27', '2025-08-31', NULL, NULL, 'closed', '2025-08-28 09:24:52'),
+(10, 'PRJ-250828-3839', 'Warehouse Relocation A1', 'Move racking and inventory from Site A to Site B', '2025-08-29', '2025-09-10', 'Nicole', NULL, 'closed', '2025-08-28 10:28:24');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `plt_shipments`
+--
+
+CREATE TABLE `plt_shipments` (
+  `id` int(11) NOT NULL,
+  `project_id` int(11) DEFAULT NULL,
+  `shipment_no` varchar(40) DEFAULT NULL,
+  `status` enum('planned','picked','in_transit','delivered','cancelled') DEFAULT 'planned',
+  `delivered_at` datetime DEFAULT NULL,
+  `origin` varchar(160) DEFAULT NULL,
+  `destination` varchar(160) DEFAULT NULL,
+  `schedule_date` date DEFAULT NULL,
+  `eta_date` date DEFAULT NULL,
+  `vehicle` varchar(80) DEFAULT NULL,
+  `driver` varchar(80) DEFAULT NULL,
+  `notes` text DEFAULT NULL,
+  `assigned_user_id` int(11) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `plt_shipments`
+--
+
+INSERT INTO `plt_shipments` (`id`, `project_id`, `shipment_no`, `status`, `delivered_at`, `origin`, `destination`, `schedule_date`, `eta_date`, `vehicle`, `driver`, `notes`, `assigned_user_id`, `created_at`) VALUES
+(1, NULL, 'SHP-001', 'delivered', '2025-08-28 19:16:11', 'Quezon City Warehouse', 'Makati Office', '2025-08-26', '2025-08-30', 'Truck #12', 'Mang Kanor', 'Urgent delivery of office supplies', 1, '2025-08-27 14:34:33'),
+(2, 10, 'SHP-202508-4207', 'delivered', '2025-08-28 19:16:11', 'Site A, Cebu', 'Site B, Davao', '2025-08-29', '2025-08-31', '6-Wheeler', 'J. Santos', 'Fragile items. Load before 9 am.', 1, '2025-08-28 10:29:53');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `plt_vehicles`
+--
+
+CREATE TABLE `plt_vehicles` (
+  `id` int(11) NOT NULL,
+  `code` varchar(60) NOT NULL,
+  `plate_no` varchar(40) DEFAULT NULL,
+  `capacity` varchar(60) DEFAULT NULL,
+  `notes` text DEFAULT NULL,
+  `active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `procurement_categories`
+--
+
+CREATE TABLE `procurement_categories` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `name` varchar(120) NOT NULL,
+  `description` varchar(500) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NULL DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `procurement_policies`
+--
+
+CREATE TABLE `procurement_policies` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `policy_text` mediumtext NOT NULL,
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `procurement_policies`
+--
+
+INSERT INTO `procurement_policies` (`id`, `policy_text`, `updated_at`) VALUES
+(1, 'Blabla skksjakfafafafaf', '2025-08-27 12:41:30');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `procurement_requests`
+--
+
+CREATE TABLE `procurement_requests` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `pr_no` varchar(32) NOT NULL,
+  `title` varchar(160) NOT NULL,
+  `requestor` varchar(120) DEFAULT NULL,
+  `department_id` int(11) DEFAULT NULL,
+  `needed_by` date DEFAULT NULL,
+  `priority` enum('normal','high','urgent') DEFAULT 'normal',
+  `notes` text DEFAULT NULL,
+  `status` enum('draft','submitted','approved','rejected','fulfilled','cancelled') NOT NULL DEFAULT 'draft',
+  `estimated_total` decimal(18,2) NOT NULL DEFAULT 0.00,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  `updated_at` datetime NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `procurement_requests`
+--
+
+INSERT INTO `procurement_requests` (`id`, `pr_no`, `title`, `requestor`, `department_id`, `needed_by`, `priority`, `notes`, `status`, `estimated_total`, `created_at`, `updated_at`) VALUES
+(1, 'PR-20250824-6171', 'Laptop for IT interns', 'Nicole', 1, '2025-09-30', 'high', 'For new batch of IT interns starting in October.', 'fulfilled', 24000.00, '2025-08-24 16:52:21', '2025-08-24 19:18:47');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `procurement_request_items`
+--
+
+CREATE TABLE `procurement_request_items` (
+  `id` int(10) UNSIGNED NOT NULL,
+  `pr_id` int(10) UNSIGNED NOT NULL,
+  `descr` varchar(255) NOT NULL,
+  `qty` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `price` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `line_total` decimal(18,4) NOT NULL DEFAULT 0.0000
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `procurement_request_items`
+--
+
+INSERT INTO `procurement_request_items` (`id`, `pr_id`, `descr`, `qty`, `price`, `line_total`) VALUES
+(10, 1, 'Dell Latitude 5430', 5.00, 4800.00, 24000.0000);
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `purchase_orders`
 --
 
 CREATE TABLE `purchase_orders` (
   `id` int(11) NOT NULL,
-  `supplier_id` int(11) NOT NULL,
+  `supplier_id` int(11) DEFAULT NULL,
   `order_date` date NOT NULL,
   `expected_date` date DEFAULT NULL,
   `status` enum('draft','approved','ordered','partially_received','received','closed','cancelled') NOT NULL DEFAULT 'draft',
@@ -101,7 +362,8 @@ CREATE TABLE `purchase_orders` (
 INSERT INTO `purchase_orders` (`id`, `supplier_id`, `order_date`, `expected_date`, `status`, `notes`, `created_by`, `created_at`, `po_no`, `total`, `pr_id`) VALUES
 (1, 5, '2025-08-22', '2025-08-22', 'received', '', NULL, '2025-08-22 04:16:05', 'PO-202508-0001', 100.00, NULL),
 (2, 5, '2025-08-22', '2025-08-22', 'received', 'From RFQ #1', NULL, '2025-08-22 04:16:18', 'PO-202508-0002', 10.00, NULL),
-(3, 5, '2025-08-23', '2025-08-24', 'received', 'From RFQ #2', NULL, '2025-08-23 16:58:42', 'PO-202508-0003', 12.00, NULL);
+(3, 5, '2025-08-23', '2025-08-24', 'received', 'From RFQ #2', NULL, '2025-08-23 16:58:42', 'PO-202508-0003', 12.00, NULL),
+(14, 5, '2025-08-24', '2025-09-30', 'received', 'Laptop for IT interns', NULL, '2025-08-24 05:00:26', 'PO-20250824-0571', 24000.00, 1);
 
 -- --------------------------------------------------------
 
@@ -119,8 +381,8 @@ CREATE TABLE `purchase_order_items` (
   `qty_received` int(11) NOT NULL DEFAULT 0,
   `unit_cost` decimal(12,2) DEFAULT 0.00,
   `note` varchar(255) DEFAULT NULL,
-  `qty` decimal(14,4) NOT NULL DEFAULT 0.0000,
-  `price` decimal(14,4) NOT NULL DEFAULT 0.0000
+  `qty` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `price` decimal(12,2) NOT NULL DEFAULT 0.00
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 --
@@ -128,9 +390,10 @@ CREATE TABLE `purchase_order_items` (
 --
 
 INSERT INTO `purchase_order_items` (`id`, `po_id`, `descr`, `item_id`, `location_id`, `qty_ordered`, `qty_received`, `unit_cost`, `note`, `qty`, `price`) VALUES
-(1, 1, 'item', NULL, NULL, NULL, 10, 0.00, NULL, 10.0000, 10.0000),
-(2, 2, 'Awarded total', NULL, NULL, NULL, 1, 0.00, NULL, 1.0000, 10.0000),
-(4, 3, 'Awarded total', NULL, NULL, NULL, 0, 0.00, NULL, 1.0000, 12.0000);
+(1, 1, 'item', NULL, NULL, NULL, 10, 0.00, NULL, 10.00, 10.00),
+(2, 2, 'Awarded total', NULL, NULL, NULL, 1, 0.00, NULL, 1.00, 10.00),
+(4, 3, 'Awarded total', NULL, NULL, NULL, 0, 0.00, NULL, 1.00, 12.00),
+(9, 14, 'Dell Latitude 5430', NULL, NULL, NULL, 5, 0.00, NULL, 5.00, 4800.00);
 
 -- --------------------------------------------------------
 
@@ -408,9 +671,9 @@ CREATE TABLE `stock_levels` (
 --
 
 INSERT INTO `stock_levels` (`item_id`, `location_id`, `qty`) VALUES
-(5, 1, 10),
+(5, 1, 12),
 (5, 2, 0),
-(5, 3, 2),
+(5, 3, 0),
 (7, 1, 10),
 (7, 2, 0),
 (7, 3, 0),
@@ -476,7 +739,9 @@ INSERT INTO `stock_transactions` (`id`, `item_id`, `from_location_id`, `to_locat
 (47, 5, NULL, 3, 2, 'IN', '', 1, '2025-08-14 18:53:36'),
 (48, 13, NULL, 7, 10, 'IN', '', 1, '2025-08-14 20:23:48'),
 (49, 13, 7, NULL, 5, 'OUT', '', 1, '2025-08-14 20:24:21'),
-(50, 13, 7, 1, 5, 'TRANSFER', 'gusto ko lang. bawal ba?', 1, '2025-08-14 20:24:43');
+(50, 13, 7, 1, 5, 'TRANSFER', 'gusto ko lang. bawal ba?', 1, '2025-08-14 20:24:43'),
+(51, 5, NULL, 1, 2, 'IN', '', 3, '2025-08-28 12:27:26'),
+(52, 5, 3, NULL, 2, 'OUT', '', 3, '2025-08-28 12:27:43');
 
 -- --------------------------------------------------------
 
@@ -532,7 +797,8 @@ CREATE TABLE `users` (
 
 INSERT INTO `users` (`id`, `name`, `email`, `password_hash`, `role`, `created_at`) VALUES
 (1, 'Administrator', 'admin@tnvs.local', '$2y$10$m0HppT4WAqnl.K7Hy2BwH.tvnTuyJOCgdDafIFaThwMJHR.vjR8XG', 'admin', '2025-08-15 09:54:39'),
-(2, 'Nicole', 'manager@viahale.com', '$2y$10$yP4KUyK7PSSCcy5UNc19iOOziIN1xoZ8/XixtP/jS4DkL.DDFRuPe', 'manager', '2025-08-15 10:59:22');
+(2, 'Nicole', 'manager@viahale.com', '$2y$10$yP4KUyK7PSSCcy5UNc19iOOziIN1xoZ8/XixtP/jS4DkL.DDFRuPe', 'manager', '2025-08-15 10:59:22'),
+(3, 'Nicole', 'nicole@viahale.com', '$2y$10$Ks89PfcJmNa3amyzyGqKleWLiLJkuWJk8vaIoln7PqHCt4wnpr/OK', 'admin', '2025-08-28 12:26:22');
 
 -- --------------------------------------------------------
 
@@ -562,6 +828,21 @@ INSERT INTO `warehouse_locations` (`id`, `code`, `name`, `address`) VALUES
 --
 
 --
+-- Indexes for table `budgets`
+--
+ALTER TABLE `budgets`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `fiscal_year` (`fiscal_year`,`month`),
+  ADD KEY `department_id` (`department_id`),
+  ADD KEY `category_id` (`category_id`);
+
+--
+-- Indexes for table `departments`
+--
+ALTER TABLE `departments`
+  ADD PRIMARY KEY (`id`);
+
+--
 -- Indexes for table `inventory_categories`
 --
 ALTER TABLE `inventory_categories`
@@ -576,6 +857,78 @@ ALTER TABLE `inventory_items`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `sku` (`sku`),
   ADD KEY `idx_is_active` (`is_active`);
+
+--
+-- Indexes for table `plt_documents`
+--
+ALTER TABLE `plt_documents`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `project_id` (`project_id`),
+  ADD KEY `shipment_id` (`shipment_id`),
+  ADD KEY `doc_type` (`doc_type`);
+
+--
+-- Indexes for table `plt_drivers`
+--
+ALTER TABLE `plt_drivers`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- Indexes for table `plt_milestones`
+--
+ALTER TABLE `plt_milestones`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `project_id` (`project_id`);
+
+--
+-- Indexes for table `plt_projects`
+--
+ALTER TABLE `plt_projects`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `code` (`code`);
+
+--
+-- Indexes for table `plt_shipments`
+--
+ALTER TABLE `plt_shipments`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `shipment_no` (`shipment_no`),
+  ADD KEY `project_id` (`project_id`);
+
+--
+-- Indexes for table `plt_vehicles`
+--
+ALTER TABLE `plt_vehicles`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- Indexes for table `procurement_categories`
+--
+ALTER TABLE `procurement_categories`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `uk_name` (`name`);
+
+--
+-- Indexes for table `procurement_policies`
+--
+ALTER TABLE `procurement_policies`
+  ADD PRIMARY KEY (`id`);
+
+--
+-- Indexes for table `procurement_requests`
+--
+ALTER TABLE `procurement_requests`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `pr_no` (`pr_no`),
+  ADD KEY `idx_pr_status` (`status`),
+  ADD KEY `idx_pr_needed_by` (`needed_by`);
+
+--
+-- Indexes for table `procurement_request_items`
+--
+ALTER TABLE `procurement_request_items`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `fk_pr_items_header` (`pr_id`);
 
 --
 -- Indexes for table `purchase_orders`
@@ -739,6 +1092,18 @@ ALTER TABLE `warehouse_locations`
 --
 
 --
+-- AUTO_INCREMENT for table `budgets`
+--
+ALTER TABLE `budgets`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+
+--
+-- AUTO_INCREMENT for table `departments`
+--
+ALTER TABLE `departments`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+
+--
 -- AUTO_INCREMENT for table `inventory_categories`
 --
 ALTER TABLE `inventory_categories`
@@ -751,16 +1116,76 @@ ALTER TABLE `inventory_items`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
 
 --
+-- AUTO_INCREMENT for table `plt_documents`
+--
+ALTER TABLE `plt_documents`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `plt_drivers`
+--
+ALTER TABLE `plt_drivers`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `plt_milestones`
+--
+ALTER TABLE `plt_milestones`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=14;
+
+--
+-- AUTO_INCREMENT for table `plt_projects`
+--
+ALTER TABLE `plt_projects`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
+
+--
+-- AUTO_INCREMENT for table `plt_shipments`
+--
+ALTER TABLE `plt_shipments`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+
+--
+-- AUTO_INCREMENT for table `plt_vehicles`
+--
+ALTER TABLE `plt_vehicles`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `procurement_categories`
+--
+ALTER TABLE `procurement_categories`
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
+--
+-- AUTO_INCREMENT for table `procurement_policies`
+--
+ALTER TABLE `procurement_policies`
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
+--
+-- AUTO_INCREMENT for table `procurement_requests`
+--
+ALTER TABLE `procurement_requests`
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
+--
+-- AUTO_INCREMENT for table `procurement_request_items`
+--
+ALTER TABLE `procurement_request_items`
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
+
+--
 -- AUTO_INCREMENT for table `purchase_orders`
 --
 ALTER TABLE `purchase_orders`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
 
 --
 -- AUTO_INCREMENT for table `purchase_order_items`
 --
 ALTER TABLE `purchase_order_items`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=10;
 
 --
 -- AUTO_INCREMENT for table `quotes`
@@ -832,7 +1257,7 @@ ALTER TABLE `shipment_items`
 -- AUTO_INCREMENT for table `stock_transactions`
 --
 ALTER TABLE `stock_transactions`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=51;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=53;
 
 --
 -- AUTO_INCREMENT for table `suppliers`
@@ -844,7 +1269,7 @@ ALTER TABLE `suppliers`
 -- AUTO_INCREMENT for table `users`
 --
 ALTER TABLE `users`
-  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(10) UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=4;
 
 --
 -- AUTO_INCREMENT for table `warehouse_locations`
@@ -855,6 +1280,24 @@ ALTER TABLE `warehouse_locations`
 --
 -- Constraints for dumped tables
 --
+
+--
+-- Constraints for table `plt_milestones`
+--
+ALTER TABLE `plt_milestones`
+  ADD CONSTRAINT `fk_ms_proj` FOREIGN KEY (`project_id`) REFERENCES `plt_projects` (`id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `plt_shipments`
+--
+ALTER TABLE `plt_shipments`
+  ADD CONSTRAINT `fk_plts_proj` FOREIGN KEY (`project_id`) REFERENCES `plt_projects` (`id`) ON DELETE SET NULL;
+
+--
+-- Constraints for table `procurement_request_items`
+--
+ALTER TABLE `procurement_request_items`
+  ADD CONSTRAINT `fk_pr_items_header` FOREIGN KEY (`pr_id`) REFERENCES `procurement_requests` (`id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `purchase_orders`
