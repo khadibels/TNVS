@@ -220,8 +220,8 @@ if (function_exists('current_user')) {
           <div class="alert alert-warning d-none mt-2" id="projWarn"></div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button>
-          <button class="btn btn-primary" type="submit">Save Project</button>
+          <button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Close</button>
+          <button class="btn btn-primary" id="btnSaveProj" type="submit">Save Project</button>
         </div>
       </form>
     </div>
@@ -236,22 +236,15 @@ if (function_exists('current_user')) {
 const $ = (s, r=document)=>r.querySelector(s);
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[m]));}
 
-// ✅ STRICT fetch: throws on HTTP errors or {"error": "..."}
+// strict fetch
 async function fetchJSON(url, opts = {}) {
   const res = await fetch(url, opts);
   const text = await res.text();
-
-  let data;
-  try { data = JSON.parse(text); } catch { /* not JSON */ }
-
-  if (!res.ok || (data && data.error)) {
-    const msg = (data && data.error) ? data.error : (text || res.statusText);
-    throw new Error(msg);
-  }
+  let data; try { data = JSON.parse(text); } catch {}
+  if (!res.ok || (data && data.error)) throw new Error((data && data.error) ? data.error : (text || res.statusText));
   if (data === undefined) throw new Error(text || 'Non-JSON response');
   return data;
 }
-
 function parseErr(e){ try{const j=JSON.parse(e.message); if(j.error) return j.error;}catch{} return e.message||'Request failed'; }
 function toast(msg, variant='success', delay=2200){
   let wrap=document.getElementById('toasts');
@@ -289,6 +282,9 @@ async function loadProjects(){
     tbody.innerHTML = data.length ? data.map(r=>{
       const tl = `${esc(r.start_date||'-')} → ${esc(r.deadline_date||'-')}`;
       const ms = r.milestone_summary ? r.milestone_summary.split('|').map(span).join(' ') : '';
+      const st = String(r.status||'').toLowerCase();
+      const isFinal = (st==='closed' || st==='completed');
+
       return `
         <tr>
           <td class="fw-semibold">${esc(r.code||('PRJ-'+r.id))}</td>
@@ -299,11 +295,11 @@ async function loadProjects(){
           <td>${badge(r.status)}</td>
           <td class="text-end">
             <button class="btn btn-sm btn-outline-secondary me-1" onclick="openEdit(${r.id})">Edit</button>
-            ${r.status!=='closed'
+            ${st!=='closed'
               ? `<button class="btn btn-sm btn-success me-1" onclick="tryClose(${r.id})">Close Project</button>` : ``}
-            ${r.status!=='delayed'
+            ${!isFinal && st!=='delayed'
               ? `<button class="btn btn-sm btn-outline-warning me-1" onclick="quickStatus(${r.id},'delayed')">Mark Delayed</button>`:``}
-            ${r.status!=='ongoing'
+            ${!isFinal && st!=='ongoing'
               ? `<button class="btn btn-sm btn-primary" onclick="quickStatus(${r.id},'ongoing')">Mark Ongoing</button>`:``}
           </td>
         </tr>`;
@@ -318,7 +314,6 @@ async function loadProjects(){
     for(let p=Math.max(1,page-2); p<=Math.min(totalPages,page+2); p++) pager.insertAdjacentHTML('beforeend', li(p,p,false,p===page));
     pager.insertAdjacentHTML('beforeend', li(page+1,'&raquo;', page>=totalPages));
   }catch(e){
-    // Friendly error row
     const tbody=document.getElementById('projBody');
     tbody.innerHTML = `<tr><td colspan="7" class="text-center py-4 text-danger">Error loading projects: ${esc(parseErr(e))}</td></tr>`;
     document.getElementById('pageInfo').textContent='';
@@ -327,6 +322,7 @@ async function loadProjects(){
 }
 window.go=(p)=>{ if(!p||p<1) return; state.page=p; loadProjects(); };
 
+// ---------- filters ----------
 document.getElementById('btnFilter').addEventListener('click', ()=>{
   state.page=1;
   state.search=$('#fSearch').value.trim();
@@ -360,44 +356,87 @@ function addMsRow(ms={title:'', due_date:'', status:'pending', owner:''}){
   document.getElementById('msBody').appendChild(tr);
 }
 
+function setFormLocked(lock, reason=''){
+  const form = document.getElementById('projForm');
+  form.dataset.locked = lock ? '1' : '';
+  const inputs = form.querySelectorAll('input, select, textarea');
+  inputs.forEach(el=>{
+    // keep hidden id and allow closing the modal
+    if (el.id === 'projId') return;
+    el.disabled = !!lock;
+  });
+  const saveBtn = document.getElementById('btnSaveProj');
+  saveBtn.disabled = !!lock;
+  const warn = document.getElementById('projWarn');
+  if (lock){
+    warn.textContent = reason || 'This project is already CLOSED and cannot be edited.';
+    warn.classList.remove('d-none');
+  } else {
+    warn.classList.add('d-none');
+    warn.textContent = '';
+  }
+}
+
 async function openNew(){
   const m=bootstrap.Modal.getOrCreateInstance(document.getElementById('mdlProj'));
-  const f=document.getElementById('projForm'); f.reset(); $('#projErr').classList.add('d-none'); $('#projWarn').classList.add('d-none'); $('#projId').value='';
+  const f=document.getElementById('projForm'); f.reset();
+  document.getElementById('projErr').classList.add('d-none');
+  document.getElementById('projWarn').classList.add('d-none');
+  document.getElementById('projId').value='';
   document.getElementById('msBody').innerHTML=''; addMsRow(); addMsRow();
-  $('#projStatus').value='planned';
+  document.getElementById('projStatus').value='planned';
+  setFormLocked(false);
   m.show();
 }
+
 async function openEdit(id){
   const m=bootstrap.Modal.getOrCreateInstance(document.getElementById('mdlProj'));
   const f=document.getElementById('projForm'); f.reset();
-  $('#projErr').classList.add('d-none'); $('#projWarn').classList.add('d-none'); $('#projId').value=id;
+  document.getElementById('projErr').classList.add('d-none');
+  document.getElementById('projWarn').classList.add('d-none');
+  document.getElementById('projId').value=id;
   document.getElementById('msBody').innerHTML='';
   try{
     const j = await fetchJSON(api.list+'?id='+id);
     const r = (j&&j.data&&j.data[0])?j.data[0]:j;
-    $('#projCode').value=r.code||'';
-    $('#projName').value=r.name||'';
-    $('#projScope').value=r.scope||'';
-    $('#projStart').value=r.start_date||'';
-    $('#projDeadline').value=r.deadline_date||'';
-    $('#projStatus').value=r.status||'planned';
-    $('#projOwner').value=r.owner_name||'';
+    document.getElementById('projCode').value=r.code||'';
+    document.getElementById('projName').value=r.name||'';
+    document.getElementById('projScope').value=r.scope||'';
+    document.getElementById('projStart').value=r.start_date||'';
+    document.getElementById('projDeadline').value=r.deadline_date||'';
+    document.getElementById('projStatus').value=r.status||'planned';
+    document.getElementById('projOwner').value=r.owner_name||'';
+
     try{
       const ms=await fetchJSON(api.msList+'?project_id='+id);
       (ms||[]).forEach(x=>addMsRow(x));
       if(!(ms||[]).length) addMsRow();
     }catch{ addMsRow(); }
-    if((r.status||'')==='closed'){
-      const w=document.getElementById('projWarn'); w.textContent='This project is already CLOSED.'; w.classList.remove('d-none');
+
+    const st = String(r.status||'').toLowerCase();
+    if (st==='closed'){
+      setFormLocked(true, 'This project is already CLOSED and cannot be edited.');
+    } else {
+      setFormLocked(false);
     }
+
     m.show();
-  }catch(e){ const el=document.getElementById('projErr'); el.textContent=parseErr(e); el.classList.remove('d-none'); }
+  }catch(e){
+    const el=document.getElementById('projErr'); el.textContent=parseErr(e); el.classList.remove('d-none');
+  }
 }
 
 document.getElementById('projForm').addEventListener('submit', async (ev)=>{
   ev.preventDefault();
+  const form = document.getElementById('projForm');
+  if (form.dataset.locked === '1'){
+    const el=document.getElementById('projErr');
+    el.textContent='This project is already CLOSED and cannot be edited.';
+    el.classList.remove('d-none');
+    return;
+  }
   try{
-    $('#projErr').classList.add('d-none');
+    document.getElementById('projErr').classList.add('d-none');
     const fd=new FormData(ev.target);
     const msRows=[...document.querySelectorAll('#msBody tr')].map(tr=>{
       const get=n=>tr.querySelector(`[name="${n}"]`)||tr.querySelector(`[name="${n}[]"]`);
@@ -422,8 +461,9 @@ document.getElementById('projForm').addEventListener('submit', async (ev)=>{
 async function quickStatus(id,status){
   if(!confirm('Set status to '+status.toUpperCase()+'?')) return;
   const body=new URLSearchParams({id:String(id),status:String(status)});
-  try{ await fetchJSON(api.setSt,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body});
-       toast('Status updated'); loadProjects();
+  try{
+    await fetchJSON(api.setSt,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body});
+    toast('Status updated'); loadProjects();
   }catch(e){ alert(parseErr(e)); }
 }
 
