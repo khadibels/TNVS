@@ -54,7 +54,7 @@ $ready = $hasShip;
         <a class="nav-link" href="./shipmentTracker.php"><ion-icon name="trail-sign-outline"></ion-icon><span>Shipment Tracker</span></a>
         <a class="nav-link" href="./projectTracking.php"><ion-icon name="briefcase-outline"></ion-icon><span>Project Tracking</span></a>
         <a class="nav-link" href="./deliverySchedule.php"><ion-icon name="calendar-outline"></ion-icon><span>Delivery Schedule</span></a>
-        <a class="nav-link active" href="./pltReports.php"><ion-icon name="analytics-outline"></ion-icon><span>Reports</span></a>
+        <a class="nav-link active" href="./pltReports.php"><ion-icon name="file-tray-stacked-outline"></ion-icon><span>Reports</span></a>
       </nav>
       <div class="logout-section">
         <a class="nav-link text-danger" href="<?= defined("BASE_URL")
