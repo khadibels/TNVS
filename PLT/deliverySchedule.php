@@ -16,16 +16,13 @@ if (function_exists('current_user')) {
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Delivery Schedule | PLT</title>
+
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="../css/style.css" rel="stylesheet" />
   <link href="../css/modules.css" rel="stylesheet" />
   <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
   <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
   <script src="../js/sidebar-toggle.js"></script>
-  <style>
-    .chip{font-size:.75rem;padding:.15rem .5rem;border-radius:.5rem;background:#f3f3f3}
-    .route{font-size:.9rem;color:#555}
-  </style>
 </head>
 <body>
 <div class="container-fluid p-0">
@@ -43,7 +40,6 @@ if (function_exists('current_user')) {
         <a class="nav-link" href="./projectTracking.php"><ion-icon name="briefcase-outline"></ion-icon><span>Project Tracking</span></a>
         <a class="nav-link active" href="./deliverySchedule.php"><ion-icon name="calendar-outline"></ion-icon><span>Delivery Schedule</span></a>
         <a class="nav-link" href="./pltReports.php"><ion-icon name="analytics-outline"></ion-icon><span>Reports</span></a>
-        <a class="nav-link" href="./pltSettings.php"><ion-icon name="settings-outline"></ion-icon><span>Settings</span></a>
       </nav>
       <div class="logout-section">
         <a class="nav-link text-danger" href="<?= defined('BASE_URL') ? BASE_URL : '#' ?>/auth/logout.php">
@@ -54,8 +50,16 @@ if (function_exists('current_user')) {
 
     <!-- Main -->
     <div class="col main-content p-3 p-lg-4">
+
+      <!-- Topbar -->
       <div class="d-flex justify-content-between align-items-center mb-3">
-        <h2 class="m-0">Delivery Schedule</h2>
+        <div class="d-flex align-items-center gap-3">
+          <button class="sidebar-toggle d-lg-none btn btn-outline-secondary btn-sm" id="sidebarToggle2" aria-label="Toggle sidebar">
+            <ion-icon name="menu-outline"></ion-icon>
+          </button>
+          <h2 class="m-0">Delivery Schedule</h2>
+        </div>
+
         <div class="d-flex align-items-center gap-2">
           <img src="../img/profile.jpg" class="rounded-circle" width="36" height="36" alt="">
           <div class="small">
@@ -65,38 +69,54 @@ if (function_exists('current_user')) {
         </div>
       </div>
 
-      <!-- Stat cards -->
-      <div class="row g-3 mb-3">
-        <div class="col-6 col-md-3"><div class="card shadow-sm"><div class="card-body">
-          <div class="text-muted small">Today</div><div class="fs-3 fw-bold" id="kToday">0</div>
-        </div></div></div>
-        <div class="col-6 col-md-3"><div class="card shadow-sm"><div class="card-body">
-          <div class="text-muted small">Tomorrow</div><div class="fs-3 fw-bold" id="kTomorrow">0</div>
-        </div></div></div>
-        <div class="col-6 col-md-3"><div class="card shadow-sm"><div class="card-body">
-          <div class="text-muted small">This Week</div><div class="fs-3 fw-bold" id="kWeek">0</div>
-        </div></div></div>
-        <div class="col-6 col-md-3"><div class="card shadow-sm"><div class="card-body">
-          <div class="text-muted small">Delivered (7d)</div><div class="fs-3 fw-bold" id="kDel7">0</div>
-        </div></div></div>
-      </div>
+      <!-- KPI cards -->
+      <section class="stats-cards mb-3">
+        <div class="stats-card">
+          <div class="icon"><ion-icon name="calendar-outline"></ion-icon></div>
+          <div>
+            <div class="label">Today</div>
+            <div class="value" id="kToday">0</div>
+          </div>
+        </div>
+        <div class="stats-card">
+          <div class="icon"><ion-icon name="calendar-number-outline"></ion-icon></div>
+          <div>
+            <div class="label">Tomorrow</div>
+            <div class="value" id="kTomorrow">0</div>
+          </div>
+        </div>
+        <div class="stats-card">
+          <div class="icon"><ion-icon name="calendar-clear-outline"></ion-icon></div>
+          <div>
+            <div class="label">This Week</div>
+            <div class="value" id="kWeek">0</div>
+          </div>
+        </div>
+        <div class="stats-card">
+          <div class="icon"><ion-icon name="checkmark-done-outline"></ion-icon></div>
+          <div>
+            <div class="label">Delivered (7d)</div>
+            <div class="value" id="kDel7">0</div>
+          </div>
+        </div>
+      </section>
 
-      <!-- Filters -->
+      <!-- Filters (mirrors inventory filter card) -->
       <section class="card shadow-sm mb-3">
         <div class="card-body">
-          <div class="row g-2 align-items-end">
-            <div class="col-6 col-md-3">
-              <label class="form-label small text-muted">From</label>
-              <input type="date" id="fFrom" class="form-control">
+          <div class="row g-2 align-items-center">
+            <div class="col-12 col-md-4">
+              <input id="fSearch" class="form-control" placeholder="Search Shipment No, Project, Origin/Destination…">
             </div>
-            <div class="col-6 col-md-3">
-              <label class="form-label small text-muted">To</label>
-              <input type="date" id="fTo" class="form-control">
+            <div class="col-6 col-md-2">
+              <input type="date" id="fFrom" class="form-control" placeholder="From">
             </div>
-            <div class="col-6 col-md-3">
-              <label class="form-label small text-muted">Status</label>
+            <div class="col-6 col-md-2">
+              <input type="date" id="fTo" class="form-control" placeholder="To">
+            </div>
+            <div class="col-6 col-md-2">
               <select id="fStatus" class="form-select">
-                <option value="">All</option>
+                <option value="">All Statuses</option>
                 <option value="planned">Planned</option>
                 <option value="picked">Picked</option>
                 <option value="in_transit">In-Transit</option>
@@ -104,21 +124,16 @@ if (function_exists('current_user')) {
                 <option value="cancelled">Cancelled</option>
               </select>
             </div>
-            <div class="col-6 col-md-3">
-              <label class="form-label small text-muted">Search</label>
-              <input id="fSearch" class="form-control" placeholder="Shipment No, Project, Origin/Destination">
-            </div>
-            <div class="col-12 col-md-3">
-              <label class="form-label small text-muted">Sort</label>
+            <div class="col-6 col-md-2">
               <select id="fSort" class="form-select">
                 <option value="schedule" selected>Schedule Date</option>
                 <option value="eta">ETA</option>
                 <option value="newest">Newest</option>
               </select>
             </div>
-            <div class="col-12 col-md-9 d-grid d-md-flex justify-content-md-end">
+            <div class="col-12 d-grid d-md-flex justify-content-md-end">
               <button id="btnApply" class="btn btn-outline-primary me-md-2">
-                <ion-icon name="search-outline"></ion-icon> Apply
+                <ion-icon name="search-outline"></ion-icon> Search
               </button>
               <button id="btnReset" class="btn btn-outline-secondary">Reset</button>
             </div>
@@ -126,10 +141,13 @@ if (function_exists('current_user')) {
         </div>
       </section>
 
-      <!-- List -->
+      <!-- Table (same structure/pagination vibe) -->
       <section class="card shadow-sm">
         <div class="card-body">
-          <h5 class="mb-3">Scheduled Deliveries</h5>
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h5 class="mb-0">Scheduled Deliveries</h5>
+          </div>
+
           <div class="table-responsive">
             <table class="table align-middle">
               <thead>
@@ -143,9 +161,12 @@ if (function_exists('current_user')) {
                   <th>Status</th>
                 </tr>
               </thead>
-              <tbody id="tblBody"><tr><td colspan="7" class="text-center py-4">Loading…</td></tr></tbody>
+              <tbody id="tblBody">
+                <tr><td colspan="7" class="text-center py-4">Loading…</td></tr>
+              </tbody>
             </table>
           </div>
+
           <div class="d-flex justify-content-between align-items-center mt-2">
             <div class="small text-muted" id="pageInfo"></div>
             <nav><ul class="pagination pagination-sm mb-0" id="pager"></ul></nav>
@@ -156,7 +177,9 @@ if (function_exists('current_user')) {
   </div><!-- /row -->
 </div><!-- /container -->
 
+<!-- Toast container -->
 <div class="toast-container position-fixed top-0 end-0 p-3" id="toasts" style="z-index:1080"></div>
+
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 const $ = (s, r=document)=>r.querySelector(s);
@@ -169,7 +192,7 @@ function toast(msg, variant='success', delay=2200){
   wrap.appendChild(el); const t=new bootstrap.Toast(el,{delay}); t.show(); el.addEventListener('hidden.bs.toast',()=>el.remove());
 }
 
-// Browser-resolved base to avoid any case/path issues
+// Browser-safe API base
 const API_BASE = new URL('./api/', window.location.href);
 const API = {
   list:  new URL('plt_schedule_list.php',  API_BASE).toString(),
@@ -192,6 +215,7 @@ async function fetchJSON(url, opts = {}){
   return data;
 }
 
+// state
 let state = { page:1, perPage:10, search:'', status:'', sort:'schedule', from:'', to:'' };
 
 function badgeStatus(s){
@@ -202,16 +226,18 @@ function badgeStatus(s){
   return `<span class="badge bg-${cls}">${label}</span>`;
 }
 
+// KPIs
 async function loadStats(){
   try{
     const r = await fetchJSON(API.stats);
-    document.getElementById('kToday').textContent    = r.today ?? 0;
-    document.getElementById('kTomorrow').textContent = r.tomorrow ?? 0;
-    document.getElementById('kWeek').textContent     = r.week ?? 0;
-    document.getElementById('kDel7').textContent     = r.delivered7 ?? 0;
-  }catch(e){ /* ignore */ }
+    $('#kToday').textContent    = r.today ?? 0;
+    $('#kTomorrow').textContent = r.tomorrow ?? 0;
+    $('#kWeek').textContent     = r.week ?? 0;
+    $('#kDel7').textContent     = r.delivered7 ?? 0;
+  }catch(e){ }
 }
 
+// List
 async function loadList(){
   const qs = new URLSearchParams({
     page:state.page, per_page:state.perPage, search:state.search, status:state.status,
@@ -219,7 +245,7 @@ async function loadList(){
   });
   try{
     const {data, pagination} = await fetchJSON(API.list + '?' + qs.toString());
-    const tbody = document.getElementById('tblBody');
+    const tbody = $('#tblBody');
     const fmt=v=>v?esc(v):'-';
     tbody.innerHTML = data.length ? data.map(r=>{
       const route = `<div class="route">${esc(r.origin||'-')} → ${esc(r.destination||'-')}</div>`;
@@ -238,37 +264,38 @@ async function loadList(){
 
     const {page,perPage,total}=pagination;
     const totalPages=Math.max(1,Math.ceil(total/perPage));
-    document.getElementById('pageInfo').textContent=`Page ${page} of ${totalPages} • ${total} result(s)`;
-    const pager=document.getElementById('pager'); pager.innerHTML='';
+    $('#pageInfo').textContent=`Page ${page} of ${totalPages} • ${total} result(s)`;
+    const pager=$('#pager'); pager.innerHTML='';
     const li=(p,l=p,d=false,a=false)=>`<li class="page-item ${d?'disabled':''} ${a?'active':''}"><a class="page-link" href="#" onclick="go(${p});return false;">${l}</a></li>`;
     pager.insertAdjacentHTML('beforeend', li(page-1,'&laquo;', page<=1));
     for(let p=Math.max(1,page-2); p<=Math.min(totalPages,page+2); p++) pager.insertAdjacentHTML('beforeend', li(p,p,false,p===page));
     pager.insertAdjacentHTML('beforeend', li(page+1,'&raquo;', page>=totalPages));
   }catch(e){
-    document.getElementById('tblBody').innerHTML =
+    $('#tblBody').innerHTML =
       `<tr><td colspan="7" class="text-center py-4 text-danger">Error: ${esc(e.message||'Failed')}</td></tr>`;
-    document.getElementById('pageInfo').textContent=''; document.getElementById('pager').innerHTML='';
+    $('#pageInfo').textContent=''; $('#pager').innerHTML='';
   }
 }
 window.go=(p)=>{ if(!p||p<1) return; state.page=p; loadList(); };
 
-document.getElementById('btnApply').addEventListener('click', ()=>{
+// filters (same UX as inventory page)
+$('#btnApply').addEventListener('click', ()=>{
   state.page=1;
-  state.from = document.getElementById('fFrom').value || '';
-  state.to   = document.getElementById('fTo').value || '';
-  state.status=document.getElementById('fStatus').value;
-  state.search=document.getElementById('fSearch').value.trim();
-  state.sort=document.getElementById('fSort').value;
+  state.search=$('#fSearch').value.trim();
+  state.from=$('#fFrom').value||'';
+  state.to=$('#fTo').value||'';
+  state.status=$('#fStatus').value;
+  state.sort=$('#fSort').value;
   loadList();
 });
-document.getElementById('btnReset').addEventListener('click', ()=>{
-  document.getElementById('fFrom').value=''; document.getElementById('fTo').value='';
-  document.getElementById('fStatus').value=''; document.getElementById('fSearch').value='';
-  document.getElementById('fSort').value='schedule';
+$('#btnReset').addEventListener('click', ()=>{
+  $('#fSearch').value=''; $('#fFrom').value=''; $('#fTo').value='';
+  $('#fStatus').value=''; $('#fSort').value='schedule';
   state={page:1,perPage:10,search:'',status:'',sort:'schedule',from:'',to:''};
   loadList();
 });
 
+// init
 loadStats();
 loadList();
 </script>

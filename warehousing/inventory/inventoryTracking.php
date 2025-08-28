@@ -1,12 +1,16 @@
 <?php
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/auth.php';
-require_login(); 
+require_login();
 
+/* ---- user (same pattern as reports) ---- */
+$userName = $_SESSION["user"]["name"] ?? "Nicole Malitao";
+$userRole = $_SESSION["user"]["role"] ?? "Warehouse Manager";
+
+/* ---- data ---- */
 $catNames = $pdo->query("SELECT name FROM inventory_categories WHERE active=1 ORDER BY name")
                ->fetchAll(PDO::FETCH_COLUMN);
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -21,6 +25,18 @@ $catNames = $pdo->query("SELECT name FROM inventory_categories WHERE active=1 OR
   <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
   <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
   <script src="../../js/sidebar-toggle.js"></script>
+
+  <!-- mobile-only layout for topbar button under profile -->
+  <style>
+    .topbar-right{ display:flex; align-items:center; gap:.5rem; }
+    @media (max-width: 611px){
+      .topbar-right{ flex-direction:column; align-items:flex-end; gap:.25rem; }
+      .topbar-right img{ order:0; }
+      .topbar-right .small{ order:1; text-align:right; line-height:1.1; }
+      .topbar-right .btn-violet{ order:2; width:100%; max-width:160px; padding:.4rem .6rem; font-size:.9rem; line-height:1.1; }
+      .main-content h2.m-0{ font-size:1.25rem; }
+    }
+  </style>
 </head>
 <body>
   <div class="container-fluid p-0">
@@ -43,7 +59,6 @@ $catNames = $pdo->query("SELECT name FROM inventory_categories WHERE active=1 OR
           <a class="nav-link" href="../warehouseSettings.php"><ion-icon name="settings-outline"></ion-icon><span>Settings</span></a>
         </nav>
 
-        <!-- Logout -->
         <div class="logout-section">
           <a class="nav-link text-danger" href="<?= BASE_URL ?>/auth/logout.php">
             <ion-icon name="log-out-outline"></ion-icon> Logout
@@ -63,21 +78,18 @@ $catNames = $pdo->query("SELECT name FROM inventory_categories WHERE active=1 OR
             <h2 class="m-0">Inventory Tracking</h2>
           </div>
 
-          <div class="d-flex align-items-center gap-2">
-  <!-- New Add Item button -->
-  <button class="btn btn-violet" data-bs-toggle="modal" data-bs-target="#addModal">
-    <ion-icon name="add-outline"></ion-icon> Add Item
-  </button>
-
-  <!-- Profile info -->
-  <img src="../../img/profile.jpg" class="rounded-circle" width="36" height="36" alt="">
-  <div class="small">
-    <strong>Nicole Malitao</strong><br/>
-    <span class="text-muted">Warehouse Manager</span>
-  </div>
-</div>
-</div>
-
+          <!-- Right side: profile + Add button (mobile stacks) -->
+          <div class="topbar-right">
+            <button class="btn btn-violet" data-bs-toggle="modal" data-bs-target="#addModal">
+              <ion-icon name="add-outline"></ion-icon> Add Item
+            </button>
+            <img src="../../img/profile.jpg" class="rounded-circle" width="36" height="36" alt="">
+            <div class="small">
+              <strong><?= htmlspecialchars($userName) ?></strong><br/>
+              <span class="text-muted"><?= htmlspecialchars($userRole) ?></span>
+            </div>
+          </div>
+        </div>
 
         <!-- KPI Cards -->
         <section class="stats-cards mb-3">
@@ -107,12 +119,11 @@ $catNames = $pdo->query("SELECT name FROM inventory_categories WHERE active=1 OR
               </div>
               <div class="col-6 col-md-3">
                 <select id="fCategory" class="form-select">
-  <option value="">All Categories</option>
-  <?php foreach ($catNames as $n): ?>
-    <option value="<?= htmlspecialchars($n) ?>"><?= htmlspecialchars($n) ?></option>
-  <?php endforeach; ?>
-</select>
-
+                  <option value="">All Categories</option>
+                  <?php foreach ($catNames as $n): ?>
+                    <option value="<?= htmlspecialchars($n) ?>"><?= htmlspecialchars($n) ?></option>
+                  <?php endforeach; ?>
+                </select>
               </div>
               <div class="col-6 col-md-3">
                 <select id="fSort" class="form-select">
@@ -132,10 +143,9 @@ $catNames = $pdo->query("SELECT name FROM inventory_categories WHERE active=1 OR
         </section>
 
         <div class="form-check ms-2">
-  <input class="form-check-input" type="checkbox" id="fArchived">
-  <label class="form-check-label" for="fArchived">Include archived</label>
-</div>
-
+          <input class="form-check-input" type="checkbox" id="fArchived">
+          <label class="form-check-label" for="fArchived">Include archived</label>
+        </div>
 
         <!-- Table -->
         <section class="card shadow-sm">
@@ -188,25 +198,24 @@ $catNames = $pdo->query("SELECT name FROM inventory_categories WHERE active=1 OR
               <input name="name" class="form-control" required>
             </div>
             <div class="col-12 col-md-6">
-  <label class="form-label">Category</label>
-  <select class="form-select" name="category" id="itemCat" required>
-    <?php foreach ($catNames as $n): ?>
-      <option value="<?= htmlspecialchars($n) ?>"><?= htmlspecialchars($n) ?></option>
-    <?php endforeach; ?>
-  </select>
-  <?php if (!$catNames): ?>
-    <div class="form-text text-danger">No categories yet. Add some in Settings → Categories.</div>
-  <?php endif; ?>
-</div>
+              <label class="form-label">Category</label>
+              <select class="form-select" name="category" id="itemCat" required>
+                <?php foreach ($catNames as $n): ?>
+                  <option value="<?= htmlspecialchars($n) ?>"><?= htmlspecialchars($n) ?></option>
+                <?php endforeach; ?>
+              </select>
+              <?php if (!$catNames): ?>
+                <div class="form-text text-danger">No categories yet. Add some in Settings → Categories.</div>
+              <?php endif; ?>
+            </div>
             <div class="col-6">
               <label class="form-label">Location</label>
               <input name="location" class="form-control">
             </div>
             <div class="col-6">
-  <label class="form-label">Stock</label>
-  <div class="form-control-plaintext">Auto-calculated via Stock Management</div>
-</div>
-
+              <label class="form-label">Stock</label>
+              <div class="form-control-plaintext">Auto-calculated via Stock Management</div>
+            </div>
             <div class="col-6">
               <label class="form-label">Reorder Level</label>
               <input name="reorder_level" type="number" min="0" value="0" class="form-control" required>
@@ -215,10 +224,9 @@ $catNames = $pdo->query("SELECT name FROM inventory_categories WHERE active=1 OR
           <div class="alert alert-danger d-none mt-3" id="addErr"></div>
         </div>
         <div class="modal-footer">
-  <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Cancel</button>
-  <button class="btn btn-violet" type="submit"><ion-icon name="save-outline"></ion-icon> Save</button>
-</div>
-
+          <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-violet" type="submit"><ion-icon name="save-outline"></ion-icon> Save</button>
+        </div>
       </form>
     </div>
   </div>
@@ -239,26 +247,24 @@ $catNames = $pdo->query("SELECT name FROM inventory_categories WHERE active=1 OR
               <input name="name" class="form-control" required>
             </div>
             <div class="col-12 col-md-6">
-  <label class="form-label">Category</label>
-  <select class="form-select" name="category" id="itemCatEdit" required>
-    <?php foreach ($catNames as $n): ?>
-      <option value="<?= htmlspecialchars($n) ?>"><?= htmlspecialchars($n) ?></option>
-    <?php endforeach; ?>
-  </select>
-  <?php if (!$catNames): ?>
-    <div class="form-text text-danger">No categories yet. Add some in Settings → Categories.</div>
-  <?php endif; ?>
-</div>
-
+              <label class="form-label">Category</label>
+              <select class="form-select" name="category" id="itemCatEdit" required>
+                <?php foreach ($catNames as $n): ?>
+                  <option value="<?= htmlspecialchars($n) ?>"><?= htmlspecialchars($n) ?></option>
+                <?php endforeach; ?>
+              </select>
+              <?php if (!$catNames): ?>
+                <div class="form-text text-danger">No categories yet. Add some in Settings → Categories.</div>
+              <?php endif; ?>
+            </div>
             <div class="col-6">
               <label class="form-label">Location</label>
               <input name="location" class="form-control">
             </div>
-           <div class="col-6">
-  <label class="form-label">Stock</label>
-  <div class="form-control-plaintext">Auto-calculated via Stock Management</div>
-</div>
-
+            <div class="col-6">
+              <label class="form-label">Stock</label>
+              <div class="form-control-plaintext">Auto-calculated via Stock Management</div>
+            </div>
             <div class="col-6">
               <label class="form-label">Reorder Level</label>
               <input name="reorder_level" type="number" min="0" class="form-control" required>
@@ -267,15 +273,14 @@ $catNames = $pdo->query("SELECT name FROM inventory_categories WHERE active=1 OR
           <div class="alert alert-danger d-none mt-3" id="editErr"></div>
         </div>
         <div class="modal-footer">
-  <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Cancel</button>
-  <button class="btn btn-violet" type="submit"><ion-icon name="create-outline"></ion-icon> Update</button>
-</div>
-
+          <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-violet" type="submit"><ion-icon name="create-outline"></ion-icon> Update</button>
+        </div>
       </form>
     </div>
   </div>
 
-     <!-- Delete Modal -->
+  <!-- Archive Modal -->
   <div class="modal fade" id="deleteModal" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
       <form class="modal-content" id="formDelete">
@@ -323,28 +328,27 @@ $catNames = $pdo->query("SELECT name FROM inventory_categories WHERE active=1 OR
   </div>
 
   <!-- Unarchive Modal -->
-<div class="modal fade" id="unarchiveModal" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog">
-    <form class="modal-content" id="formUnarchive">
-      <div class="modal-header">
-        <h5 class="modal-title">Unarchive Item</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <input type="hidden" name="id" />
-        <p class="mb-0">Unarchive <span id="unarchName" class="fw-semibold"></span>?</p>
-        <div class="alert alert-danger d-none mt-3" id="unarchErr"></div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Cancel</button>
-        <button class="btn btn-success" type="submit">
-          <ion-icon name="arrow-up-circle-outline"></ion-icon> Yes, Unarchive
-        </button>
-      </div>
-    </form>
+  <div class="modal fade" id="unarchiveModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+      <form class="modal-content" id="formUnarchive">
+        <div class="modal-header">
+          <h5 class="modal-title">Unarchive Item</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body">
+          <input type="hidden" name="id" />
+          <p class="mb-0">Unarchive <span id="unarchName" class="fw-semibold"></span>?</p>
+          <div class="alert alert-danger d-none mt-3" id="unarchErr"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" type="button" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-success" type="submit">
+            <ion-icon name="arrow-up-circle-outline"></ion-icon> Yes, Unarchive
+          </button>
+        </div>
+      </form>
+    </div>
   </div>
-</div>
-
 
   <!-- JS -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
@@ -355,39 +359,11 @@ $catNames = $pdo->query("SELECT name FROM inventory_categories WHERE active=1 OR
       update: 'update_item.php',
       del:    'archive_item.php',
       unarchive: 'unarchive_item.php',
-      delForever: 'delete_item.php' // hard delete :) 
+      delForever: 'delete_item.php'
     };
-
-    // UNARCHIVE
-window.openUnarchive = (id, row) => {
-  const m = new bootstrap.Modal('#unarchiveModal'); m.show();
-  const f = document.getElementById('formUnarchive');
-  f.elements['id'].value = id;
-  document.getElementById('unarchName').textContent = `${row.sku} — ${row.name}`;
-  document.getElementById('unarchErr').classList.add('d-none');
-};
-
-document.getElementById('formUnarchive').addEventListener('submit', async (ev)=>{
-  ev.preventDefault();
-  try{
-    document.getElementById('unarchErr').classList.add('d-none');
-    await fetchJSON(api.unarchive, { method:'POST', body:new FormData(ev.target) });
-    bootstrap.Modal.getInstance(document.getElementById('unarchiveModal')).hide();
-    loadTable();
-  }catch(e){
-    showInlineErr('#unarchErr', e);
-  }
-});
-
 
     let state = { page:1, search:'', category:'', sort:'latest' };
-
-    window.go = (p)=>{
-      if (!p || p < 1) return;
-      state.page = p;
-      loadTable().catch(e=>alert(parseErr(e)));
-    };
-
+    window.go = (p)=>{ if(!p || p<1) return; state.page=p; loadTable().catch(e=>alert(parseErr(e))); };
     const $ = (s, r=document)=>r.querySelector(s);
 
     async function fetchJSON(url, opts={}) {
@@ -396,16 +372,11 @@ document.getElementById('formUnarchive').addEventListener('submit', async (ev)=>
       return res.json();
     }
     function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[m]));}
-    function jsonify(o){
-      return JSON.stringify(o)
-        .replace(/</g,'\\u003c')
-        .replace(/'/g,'\\u0027');
-    }
+    function jsonify(o){ return JSON.stringify(o).replace(/</g,'\\u003c').replace(/'/g,'\\u0027'); }
     function parseErr(e){ try{const j=JSON.parse(e.message); if(j.error) return j.error; if(j.errors) return j.errors.join(', ');}catch(_){} return e.message||'Request failed'; }
     function showInlineErr(sel, e){ const el=$(sel); el.textContent=parseErr(e); el.classList.remove('d-none'); }
 
     async function loadTable(){
-      // Build the query ONCE (now includes the archived checkbox)
       const qs = new URLSearchParams({
         page: state.page,
         search: state.search,
@@ -413,10 +384,7 @@ document.getElementById('formUnarchive').addEventListener('submit', async (ev)=>
         sort: state.sort,
         include_archived: document.getElementById('fArchived').checked ? '1' : ''
       });
-
       const { data, pagination } = await fetchJSON(api.list + '?' + qs.toString());
-
-      // rows
       const tbody = $('#tblBody');
       tbody.innerHTML = data.length ? data.map(r=>`
         <tr>
@@ -429,35 +397,30 @@ document.getElementById('formUnarchive').addEventListener('submit', async (ev)=>
           </td>
           <td>${r.location ? esc(r.location) : '-'}</td>
           <td class="text-end">
-  <button class="btn btn-sm btn-outline-secondary me-1" onclick='openEdit(${r.id}, ${jsonify(r)})'>
-    <ion-icon name="create-outline"></ion-icon> Edit
-  </button>
-
-  ${r.archived ? `
-    <button class="btn btn-sm btn-success me-1" onclick='openUnarchive(${r.id}, ${jsonify(r)})'>
-      <ion-icon name="arrow-up-circle-outline"></ion-icon> Unarchive
-    </button>
-  ` : `
-    <button class="btn btn-sm btn-outline-danger me-1" onclick='openDelete(${r.id}, ${jsonify(r)})'>
-      <ion-icon name="archive-outline"></ion-icon> Archive
-    </button>
-  `}
-
-  ${r.stock === 0 ? `
-    <button class="btn btn-sm btn-danger" onclick='openDeleteForever(${r.id}, ${jsonify(r)})'>
-      <ion-icon name="trash-outline"></ion-icon> Delete
-    </button>` : ``}
-</td>
-
+            <button class="btn btn-sm btn-outline-secondary me-1" onclick='openEdit(${r.id}, ${jsonify(r)})'>
+              <ion-icon name="create-outline"></ion-icon> Edit
+            </button>
+            ${r.archived ? `
+              <button class="btn btn-sm btn-success me-1" onclick='openUnarchive(${r.id}, ${jsonify(r)})'>
+                <ion-icon name="arrow-up-circle-outline"></ion-icon> Unarchive
+              </button>
+            ` : `
+              <button class="btn btn-sm btn-outline-danger me-1" onclick='openDelete(${r.id}, ${jsonify(r)})'>
+                <ion-icon name="archive-outline"></ion-icon> Archive
+              </button>
+            `}
+            ${r.stock === 0 ? `
+              <button class="btn btn-sm btn-danger" onclick='openDeleteForever(${r.id}, ${jsonify(r)})'>
+                <ion-icon name="trash-outline"></ion-icon> Delete
+              </button>` : ``}
+          </td>
         </tr>`).join('') : '<tr><td colspan="7" class="text-center py-4">No items found.</td></tr>';
 
-      // kpis
       $('#kpiTotal').textContent = pagination.total;
       $('#kpiLow').textContent   = data.filter(x => x.stock <= x.reorder_level).length;
       $('#kpiRaw').textContent   = data.filter(x => x.category === 'Raw').length;
       $('#kpiPack').textContent  = data.filter(x => x.category === 'Packaging').length;
 
-      // pager
       const { page, perPage, total } = pagination;
       const totalPages = Math.max(1, Math.ceil(total/perPage));
       $('#pageInfo').textContent = `Page ${page} of ${totalPages} • ${total} result(s)`;
@@ -493,18 +456,25 @@ document.getElementById('formUnarchive').addEventListener('submit', async (ev)=>
       loadTable().catch(e=>alert(parseErr(e)));
     });
 
-    // add
-    $('#formAdd').addEventListener('submit', async (ev)=>{
+    // UNARCHIVE
+    window.openUnarchive = (id, row) => {
+      const m = new bootstrap.Modal('#unarchiveModal'); m.show();
+      const f = document.getElementById('formUnarchive');
+      f.elements['id'].value = id;
+      document.getElementById('unarchName').textContent = `${row.sku} — ${row.name}`;
+      document.getElementById('unarchErr').classList.add('d-none');
+    };
+    document.getElementById('formUnarchive').addEventListener('submit', async (ev)=>{
       ev.preventDefault();
       try{
-        $('#addErr').classList.add('d-none');
-        await fetchJSON(api.add,{method:'POST',body:new FormData(ev.target)});
-        bootstrap.Modal.getInstance(document.getElementById('addModal')).hide();
-        ev.target.reset(); loadTable();
-      }catch(e){ showInlineErr('#addErr', e); }
+        document.getElementById('unarchErr').classList.add('d-none');
+        await fetchJSON(api.unarchive, { method:'POST', body:new FormData(ev.target) });
+        bootstrap.Modal.getInstance(document.getElementById('unarchiveModal')).hide();
+        loadTable();
+      }catch(e){ showInlineErr('#unarchErr', e); }
     });
 
-    // edit
+    // add
     window.openEdit=(id,row)=>{
       const m=new bootstrap.Modal('#editModal'); m.show();
       const f=document.getElementById('formEdit');
@@ -558,9 +528,7 @@ document.getElementById('formUnarchive').addEventListener('submit', async (ev)=>
         await fetchJSON(api.delForever, { method:'POST', body:new FormData(ev.target) });
         bootstrap.Modal.getInstance(document.getElementById('deleteForeverModal')).hide();
         loadTable();
-      }catch(e){
-        showInlineErr('#delForeverErr', e);
-      }
+      }catch(e){ showInlineErr('#delForeverErr', e); }
     });
 
     // init

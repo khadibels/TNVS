@@ -22,10 +22,7 @@ if (function_exists('current_user')) {
   <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
   <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
   <script src="../js/sidebar-toggle.js"></script>
-  <style>
-    .pill{font-size:.75rem;border-radius:1rem;padding:.15rem .5rem}
-    .chip{font-size:.75rem;padding:.15rem .5rem;border-radius:.5rem;background:#f3f3f3}
-  </style>
+  
 </head>
 <body>
 <div class="container-fluid p-0">
@@ -43,7 +40,6 @@ if (function_exists('current_user')) {
         <a class="nav-link active" href="./projectTracking.php"><ion-icon name="briefcase-outline"></ion-icon><span>Project Tracking</span></a>
         <a class="nav-link" href="./deliverySchedule.php"><ion-icon name="calendar-outline"></ion-icon><span>Delivery Schedule</span></a>
         <a class="nav-link" href="./pltReports.php"><ion-icon name="analytics-outline"></ion-icon><span>Reports</span></a>
-        <a class="nav-link" href="./pltSettings.php"><ion-icon name="settings-outline"></ion-icon><span>Settings</span></a>
       </nav>
       <div class="logout-section">
         <a class="nav-link text-danger" href="<?= defined('BASE_URL') ? BASE_URL : '#' ?>/auth/logout.php">

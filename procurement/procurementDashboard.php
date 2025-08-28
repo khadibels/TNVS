@@ -1,25 +1,63 @@
 <?php
 // procurement/procurementDashboard.php
-$inc = __DIR__ . '/../includes';
-if (file_exists($inc . '/config.php')) require_once $inc . '/config.php';
-if (file_exists($inc . '/auth.php'))  require_once $inc . '/auth.php';
-if (function_exists('require_login')) require_login();
+$inc = __DIR__ . "/../includes";
+if (file_exists($inc . "/config.php")) {
+    require_once $inc . "/config.php";
+}
+if (file_exists($inc . "/auth.php")) {
+    require_once $inc . "/auth.php";
+}
+if (function_exists("require_login")) {
+    require_login();
+}
 
 /* -------------------- helpers -------------------- */
-function table_exists(PDO $pdo = null, string $name = ''): bool {
-  if (!$pdo || !$name) return false;
-  try { $s = $pdo->prepare("SHOW TABLES LIKE ?"); $s->execute([$name]); return (bool)$s->fetchColumn(); }
-  catch (Throwable $e) { return false; }
+function table_exists(PDO $pdo = null, string $name = ""): bool
+{
+    if (!$pdo || !$name) {
+        return false;
+    }
+    try {
+        $s = $pdo->prepare("SHOW TABLES LIKE ?");
+        $s->execute([$name]);
+        return (bool) $s->fetchColumn();
+    } catch (Throwable $e) {
+        return false;
+    }
 }
-function column_exists(PDO $pdo = null, string $table = '', string $col = ''): bool {
-  if (!$pdo || !$table || !$col) return false;
-  try { $s = $pdo->prepare("SHOW COLUMNS FROM `$table` LIKE ?"); $s->execute([$col]); return (bool)$s->fetchColumn(); }
-  catch (Throwable $e) { return false; }
+function column_exists(
+    PDO $pdo = null,
+    string $table = "",
+    string $col = ""
+): bool {
+    if (!$pdo || !$table || !$col) {
+        return false;
+    }
+    try {
+        $s = $pdo->prepare("SHOW COLUMNS FROM `$table` LIKE ?");
+        $s->execute([$col]);
+        return (bool) $s->fetchColumn();
+    } catch (Throwable $e) {
+        return false;
+    }
 }
-function fetch_val(PDO $pdo = null, string $sql = '', array $params = [], $fallback = 0) {
-  if (!$pdo || !$sql) return $fallback;
-  try { $st = $pdo->prepare($sql); $st->execute($params); $v = $st->fetchColumn(); return $v !== false ? $v : $fallback; }
-  catch (Throwable $e) { return $fallback; }
+function fetch_val(
+    PDO $pdo = null,
+    string $sql = "",
+    array $params = [],
+    $fallback = 0
+) {
+    if (!$pdo || !$sql) {
+        return $fallback;
+    }
+    try {
+        $st = $pdo->prepare($sql);
+        $st->execute($params);
+        $v = $st->fetchColumn();
+        return $v !== false ? $v : $fallback;
+    } catch (Throwable $e) {
+        return $fallback;
+    }
 }
 
 /* -------------------- detect tables / columns -------------------- */
@@ -28,174 +66,268 @@ $hasDB = isset($pdo) && $pdo instanceof PDO;
 // your APIs use pos_*; some installs used purchase_orders*
 // try both shapes
 $poHeaderTbl = null;
-$poItemTbl   = null;
+$poItemTbl = null;
 if ($hasDB) {
-  if     (table_exists($pdo,'pos'))               $poHeaderTbl = 'pos';
-  elseif (table_exists($pdo,'purchase_orders'))    $poHeaderTbl = 'purchase_orders';
+    if (table_exists($pdo, "pos")) {
+        $poHeaderTbl = "pos";
+    } elseif (table_exists($pdo, "purchase_orders")) {
+        $poHeaderTbl = "purchase_orders";
+    }
 
-  if     (table_exists($pdo,'po_items'))          $poItemTbl   = 'po_items';
-  elseif (table_exists($pdo,'purchase_order_items')) $poItemTbl = 'purchase_order_items';
+    if (table_exists($pdo, "po_items")) {
+        $poItemTbl = "po_items";
+    } elseif (table_exists($pdo, "purchase_order_items")) {
+        $poItemTbl = "purchase_order_items";
+    }
 }
 
 $dateCols = [];
 if ($poHeaderTbl) {
-  foreach (['issue_date','order_date','created_at','date'] as $c) {
-    if (column_exists($pdo,$poHeaderTbl,$c)) $dateCols[] = $c;
-  }
+    foreach (["issue_date", "order_date", "created_at", "date"] as $c) {
+        if (column_exists($pdo, $poHeaderTbl, $c)) {
+            $dateCols[] = $c;
+        }
+    }
 }
 $poDateCol = $dateCols[0] ?? null; // prefer 'issue_date' if it exists
 
 $totalCols = [];
 if ($poHeaderTbl) {
-  foreach (['total','total_amount','grand_total'] as $c) {
-    if (column_exists($pdo,$poHeaderTbl,$c)) $totalCols[] = $c;
-  }
+    foreach (["total", "total_amount", "grand_total"] as $c) {
+        if (column_exists($pdo, $poHeaderTbl, $c)) {
+            $totalCols[] = $c;
+        }
+    }
 }
 $poTotalCol = $totalCols[0] ?? null;
 
-$hasSup = $hasDB && table_exists($pdo,'suppliers');
-$hasRFQ = $hasDB && table_exists($pdo,'rfqs');
-$hasPR  = $hasDB && table_exists($pdo,'procurement_requests');
+$hasSup = $hasDB && table_exists($pdo, "suppliers");
+$hasRFQ = $hasDB && table_exists($pdo, "rfqs");
+$hasPR = $hasDB && table_exists($pdo, "procurement_requests");
 
 /* -------------------- user (optional) -------------------- */
-$userName = 'Procurement User'; $userRole = 'Procurement';
-if (function_exists('current_user')) {
-  $u = current_user();
-  $userName = $u['name'] ?? $userName;
-  $userRole = $u['role'] ?? $userRole;
+$userName = "Procurement User";
+$userRole = "Procurement";
+if (function_exists("current_user")) {
+    $u = current_user();
+    $userName = $u["name"] ?? $userName;
+    $userRole = $u["role"] ?? $userRole;
 }
 
 /* -------------------- KPIs -------------------- */
 $activeSuppliers = $hasSup
-  ? (int) fetch_val($pdo,"SELECT COUNT(*) FROM suppliers WHERE IFNULL(is_active,1)=1",[],0)
-  : 0;
+    ? (int) fetch_val(
+        $pdo,
+        "SELECT COUNT(*) FROM suppliers WHERE IFNULL(is_active,1)=1",
+        [],
+        0
+    )
+    : 0;
 
 $openRFQs = $hasRFQ
-  ? (int) fetch_val($pdo,"SELECT COUNT(*) FROM rfqs WHERE status IN ('open','sent','pending','draft')",[],0)
-  : 0;
+    ? (int) fetch_val(
+        $pdo,
+        "SELECT COUNT(*) FROM rfqs WHERE status IN ('open','sent','pending','draft')",
+        [],
+        0
+    )
+    : 0;
 
 $openPOs = 0;
 if ($poHeaderTbl) {
-  // cover your statuses: draft/approved/ordered/partially_received
-  $openPOs = (int) fetch_val(
-    $pdo,
-    "SELECT COUNT(*) FROM `$poHeaderTbl`
+    // cover your statuses: draft/approved/ordered/partially_received
+    $openPOs = (int) fetch_val(
+        $pdo,
+        "SELECT COUNT(*) FROM `$poHeaderTbl`
      WHERE LOWER(IFNULL(status,'')) IN ('draft','approved','ordered','partially_received')",
-    [],
-    0
-  );
+        [],
+        0
+    );
 }
 
 $pendingPRs = $hasPR
-  ? (int) fetch_val($pdo,"SELECT COUNT(*) FROM procurement_requests WHERE status IN ('pending','for_approval','approved','submitted')",[],0)
-  : 0;
+    ? (int) fetch_val(
+        $pdo,
+        "SELECT COUNT(*) FROM procurement_requests WHERE status IN ('pending','for_approval','approved','submitted')",
+        [],
+        0
+    )
+    : 0;
 
 // Spend (this month)
 $spendThisMonth = 0.0;
 if ($poHeaderTbl && $poDateCol) {
-  try {
-    if ($poItemTbl && column_exists($pdo,$poItemTbl,'qty') && column_exists($pdo,$poItemTbl,'price')) {
-      // compute from items: SUM(qty*price) for POs in current month
-      $sql = "SELECT COALESCE(SUM(i.qty * i.price),0)
+    try {
+        if (
+            $poItemTbl &&
+            column_exists($pdo, $poItemTbl, "qty") &&
+            column_exists($pdo, $poItemTbl, "price")
+        ) {
+            // compute from items: SUM(qty*price) for POs in current month
+            $sql =
+                "SELECT COALESCE(SUM(i.qty * i.price),0)
               FROM `$poHeaderTbl` p
-              JOIN `$poItemTbl` i ON " . (column_exists($pdo,$poItemTbl,'po_id') ? "i.po_id=p.id" : "i.purchase_order_id=p.id") . "
+              JOIN `$poItemTbl` i ON " .
+                (column_exists($pdo, $poItemTbl, "po_id")
+                    ? "i.po_id=p.id"
+                    : "i.purchase_order_id=p.id") .
+                "
               WHERE DATE_FORMAT(p.`$poDateCol`,'%Y-%m') = DATE_FORMAT(CURDATE(),'%Y-%m')";
-      $spendThisMonth = (float) fetch_val($pdo,$sql,[],0.0);
-    } elseif ($poTotalCol) {
-      $sql = "SELECT COALESCE(SUM(p.`$poTotalCol`),0)
+            $spendThisMonth = (float) fetch_val($pdo, $sql, [], 0.0);
+        } elseif ($poTotalCol) {
+            $sql = "SELECT COALESCE(SUM(p.`$poTotalCol`),0)
               FROM `$poHeaderTbl` p
               WHERE DATE_FORMAT(p.`$poDateCol`,'%Y-%m') = DATE_FORMAT(CURDATE(),'%Y-%m')";
-      $spendThisMonth = (float) fetch_val($pdo,$sql,[],0.0);
+            $spendThisMonth = (float) fetch_val($pdo, $sql, [], 0.0);
+        }
+    } catch (Throwable $e) {
+        /* leave zero */
     }
-  } catch (Throwable $e) { /* leave zero */ }
 }
 
 /* -------------------- Charts -------------------- */
 // PO Status
-$poStatusLabels = ['draft','approved','ordered','partially_received','received','closed','cancelled'];
-$poStatusData   = array_fill(0, count($poStatusLabels), 0);
+$poStatusLabels = [
+    "draft",
+    "approved",
+    "ordered",
+    "partially_received",
+    "received",
+    "closed",
+    "cancelled",
+];
+$poStatusData = array_fill(0, count($poStatusLabels), 0);
 if ($poHeaderTbl) {
-  try {
-    $st = $pdo->query("SELECT LOWER(IFNULL(status,'')) s, COUNT(*) c FROM `$poHeaderTbl` GROUP BY s");
-    $map=[];
-    foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) $map[$r['s']] = (int)$r['c'];
-    foreach ($poStatusLabels as $i=>$s) $poStatusData[$i] = $map[$s] ?? 0;
-  } catch (Throwable $e) { /* keep zeros */ }
+    try {
+        $st = $pdo->query(
+            "SELECT LOWER(IFNULL(status,'')) s, COUNT(*) c FROM `$poHeaderTbl` GROUP BY s"
+        );
+        $map = [];
+        foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            $map[$r["s"]] = (int) $r["c"];
+        }
+        foreach ($poStatusLabels as $i => $s) {
+            $poStatusData[$i] = $map[$s] ?? 0;
+        }
+    } catch (Throwable $e) {
+        /* keep zeros */
+    }
 }
 
 // Monthly Spend (last 6 months)
-$monLabels = []; $monAmounts = [];
+$monLabels = [];
+$monAmounts = [];
 if ($poHeaderTbl && $poDateCol) {
-  $tz = new DateTimeZone('Asia/Manila');
-  $first = new DateTime('first day of this month', $tz);
-  $buckets = [];
-  for ($i=5; $i>=0; $i--) {
-    $d = (clone $first)->modify("-$i months");
-    $ym = $d->format('Y-m');
-    $monLabels[] = $d->format('M Y');
-    $buckets[$ym] = 0.0;
-  }
+    $tz = new DateTimeZone("Asia/Manila");
+    $first = new DateTime("first day of this month", $tz);
+    $buckets = [];
+    for ($i = 5; $i >= 0; $i--) {
+        $d = (clone $first)->modify("-$i months");
+        $ym = $d->format("Y-m");
+        $monLabels[] = $d->format("M Y");
+        $buckets[$ym] = 0.0;
+    }
 
-  try {
-    if ($poItemTbl && column_exists($pdo,$poItemTbl,'qty') && column_exists($pdo,$poItemTbl,'price')) {
-      $joinKey = column_exists($pdo,$poItemTbl,'po_id') ? 'po_id' : (column_exists($pdo,$poItemTbl,'purchase_order_id') ? 'purchase_order_id' : null);
-      if ($joinKey) {
-        $sql = "SELECT DATE_FORMAT(p.`$poDateCol`,'%Y-%m') ym,
+    try {
+        if (
+            $poItemTbl &&
+            column_exists($pdo, $poItemTbl, "qty") &&
+            column_exists($pdo, $poItemTbl, "price")
+        ) {
+            $joinKey = column_exists($pdo, $poItemTbl, "po_id")
+                ? "po_id"
+                : (column_exists($pdo, $poItemTbl, "purchase_order_id")
+                    ? "purchase_order_id"
+                    : null);
+            if ($joinKey) {
+                $sql = "SELECT DATE_FORMAT(p.`$poDateCol`,'%Y-%m') ym,
                        SUM(i.qty*i.price) amt
                 FROM `$poHeaderTbl` p
                 JOIN `$poItemTbl` i ON i.`$joinKey` = p.id
                 WHERE p.`$poDateCol` >= DATE_SUB(DATE_FORMAT(CURDATE(),'%Y-%m-01'), INTERVAL 5 MONTH)
                 GROUP BY DATE_FORMAT(p.`$poDateCol`,'%Y-%m')";
-      } else $sql = null;
-    } elseif ($poTotalCol) {
-      $sql = "SELECT DATE_FORMAT(p.`$poDateCol`,'%Y-%m') ym,
+            } else {
+                $sql = null;
+            }
+        } elseif ($poTotalCol) {
+            $sql = "SELECT DATE_FORMAT(p.`$poDateCol`,'%Y-%m') ym,
                      SUM(p.`$poTotalCol`) amt
               FROM `$poHeaderTbl` p
               WHERE p.`$poDateCol` >= DATE_SUB(DATE_FORMAT(CURDATE(),'%Y-%m-01'), INTERVAL 5 MONTH)
               GROUP BY DATE_FORMAT(p.`$poDateCol`,'%Y-%m')";
-    } else $sql = null;
+        } else {
+            $sql = null;
+        }
 
-    if ($sql) {
-      $st = $pdo->query($sql);
-      foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
-        $ym = $r['ym']; $amt = (float)$r['amt'];
-        if (isset($buckets[$ym])) $buckets[$ym] = $amt;
-      }
+        if ($sql) {
+            $st = $pdo->query($sql);
+            foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
+                $ym = $r["ym"];
+                $amt = (float) $r["amt"];
+                if (isset($buckets[$ym])) {
+                    $buckets[$ym] = $amt;
+                }
+            }
+        }
+    } catch (Throwable $e) {
+        /* keep zeros */
     }
-  } catch (Throwable $e) { /* keep zeros */ }
 
-  foreach ($buckets as $amt) $monAmounts[] = (float)$amt;
+    foreach ($buckets as $amt) {
+        $monAmounts[] = (float) $amt;
+    }
 }
 
 // Top Suppliers (last 90 days)
-$topSupLabels = []; $topSupAmts = [];
+$topSupLabels = [];
+$topSupAmts = [];
 if ($hasDB && $hasSup && $poHeaderTbl && $poDateCol) {
-  try {
-    if ($poItemTbl && column_exists($pdo,$poItemTbl,'qty') && column_exists($pdo,$poItemTbl,'price')) {
-      $joinKey = column_exists($pdo,$poItemTbl,'po_id') ? 'po_id' : (column_exists($pdo,$poItemTbl,'purchase_order_id') ? 'purchase_order_id' : null);
-      if ($joinKey && column_exists($pdo,$poHeaderTbl,'supplier_id')) {
-        $sql = "SELECT s.name, SUM(i.qty*i.price) amt
+    try {
+        if (
+            $poItemTbl &&
+            column_exists($pdo, $poItemTbl, "qty") &&
+            column_exists($pdo, $poItemTbl, "price")
+        ) {
+            $joinKey = column_exists($pdo, $poItemTbl, "po_id")
+                ? "po_id"
+                : (column_exists($pdo, $poItemTbl, "purchase_order_id")
+                    ? "purchase_order_id"
+                    : null);
+            if ($joinKey && column_exists($pdo, $poHeaderTbl, "supplier_id")) {
+                $sql = "SELECT s.name, SUM(i.qty*i.price) amt
                 FROM `$poHeaderTbl` p
                 JOIN suppliers s ON s.id = p.supplier_id
                 JOIN `$poItemTbl` i ON i.`$joinKey` = p.id
                 WHERE p.`$poDateCol` >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)
                 GROUP BY s.id
                 ORDER BY amt DESC LIMIT 6";
-      } else $sql = null;
-    } elseif ($poTotalCol && column_exists($pdo,$poHeaderTbl,'supplier_id')) {
-      $sql = "SELECT s.name, SUM(p.`$poTotalCol`) amt
+            } else {
+                $sql = null;
+            }
+        } elseif (
+            $poTotalCol &&
+            column_exists($pdo, $poHeaderTbl, "supplier_id")
+        ) {
+            $sql = "SELECT s.name, SUM(p.`$poTotalCol`) amt
               FROM `$poHeaderTbl` p
               JOIN suppliers s ON s.id = p.supplier_id
               WHERE p.`$poDateCol` >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)
               GROUP BY s.id
               ORDER BY amt DESC LIMIT 6";
-    } else $sql = null;
+        } else {
+            $sql = null;
+        }
 
-    if ($sql) {
-      $st = $pdo->query($sql);
-      foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) { $topSupLabels[] = $r['name']; $topSupAmts[] = (float)$r['amt']; }
+        if ($sql) {
+            $st = $pdo->query($sql);
+            foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
+                $topSupLabels[] = $r["name"];
+                $topSupAmts[] = (float) $r["amt"];
+            }
+        }
+    } catch (Throwable $e) {
+        /* empty */
     }
-  } catch (Throwable $e) { /* empty */ }
 }
 ?>
 <!DOCTYPE html>
@@ -240,7 +372,9 @@ if ($hasDB && $hasSup && $poHeaderTbl && $poDateCol) {
         </nav>
 
         <div class="logout-section">
-          <a class="nav-link text-danger" href="<?= defined('BASE_URL') ? BASE_URL : '#' ?>/auth/logout.php">
+          <a class="nav-link text-danger" href="<?= defined("BASE_URL")
+              ? BASE_URL
+              : "#" ?>/auth/logout.php">
             <ion-icon name="log-out-outline"></ion-icon> Logout
           </a>
         </div>
@@ -275,7 +409,9 @@ if ($hasDB && $hasSup && $poHeaderTbl && $poDateCol) {
                 </div>
                 <div>
                   <div class="text-muted small">Active Suppliers</div>
-                  <div class="h4 m-0"><?= number_format($activeSuppliers) ?></div>
+                  <div class="h4 m-0"><?= number_format(
+                      $activeSuppliers
+                  ) ?></div>
                 </div>
               </div>
             </div>
@@ -317,7 +453,10 @@ if ($hasDB && $hasSup && $poHeaderTbl && $poDateCol) {
                 </div>
                 <div>
                   <div class="text-muted small">Spend (This Month)</div>
-                  <div class="h4 m-0">₱<?= number_format($spendThisMonth,2) ?></div>
+                  <div class="h4 m-0">₱<?= number_format(
+                      $spendThisMonth,
+                      2
+                  ) ?></div>
                 </div>
               </div>
             </div>

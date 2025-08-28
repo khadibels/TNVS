@@ -1,15 +1,21 @@
 <?php
 $inc = __DIR__ . "/../includes";
-if (file_exists($inc . "/config.php")) require_once $inc . "/config.php";
-if (file_exists($inc . "/auth.php"))   require_once $inc . "/auth.php";
-if (function_exists("require_login"))  require_login();
+if (file_exists($inc . "/config.php")) {
+    require_once $inc . "/config.php";
+}
+if (file_exists($inc . "/auth.php")) {
+    require_once $inc . "/auth.php";
+}
+if (function_exists("require_login")) {
+    require_login();
+}
 
 $userName = "Procurement User";
 $userRole = "Procurement";
 if (function_exists("current_user")) {
-  $u = current_user();
-  $userName = $u["name"] ?? $userName;
-  $userRole = $u["role"] ?? $userRole;
+    $u = current_user();
+    $userName = $u["name"] ?? $userName;
+    $userRole = $u["role"] ?? $userRole;
 }
 ?>
 <!DOCTYPE html>
@@ -48,7 +54,9 @@ if (function_exists("current_user")) {
         <a class="nav-link" href="./settings.php"><ion-icon name="settings-outline"></ion-icon><span>Settings</span></a>
       </nav>
       <div class="logout-section">
-        <a class="nav-link text-danger" href="<?= defined('BASE_URL') ? BASE_URL : '#' ?>/auth/logout.php">
+        <a class="nav-link text-danger" href="<?= defined("BASE_URL")
+            ? BASE_URL
+            : "#" ?>/auth/logout.php">
           <ion-icon name="log-out-outline"></ion-icon> Logout
         </a>
       </div>

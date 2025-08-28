@@ -1,24 +1,41 @@
 <?php
 // procurement/settings.php (Departments instead of Categories)
-$inc = __DIR__ . '/../includes';
-if (file_exists($inc . '/config.php')) require_once $inc . '/config.php';
-if (file_exists($inc . '/auth.php'))  require_once $inc . '/auth.php';
-if (function_exists("require_login")) require_login();
+$inc = __DIR__ . "/../includes";
+if (file_exists($inc . "/config.php")) {
+    require_once $inc . "/config.php";
+}
+if (file_exists($inc . "/auth.php")) {
+    require_once $inc . "/auth.php";
+}
+if (function_exists("require_login")) {
+    require_login();
+}
 
 $userName = "Procurement User";
 $userRole = "Procurement";
 if (function_exists("current_user")) {
-  $u = current_user();
-  $userName = $u["name"] ?? $userName;
-  $userRole = $u["role"] ?? $userRole;
+    $u = current_user();
+    $userName = $u["name"] ?? $userName;
+    $userRole = $u["role"] ?? $userRole;
 }
 
-function safe_fetch_all(PDO $pdo, string $sql, array $params=[]){
-  try { $st=$pdo->prepare($sql); $st->execute($params); return $st->fetchAll(PDO::FETCH_ASSOC); }
-  catch(Throwable $e){ return []; }
+function safe_fetch_all(PDO $pdo, string $sql, array $params = [])
+{
+    try {
+        $st = $pdo->prepare($sql);
+        $st->execute($params);
+        return $st->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Throwable $e) {
+        return [];
+    }
 }
 
-$departments = isset($pdo) ? safe_fetch_all($pdo, "SELECT id,name,is_active FROM departments ORDER BY name") : [];
+$departments = isset($pdo)
+    ? safe_fetch_all(
+        $pdo,
+        "SELECT id,name,is_active FROM departments ORDER BY name"
+    )
+    : [];
 ?>
 
 <!DOCTYPE html>
@@ -56,7 +73,9 @@ $departments = isset($pdo) ? safe_fetch_all($pdo, "SELECT id,name,is_active FROM
         <a class="nav-link active" href="./settings.php"><ion-icon name="settings-outline"></ion-icon><span>Settings</span></a>
       </nav>
       <div class="logout-section">
-        <a class="nav-link text-danger" href="<?= defined('BASE_URL') ? BASE_URL : '#' ?>/auth/logout.php">
+        <a class="nav-link text-danger" href="<?= defined("BASE_URL")
+            ? BASE_URL
+            : "#" ?>/auth/logout.php">
           <ion-icon name="log-out-outline"></ion-icon> Logout
         </a>
       </div>
@@ -91,18 +110,30 @@ $departments = isset($pdo) ? safe_fetch_all($pdo, "SELECT id,name,is_active FROM
             <table class="table table-sm align-middle">
               <thead><tr><th>Name</th><th>Status</th><th class="text-end">Actions</th></tr></thead>
               <tbody id="deptBody">
-                <?php if ($departments): foreach ($departments as $d): ?>
-                <tr data-id="<?= (int)$d['id'] ?>">
-                  <td class="fw-semibold"><?= htmlspecialchars($d['name']) ?></td>
-                  <td><?= $d['is_active'] ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-secondary">Inactive</span>' ?></td>
+                <?php if ($departments):
+                    foreach ($departments as $d): ?>
+                <tr data-id="<?= (int) $d["id"] ?>">
+                  <td class="fw-semibold"><?= htmlspecialchars(
+                      $d["name"]
+                  ) ?></td>
+                  <td><?= $d["is_active"]
+                      ? '<span class="badge bg-success">Active</span>'
+                      : '<span class="badge bg-secondary">Inactive</span>' ?></td>
                   <td class="text-end">
-                    <button class="btn btn-sm btn-outline-secondary me-1" onclick='editDept(<?= (int)$d["id"] ?>, <?= json_encode($d) ?>)'>Edit</button>
-                    <button class="btn btn-sm btn-outline-danger" onclick="deleteDept(<?= (int)$d['id'] ?>)">Delete</button>
+                    <button class="btn btn-sm btn-outline-secondary me-1" onclick='editDept(<?= (int) $d[
+                        "id"
+                    ] ?>, <?= json_encode($d) ?>)'>Edit</button>
+                    <button class="btn btn-sm btn-outline-danger" onclick="deleteDept(<?= (int) $d[
+                        "id"
+                    ] ?>)">Delete</button>
                   </td>
                 </tr>
-                <?php endforeach; else: ?>
+                <?php endforeach;
+                else:
+                     ?>
                 <tr><td colspan="3" class="text-center text-muted py-3">No departments yet.</td></tr>
-                <?php endif; ?>
+                <?php
+                endif; ?>
               </tbody>
             </table>
           </div>

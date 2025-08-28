@@ -195,7 +195,6 @@
   border-radius: 10px;
 }
 
-/* matches your vibe */
 .btn-sm {
   padding: 0.35rem 0.6rem;
   font-size: 0.875rem;
@@ -246,7 +245,6 @@
   border-color: #6c5ce7;
 }
 
-/* Stock Management: clamp recent transactions height */
 .tx-scroll {
   max-height: 360px;
   overflow-y: auto;
@@ -347,4 +345,104 @@
 
 .settings-tab .nav-link {
   gap: 0.4rem;
+}
+
+.route {
+  font-size: 0.9rem;
+  color: #555;
+}
+
+.table .chip {
+  font-size: 0.75rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 0.5rem;
+  background: #f1f1f1;
+}
+
+.kpi-card .icon-wrap {
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+}
+
+.chart-card canvas {
+  width: 100% !important;
+  height: 300px !important;
+}
+
+.chip {
+  font-size: 0.75rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 0.5rem;
+  background: #f3f3f3;
+}
+
+.route {
+  font-size: 0.9rem;
+  color: #555;
+}
+
+.pill {
+  font-size: 0.75rem;
+  border-radius: 1rem;
+  padding: 0.15rem 0.5rem;
+}
+
+.chip {
+  font-size: 0.75rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 0.5rem;
+  background: #f3f3f3;
+}
+
+.route {
+  font-size: 0.9rem;
+  color: #555;
+}
+
+.chip {
+  font-size: 0.75rem;
+  padding: 0.15rem 0.4rem;
+  border-radius: 0.5rem;
+  background: #f1f1f1;
+}
+
+.stats-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.75rem;
+}
+
+.stats-card {
+  background: #fff;
+  border: 1px solid rgba(0, 0, 0, 0.075);
+  border-radius: 0.75rem;
+  box-shadow: var(--bs-box-shadow-sm);
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.stats-card .icon {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.6rem;
+  background: var(--bs-light);
+}
+
+.stats-card .label {
+  font-size: 0.85rem;
+  color: #6c757d;
+}
+
+.stats-card .value {
+  font-size: 1.6rem;
+  font-weight: 700;
 }

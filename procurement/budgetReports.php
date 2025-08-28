@@ -1,18 +1,38 @@
 <?php
 // procurement/budgetReports.php
 $inc = __DIR__ . "/../includes";
-if (file_exists($inc . "/config.php")) require_once $inc . "/config.php";
-if (file_exists($inc . "/auth.php"))   require_once $inc . "/auth.php";
-if (function_exists("require_login"))  require_login();
+if (file_exists($inc . "/config.php")) {
+    require_once $inc . "/config.php";
+}
+if (file_exists($inc . "/auth.php")) {
+    require_once $inc . "/auth.php";
+}
+if (function_exists("require_login")) {
+    require_login();
+}
 
 $userName = $_SESSION["user"]["name"] ?? "Procurement User";
 $userRole = $_SESSION["user"]["role"] ?? "Procurement";
 
 // dropdown data
-$depts   = $pdo->query("SELECT id, name FROM departments ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
-$cats    = $pdo->query("SELECT DISTINCT category FROM inventory_items WHERE category IS NOT NULL AND category<>'' ORDER BY category")->fetchAll(PDO::FETCH_COLUMN);
-$years   = $pdo->query("SELECT DISTINCT fiscal_year FROM budgets ORDER BY fiscal_year DESC")->fetchAll(PDO::FETCH_COLUMN);
-$catMap  = $pdo->query("SELECT id, name FROM inventory_categories ORDER BY name")->fetchAll(PDO::FETCH_KEY_PAIR); // for modal options
+$depts = $pdo
+    ->query("SELECT id, name FROM departments ORDER BY name")
+    ->fetchAll(PDO::FETCH_ASSOC);
+$cats = $pdo
+    ->query(
+        "SELECT DISTINCT category FROM inventory_items WHERE category IS NOT NULL AND category<>'' ORDER BY category"
+    )
+    ->fetchAll(PDO::FETCH_COLUMN);
+$years = $pdo
+    ->query(
+        "SELECT DISTINCT fiscal_year FROM budgets ORDER BY fiscal_year DESC"
+    )
+    ->fetchAll(PDO::FETCH_COLUMN);
+$catMap = $pdo
+    ->query("SELECT id, name FROM inventory_categories ORDER BY name")
+    ->fetchAll(PDO::FETCH_KEY_PAIR);
+
+// for modal options
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -55,7 +75,9 @@ $catMap  = $pdo->query("SELECT id, name FROM inventory_categories ORDER BY name"
         <a class="nav-link" href="./settings.php"><ion-icon name="settings-outline"></ion-icon><span>Settings</span></a>
       </nav>
       <div class="logout-section">
-        <a class="nav-link text-danger" href="<?= defined('BASE_URL') ? BASE_URL : '#' ?>/auth/logout.php">
+        <a class="nav-link text-danger" href="<?= defined("BASE_URL")
+            ? BASE_URL
+            : "#" ?>/auth/logout.php">
           <ion-icon name="log-out-outline"></ion-icon> Logout
         </a>
       </div>
@@ -99,30 +121,40 @@ $catMap  = $pdo->query("SELECT id, name FROM inventory_categories ORDER BY name"
                 <div class="col-6 col-md-2">
                   <select id="bYear" class="form-select">
                     <option value="">All Years</option>
-                    <?php foreach($years as $y): ?><option value="<?= (int)$y ?>"><?= (int)$y ?></option><?php endforeach; ?>
+                    <?php foreach (
+                        $years
+                        as $y
+                    ): ?><option value="<?= (int) $y ?>"><?= (int) $y ?></option><?php endforeach; ?>
                   </select>
                 </div>
                 <div class="col-6 col-md-2">
                   <select id="bMonth" class="form-select">
                     <option value="">All Months</option>
-                    <?php for($m=1;$m<=12;$m++): ?>
-                      <option value="<?= $m ?>"><?= date('F', mktime(0,0,0,$m,1)) ?></option>
+                    <?php for ($m = 1; $m <= 12; $m++): ?>
+                      <option value="<?= $m ?>"><?= date(
+    "F",
+    mktime(0, 0, 0, $m, 1)
+) ?></option>
                     <?php endfor; ?>
                   </select>
                 </div>
                 <div class="col-6 col-md-3">
                   <select id="bDept" class="form-select">
                     <option value="">All Departments</option>
-                    <?php foreach($depts as $d): ?>
-                      <option value="<?= (int)$d['id'] ?>"><?= htmlspecialchars($d['name']) ?></option>
+                    <?php foreach ($depts as $d): ?>
+                      <option value="<?= (int) $d[
+                          "id"
+                      ] ?>"><?= htmlspecialchars($d["name"]) ?></option>
                     <?php endforeach; ?>
                   </select>
                 </div>
                 <div class="col-6 col-md-3">
                   <select id="bCat" class="form-select">
                     <option value="">All Categories</option>
-                    <?php foreach($cats as $c): ?>
-                      <option value="<?= htmlspecialchars($c) ?>"><?= htmlspecialchars($c) ?></option>
+                    <?php foreach ($cats as $c): ?>
+                      <option value="<?= htmlspecialchars(
+                          $c
+                      ) ?>"><?= htmlspecialchars($c) ?></option>
                     <?php endforeach; ?>
                   </select>
                 </div>
@@ -168,14 +200,21 @@ $catMap  = $pdo->query("SELECT id, name FROM inventory_categories ORDER BY name"
                   <label class="form-label">Department</label>
                   <select id="rDept" class="form-select">
                     <option value="">All</option>
-                    <?php foreach($depts as $d): ?><option value="<?= (int)$d['id'] ?>"><?= htmlspecialchars($d['name']) ?></option><?php endforeach; ?>
+                    <?php foreach ($depts as $d): ?><option value="<?= (int) $d[
+    "id"
+] ?>"><?= htmlspecialchars($d["name"]) ?></option><?php endforeach; ?>
                   </select>
                 </div>
                 <div class="col-6 col-md-3">
                   <label class="form-label">Category</label>
                   <select id="rCat" class="form-select">
                     <option value="">All</option>
-                    <?php foreach($cats as $c): ?><option value="<?= htmlspecialchars($c) ?>"><?= htmlspecialchars($c) ?></option><?php endforeach; ?>
+                    <?php foreach (
+                        $cats
+                        as $c
+                    ): ?><option value="<?= htmlspecialchars(
+    $c
+) ?>"><?= htmlspecialchars($c) ?></option><?php endforeach; ?>
                   </select>
                 </div>
                 <div class="col-12 col-md-2 d-grid d-md-flex gap-2 justify-content-md-end">
@@ -335,22 +374,33 @@ $catMap  = $pdo->query("SELECT id, name FROM inventory_categories ORDER BY name"
             <label class="form-label">Month (optional)</label>
             <select class="form-select" name="month">
               <option value="">— Whole Year —</option>
-              <?php for($m=1;$m<=12;$m++): ?><option value="<?= $m ?>"><?= date('F', mktime(0,0,0,$m,1)) ?></option><?php endfor; ?>
+              <?php for (
+                  $m = 1;
+                  $m <= 12;
+                  $m++
+              ): ?><option value="<?= $m ?>"><?= date(
+    "F",
+    mktime(0, 0, 0, $m, 1)
+) ?></option><?php endfor; ?>
             </select>
           </div>
           <div class="col-12 col-md-6">
             <label class="form-label">Department (optional)</label>
             <select class="form-select" name="department_id">
               <option value="">— Any —</option>
-              <?php foreach($depts as $d): ?><option value="<?= (int)$d['id'] ?>"><?= htmlspecialchars($d['name']) ?></option><?php endforeach; ?>
+              <?php foreach ($depts as $d): ?><option value="<?= (int) $d[
+    "id"
+] ?>"><?= htmlspecialchars($d["name"]) ?></option><?php endforeach; ?>
             </select>
           </div>
           <div class="col-12 col-md-6">
             <label class="form-label">Category (optional)</label>
             <select class="form-select" name="category_id">
               <option value="">— Any —</option>
-              <?php foreach($catMap as $cid=>$cname): ?>
-                <option value="<?= (int)$cid ?>"><?= htmlspecialchars($cname) ?></option>
+              <?php foreach ($catMap as $cid => $cname): ?>
+                <option value="<?= (int) $cid ?>"><?= htmlspecialchars(
+    $cname
+) ?></option>
               <?php endforeach; ?>
             </select>
           </div>
