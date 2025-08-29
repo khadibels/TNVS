@@ -1,6 +1,4 @@
 <?php
-// procurement/public/rfq_quote.php
-// Simple supplier-facing page to submit a quote via token
 ?>
 <!doctype html>
 <html lang="en">

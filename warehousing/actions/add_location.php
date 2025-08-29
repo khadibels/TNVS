@@ -11,7 +11,6 @@ if ($name === "") {
     exit();
 }
 
-// Check if exists
 $st = $pdo->prepare(
     "SELECT id FROM warehouse_locations WHERE name = ? LIMIT 1"
 );

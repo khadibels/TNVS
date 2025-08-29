@@ -16,7 +16,6 @@ if ($id <= 0 || !in_array($role, $allowed, true)) {
 }
 
 try {
-    
     $me = current_user();
     if ($me && (int) $me["id"] === $id && $role !== "admin") {
         http_response_code(409);

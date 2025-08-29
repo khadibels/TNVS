@@ -1,41 +1,60 @@
 <?php
-require_once __DIR__ . '/../includes/config.php';
-require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . "/../includes/config.php";
+require_once __DIR__ . "/../includes/auth.php";
 require_login();
 
-
-
 /* ---- DB guards & helpers ---- */
-function table_exists(PDO $pdo, string $name): bool {
-  $stmt = $pdo->prepare("SHOW TABLES LIKE ?");
-  $stmt->execute([$name]);
-  return (bool)$stmt->fetchColumn();
+function table_exists(PDO $pdo, string $name): bool
+{
+    $stmt = $pdo->prepare("SHOW TABLES LIKE ?");
+    $stmt->execute([$name]);
+    return (bool) $stmt->fetchColumn();
 }
-function fetch_val(PDO $pdo, string $sql, array $params = [], $fallback = 0) {
-  try { $st = $pdo->prepare($sql); $st->execute($params); $v = $st->fetchColumn(); return $v !== false ? $v : $fallback; }
-  catch (Throwable $e) { return $fallback; }
+function fetch_val(PDO $pdo, string $sql, array $params = [], $fallback = 0)
+{
+    try {
+        $st = $pdo->prepare($sql);
+        $st->execute($params);
+        $v = $st->fetchColumn();
+        return $v !== false ? $v : $fallback;
+    } catch (Throwable $e) {
+        return $fallback;
+    }
 }
 
 $hasItems = table_exists($pdo, "inventory_items");
-$hasLvl   = table_exists($pdo, "stock_levels");
-$hasTx    = table_exists($pdo, "stock_transactions");
-$hasLoc   = table_exists($pdo, "warehouse_locations");
-$hasShip  = table_exists($pdo, "shipments");
+$hasLvl = table_exists($pdo, "stock_levels");
+$hasTx = table_exists($pdo, "stock_transactions");
+$hasLoc = table_exists($pdo, "warehouse_locations");
+$hasShip = table_exists($pdo, "shipments");
 
 /* ---- KPI cards ---- */
-$totalSkus = $hasItems ? (int) fetch_val($pdo, "SELECT COUNT(*) FROM inventory_items WHERE archived = 0", [], 0) : 0;
+$totalSkus = $hasItems
+    ? (int) fetch_val(
+        $pdo,
+        "SELECT COUNT(*) FROM inventory_items WHERE archived = 0",
+        [],
+        0
+    )
+    : 0;
 
-$totalUnits = ($hasLvl)
-  ? (int) fetch_val($pdo, "SELECT COALESCE(SUM(qty),0) FROM stock_levels", [], 0)
-  : 0;
+$totalUnits = $hasLvl
+    ? (int) fetch_val(
+        $pdo,
+        "SELECT COALESCE(SUM(qty),0) FROM stock_levels",
+        [],
+        0
+    )
+    : 0;
 
-$locationsCount = $hasLoc ? (int) fetch_val($pdo, "SELECT COUNT(*) FROM warehouse_locations", [], 0) : 0;
+$locationsCount = $hasLoc
+    ? (int) fetch_val($pdo, "SELECT COUNT(*) FROM warehouse_locations", [], 0)
+    : 0;
 
 $lowStockCount = 0;
 if ($hasItems) {
-  // Works whether or not stock_levels exists
-  if ($hasLvl) {
-    $sql = "SELECT COUNT(*) FROM (
+    if ($hasLvl) {
+        $sql = "SELECT COUNT(*) FROM (
               SELECT i.id, i.reorder_level, COALESCE(SUM(l.qty),0) total
               FROM inventory_items i
               LEFT JOIN stock_levels l ON l.item_id = i.id
@@ -43,29 +62,34 @@ if ($hasItems) {
               GROUP BY i.id, i.reorder_level
               HAVING i.reorder_level > 0 AND COALESCE(SUM(l.qty),0) <= i.reorder_level
             ) x";
-    $lowStockCount = (int) fetch_val($pdo, $sql, [], 0);
-  } else {
-    // Fallback if no stock_levels table yet
-    $lowStockCount = 0;
-  }
+        $lowStockCount = (int) fetch_val($pdo, $sql, [], 0);
+    } else {
+        $lowStockCount = 0;
+    }
 }
 
 /* ---- Chart data: On-hand by Category ---- */
-$catLabels = ["Raw","Packaging","Finished"];
-$catData = [0,0,0];
+$catLabels = ["Raw", "Packaging", "Finished"];
+$catData = [0, 0, 0];
 if ($hasLvl && $hasItems) {
-  $sql = "SELECT i.category, COALESCE(SUM(l.qty),0) qty
+    $sql = "SELECT i.category, COALESCE(SUM(l.qty),0) qty
           FROM stock_levels l
           JOIN inventory_items i ON i.id = l.item_id
           WHERE i.archived = 0
           GROUP BY i.category";
-  try {
-    $st = $pdo->query($sql);
-    $rows = $st->fetchAll(PDO::FETCH_ASSOC);
-    $tmp = [];
-    foreach ($rows as $r) { $tmp[$r['category']] = (int)$r['qty']; }
-    foreach ($catLabels as $idx => $label) { $catData[$idx] = $tmp[$label] ?? 0; }
-  } catch (Throwable $e) { /* keep zeros */ }
+    try {
+        $st = $pdo->query($sql);
+        $rows = $st->fetchAll(PDO::FETCH_ASSOC);
+        $tmp = [];
+        foreach ($rows as $r) {
+            $tmp[$r["category"]] = (int) $r["qty"];
+        }
+        foreach ($catLabels as $idx => $label) {
+            $catData[$idx] = $tmp[$label] ?? 0;
+        }
+    } catch (Throwable $e) {
+        /* keep zeros */
+    }
 }
 
 /* ---- Chart data: 30-day Movements (Incoming vs Outgoing) ---- */
@@ -74,73 +98,94 @@ $incomingData = [];
 $outgoingData = [];
 // Prepare last 30 days buckets
 $map = [];
-$tz = new DateTimeZone('Asia/Manila');
-$today = new DateTime('today', $tz);
-for ($i=29; $i>=0; $i--) {
-  $d = clone $today; $d->modify("-$i day");
-  $key = $d->format('Y-m-d');
-  $map[$key] = ['in'=>0,'out'=>0];
+$tz = new DateTimeZone("Asia/Manila");
+$today = new DateTime("today", $tz);
+for ($i = 29; $i >= 0; $i--) {
+    $d = clone $today;
+    $d->modify("-$i day");
+    $key = $d->format("Y-m-d");
+    $map[$key] = ["in" => 0, "out" => 0];
 }
 if ($hasTx) {
-  $sql = "SELECT DATE(created_at) d,
+    $sql = "SELECT DATE(created_at) d,
                  SUM(CASE WHEN qty>0 THEN qty ELSE 0 END) incoming,
                  SUM(CASE WHEN qty<0 THEN -qty ELSE 0 END) outgoing
           FROM stock_transactions
           WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)
           GROUP BY DATE(created_at)
           ORDER BY DATE(created_at)";
-  try {
-    $st = $pdo->query($sql);
-    foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
-      $k = $r['d'];
-      if (isset($map[$k])) {
-        $map[$k]['in']  = (int)$r['incoming'];
-        $map[$k]['out'] = (int)$r['outgoing'];
-      }
+    try {
+        $st = $pdo->query($sql);
+        foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            $k = $r["d"];
+            if (isset($map[$k])) {
+                $map[$k]["in"] = (int) $r["incoming"];
+                $map[$k]["out"] = (int) $r["outgoing"];
+            }
+        }
+    } catch (Throwable $e) {
+        /* keep zeros */
     }
-  } catch (Throwable $e) { /* keep zeros */ }
 }
 foreach ($map as $key => $io) {
-  $d = DateTime::createFromFormat('Y-m-d', $key, $tz);
-  $trendLabels[]  = $d ? $d->format('M j') : $key;
-  $incomingData[] = $io['in'];
-  $outgoingData[] = $io['out'];
+    $d = DateTime::createFromFormat("Y-m-d", $key, $tz);
+    $trendLabels[] = $d ? $d->format("M j") : $key;
+    $incomingData[] = $io["in"];
+    $outgoingData[] = $io["out"];
 }
 
 /* ---- Chart data: On-hand by Location (top N + Others) ---- */
 $locLabels = [];
 $locData = [];
 if ($hasLvl && $hasLoc) {
-  $sql = "SELECT w.name label, COALESCE(SUM(l.qty),0) qty
+    $sql = "SELECT w.name label, COALESCE(SUM(l.qty),0) qty
           FROM stock_levels l
           JOIN warehouse_locations w ON w.id = l.location_id
           GROUP BY w.id
           HAVING COALESCE(SUM(l.qty),0) > 0
           ORDER BY qty DESC";
-  try {
-    $st = $pdo->query($sql);
-    $rows = $st->fetchAll(PDO::FETCH_ASSOC);
-    $top = 6; $sumTop = 0; $sumOthers = 0;
-    foreach ($rows as $i => $r) {
-      if ($i < $top) { $locLabels[] = $r['label']; $locData[] = (int)$r['qty']; $sumTop += (int)$r['qty']; }
-      else { $sumOthers += (int)$r['qty']; }
+    try {
+        $st = $pdo->query($sql);
+        $rows = $st->fetchAll(PDO::FETCH_ASSOC);
+        $top = 6;
+        $sumTop = 0;
+        $sumOthers = 0;
+        foreach ($rows as $i => $r) {
+            if ($i < $top) {
+                $locLabels[] = $r["label"];
+                $locData[] = (int) $r["qty"];
+                $sumTop += (int) $r["qty"];
+            } else {
+                $sumOthers += (int) $r["qty"];
+            }
+        }
+        if ($sumOthers > 0) {
+            $locLabels[] = "Others";
+            $locData[] = $sumOthers;
+        }
+    } catch (Throwable $e) {
+        /* empty */
     }
-    if ($sumOthers > 0) { $locLabels[] = "Others"; $locData[] = $sumOthers; }
-  } catch (Throwable $e) { /* empty */ }
 }
 
 /* ---- Chart data: Shipment Status (if table exists) ---- */
-$shipLabels = ["In Transit","Delivered","Delayed"];
-$shipData   = [0,0,0];
+$shipLabels = ["In Transit", "Delivered", "Delayed"];
+$shipData = [0, 0, 0];
 if ($hasShip) {
-  $statusMap = [];
-  try {
-    $st = $pdo->query("SELECT status, COUNT(*) c FROM shipments GROUP BY status");
-    foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
-      $statusMap[$r['status']] = (int)$r['c'];
+    $statusMap = [];
+    try {
+        $st = $pdo->query(
+            "SELECT status, COUNT(*) c FROM shipments GROUP BY status"
+        );
+        foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
+            $statusMap[$r["status"]] = (int) $r["c"];
+        }
+        foreach ($shipLabels as $i => $s) {
+            $shipData[$i] = $statusMap[$s] ?? 0;
+        }
+    } catch (Throwable $e) {
+        /* keep zeros */
     }
-    foreach ($shipLabels as $i=>$s) { $shipData[$i] = $statusMap[$s] ?? 0; }
-  } catch (Throwable $e) { /* keep zeros */ }
 }
 ?>
 <!DOCTYPE html>
@@ -256,7 +301,9 @@ if ($hasShip) {
                 </div>
                 <div>
                   <div class="text-muted small">Locations</div>
-                  <div class="h4 m-0"><?= number_format($locationsCount) ?></div>
+                  <div class="h4 m-0"><?= number_format(
+                      $locationsCount
+                  ) ?></div>
                 </div>
               </div>
             </div>

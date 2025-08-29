@@ -1,6 +1,10 @@
 <?php
-if (!isset($items))     $items = [];
-if (!isset($locations)) $locations = [];
+if (!isset($items)) {
+    $items = [];
+}
+if (!isset($locations)) {
+    $locations = [];
+}
 ?>
 
 <!-- Stock In -->
@@ -15,7 +19,9 @@ if (!isset($locations)) $locations = [];
         <label class="form-label">Item</label>
         <select name="item_id" class="form-select" required>
           <?php foreach ($items as $i): ?>
-            <option value="<?= $i['id'] ?>"><?= htmlspecialchars($i['sku'].' — '.$i['name']) ?></option>
+            <option value="<?= $i["id"] ?>"><?= htmlspecialchars(
+    $i["sku"] . " — " . $i["name"]
+) ?></option>
           <?php endforeach; ?>
         </select>
 
@@ -23,7 +29,9 @@ if (!isset($locations)) $locations = [];
         <div class="d-flex align-items-center gap-2">
           <select name="location_id" class="form-select" required>
             <?php foreach ($locations as $l): ?>
-              <option value="<?= $l['id'] ?>"><?= htmlspecialchars($l['name']) ?></option>
+              <option value="<?= $l["id"] ?>"><?= htmlspecialchars(
+    $l["name"]
+) ?></option>
             <?php endforeach; ?>
           </select>
           
@@ -55,7 +63,9 @@ if (!isset($locations)) $locations = [];
         <label class="form-label">Item</label>
         <select name="item_id" class="form-select" required>
           <?php foreach ($items as $i): ?>
-            <option value="<?= $i['id'] ?>"><?= htmlspecialchars($i['sku'].' — '.$i['name']) ?></option>
+            <option value="<?= $i["id"] ?>"><?= htmlspecialchars(
+    $i["sku"] . " — " . $i["name"]
+) ?></option>
           <?php endforeach; ?>
         </select>
 
@@ -63,7 +73,9 @@ if (!isset($locations)) $locations = [];
         <div class="d-flex align-items-center gap-2">
           <select name="location_id" class="form-select" required>
             <?php foreach ($locations as $l): ?>
-              <option value="<?= $l['id'] ?>"><?= htmlspecialchars($l['name']) ?></option>
+              <option value="<?= $l["id"] ?>"><?= htmlspecialchars(
+    $l["name"]
+) ?></option>
             <?php endforeach; ?>
           </select>
           
@@ -95,7 +107,9 @@ if (!isset($locations)) $locations = [];
         <label class="form-label">Item</label>
         <select name="item_id" class="form-select" required>
           <?php foreach ($items as $i): ?>
-            <option value="<?= $i['id'] ?>"><?= htmlspecialchars($i['sku'].' — '.$i['name']) ?></option>
+            <option value="<?= $i["id"] ?>"><?= htmlspecialchars(
+    $i["sku"] . " — " . $i["name"]
+) ?></option>
           <?php endforeach; ?>
         </select>
 
@@ -105,7 +119,9 @@ if (!isset($locations)) $locations = [];
             <div class="d-flex align-items-center gap-2">
               <select name="from_location_id" class="form-select" required>
                 <?php foreach ($locations as $l): ?>
-                  <option value="<?= $l['id'] ?>"><?= htmlspecialchars($l['name']) ?></option>
+                  <option value="<?= $l["id"] ?>"><?= htmlspecialchars(
+    $l["name"]
+) ?></option>
                 <?php endforeach; ?>
               </select>
               
@@ -116,7 +132,9 @@ if (!isset($locations)) $locations = [];
             <div class="d-flex align-items-center gap-2">
               <select name="to_location_id" class="form-select" required>
                 <?php foreach ($locations as $l): ?>
-                  <option value="<?= $l['id'] ?>"><?= htmlspecialchars($l['name']) ?></option>
+                  <option value="<?= $l["id"] ?>"><?= htmlspecialchars(
+    $l["name"]
+) ?></option>
                 <?php endforeach; ?>
               </select>
               

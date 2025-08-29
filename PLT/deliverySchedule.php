@@ -1,13 +1,21 @@
 <?php
-// PLT/deliverySchedule.php
-$inc = __DIR__ . '/../includes';
-if (file_exists($inc . '/config.php')) require_once $inc . '/config.php';
-if (file_exists($inc . '/auth.php'))  require_once $inc . '/auth.php';
-if (function_exists('require_login')) require_login();
+$inc = __DIR__ . "/../includes";
+if (file_exists($inc . "/config.php")) {
+    require_once $inc . "/config.php";
+}
+if (file_exists($inc . "/auth.php")) {
+    require_once $inc . "/auth.php";
+}
+if (function_exists("require_login")) {
+    require_login();
+}
 
-$userName = 'Admin'; $userRole = 'System Admin';
-if (function_exists('current_user')) {
-  $u = current_user(); $userName = $u['name'] ?? $userName; $userRole = $u['role'] ?? $userRole;
+$userName = "Admin";
+$userRole = "System Admin";
+if (function_exists("current_user")) {
+    $u = current_user();
+    $userName = $u["name"] ?? $userName;
+    $userRole = $u["role"] ?? $userRole;
 }
 ?>
 <!DOCTYPE html>
@@ -42,7 +50,9 @@ if (function_exists('current_user')) {
         <a class="nav-link" href="./pltReports.php"><ion-icon name="file-tray-stacked-outline"></ion-icon><span>Reports</span></a>
       </nav>
       <div class="logout-section">
-        <a class="nav-link text-danger" href="<?= defined('BASE_URL') ? BASE_URL : '#' ?>/auth/logout.php">
+        <a class="nav-link text-danger" href="<?= defined("BASE_URL")
+            ? BASE_URL
+            : "#" ?>/auth/logout.php">
           <ion-icon name="log-out-outline"></ion-icon> Logout
         </a>
       </div>
@@ -141,7 +151,7 @@ if (function_exists('current_user')) {
         </div>
       </section>
 
-      <!-- Table (same structure/pagination vibe) -->
+      <!-- Table -->
       <section class="card shadow-sm">
         <div class="card-body">
           <div class="d-flex justify-content-between align-items-center mb-2">
@@ -278,7 +288,7 @@ async function loadList(){
 }
 window.go=(p)=>{ if(!p||p<1) return; state.page=p; loadList(); };
 
-// filters (same UX as inventory page)
+// filters
 $('#btnApply').addEventListener('click', ()=>{
   state.page=1;
   state.search=$('#fSearch').value.trim();

@@ -1,7 +1,5 @@
 <?php
-/* warehousing/TrackShipment/shipmentTracking.php */
 require_once __DIR__ . "/../../includes/config.php";
-
 
 /* ---- DB guards ---- */
 function table_exists(PDO $pdo, string $name): bool
@@ -14,7 +12,6 @@ $hasLoc = table_exists($pdo, "warehouse_locations");
 $hasShip = table_exists($pdo, "shipments");
 $dbReady = $hasLoc && $hasShip;
 
-/* --- Server-side fallback options for Origin/Destination --- */
 $locOptionsHtml = "";
 if ($hasLoc) {
     $rows = $pdo
@@ -493,20 +490,16 @@ function resetFiltersToAll() {
     // success
     e.target.reset();
 
-    //ALWAYS get or create the instance, then hide
     const addMdlEl = document.getElementById('mdlAdd');
     const addMdl   = bootstrap.Modal.getOrCreateInstance(addMdlEl);
     addMdl.hide();
 
-    // when the modal is fully hidden, ensure no backdrop is left hanging
     addMdlEl.addEventListener('hidden.bs.modal', () => cleanupBackdrops(), { once: true });
 
-    // toast with ref if provided
     let ref = '';
     try { const j = JSON.parse(text); ref = j.ref_no || ''; } catch {}
     toast(ref ? `Created ${ref}` : 'Shipment created', 'success');
 
-    // reload table from page 1, no filters
     resetFiltersToAll();
     await loadTable();
 
@@ -554,8 +547,8 @@ async function openView(id){
       const ut = await up.text();
       if (!up.ok) { alert('Update failed: ' + ut.slice(0,180)); console.error(ut); return; }
       toast(`Status updated to ${document.getElementById('vStatus').value}`, 'success');
-      openView(id);   // refresh modal
-      loadTable();    // refresh list
+      openView(id);
+      loadTable();  
     };
   } catch (err) {
     alert('Load failed (network); see console.');
@@ -592,12 +585,10 @@ async function openView(id){
 }
 
 function cleanupBackdrops() {
-  // remove any stuck overlay/backdrop and body lock
   document.querySelectorAll('.modal-backdrop').forEach(el => el.remove());
   document.body.classList.remove('modal-open');
   document.body.style.removeProperty('paddingRight');
 }
-// global safety net – runs whenever ANY bootstrap modal finishes hiding
 document.addEventListener('hidden.bs.modal', cleanupBackdrops);
 
 

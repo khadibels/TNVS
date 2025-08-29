@@ -278,8 +278,8 @@ for ($i = 0; $i < 14; $i++) {
                         <td class="route"><?= htmlspecialchars(
                             $r["origin"] ?: "-"
                         ) ?> → <?= htmlspecialchars(
-     $r["destination"] ?: "-"
- ) ?></td>
+                            $r["destination"] ?: "-"
+                        ) ?></td>
                         <td><span class="badge bg-secondary badge-status"><?= htmlspecialchars(
                             ucfirst(str_replace("_", " ", $r["status"]))
                         ) ?></span></td>
