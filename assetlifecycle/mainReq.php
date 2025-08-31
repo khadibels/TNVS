@@ -1,24 +1,10 @@
 <?php
-// maintenance_requests.php
-// Single-file Maintenance Requests module (PDO + AJAX)
 
-// === CONFIG ===
-$DB_HOST = '127.0.0.1';
-$DB_NAME = 'alms_db';
-$DB_USER = 'root';
-$DB_PASS = ''; // change as needed
-$UPLOAD_DIR = __DIR__ . '/uploads/'; // ensure writable
+require_once __DIR__ . "/../includes/config.php";
+require_once __DIR__ . "/../includes/auth.php";
+require_login();
 
-// === DB CONNECTION via PDO ===
-try {
-    $pdo = new PDO("mysql:host=$DB_HOST;dbname=$DB_NAME;charset=utf8mb4", $DB_USER, $DB_PASS, [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION
-    ]);
-} catch (Exception $e) {
-    http_response_code(500);
-    echo "DB Connection failed: " . htmlspecialchars($e->getMessage());
-    exit;
-}
+session_start();
 
 // === History table + JSON helpers ===
 function ensureHistoryTable(PDO $pdo): void {
