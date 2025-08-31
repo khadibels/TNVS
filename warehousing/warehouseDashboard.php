@@ -123,13 +123,7 @@ if ($hasTx) {
                 $map[$k]["out"] = (int) $r["outgoing"];
             }
         }
-    } catch (Throwable $e) {
-        /* keep zeros */
-    }
-<<<<<<< HEAD
   } catch (Throwable $e) { }
-=======
->>>>>>> origin/main
 }
 foreach ($map as $key => $io) {
     $d = DateTime::createFromFormat("Y-m-d", $key, $tz);
@@ -172,15 +166,9 @@ if ($hasLvl && $hasLoc) {
     }
 }
 
-<<<<<<< HEAD
 /* ---- Chart data: Shipment Status ----- */
 $shipLabels = ["In Transit","Delivered","Delayed"];
 $shipData   = [0,0,0];
-=======
-/* ---- Chart data: Shipment Status (if table exists) ---- */
-$shipLabels = ["In Transit", "Delivered", "Delayed"];
-$shipData = [0, 0, 0];
->>>>>>> origin/main
 if ($hasShip) {
     $statusMap = [];
     try {
