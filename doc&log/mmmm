@@ -1,0 +1,373 @@
+<?php
+session_start();
+if (!isset($_SESSION['Account_type'])) { header('Location: login.php'); exit; }
+
+$DB_HOST = '127.0.0.1';
+$DB_NAME = 'doc_log_db';
+$DB_USER = 'root';
+$DB_PASS = '';
+try {
+    $pdo = new PDO("mysql:host=$DB_HOST;dbname=$DB_NAME;charset=utf8mb4", $DB_USER, $DB_PASS, [
+        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+    ]);
+} catch (Throwable $e) {
+    die("Database connection failed");
+}
+// Asset Stats
+$totalAssets = $pdo->query("SELECT COUNT(*) FROM assets")->fetchColumn();
+$activeAssets = $pdo->query("SELECT COUNT(*) FROM assets WHERE status='Active'")->fetchColumn();
+$maintenanceAssets = $pdo->query("SELECT COUNT(*) FROM assets WHERE status='In Maintenance'")->fetchColumn();
+$retiredAssets = $pdo->query("SELECT COUNT(*) FROM assets WHERE status='Retired'")->fetchColumn();
+$recentAssets = $pdo->query("SELECT name, status, asset_type, department FROM assets ORDER BY id DESC LIMIT 3")->fetchAll();
+// Maintenance Requests
+$recentRequests = [];
+if ($pdo->query("SHOW TABLES LIKE 'maintenance_requests'")->fetch()) {
+    // Try to fetch 'asset', fallback to 'name', and if that fails, select all columns as a last resort
+    try {
+        $recentRequests = $pdo->query("SELECT asset, type, status FROM maintenance_requests ORDER BY id DESC LIMIT 3")->fetchAll();
+    } catch (PDOException $e) {
+        try {
+            $recentRequests = $pdo->query("SELECT name, type, status FROM maintenance_requests ORDER BY id DESC LIMIT 3")->fetchAll();
+        } catch (PDOException $e2) {
+            $recentRequests = $pdo->query("SELECT * FROM maintenance_requests ORDER BY id DESC LIMIT 3")->fetchAll();
+        }
+    }
+}
+// Document KPIs
+$totalDocs = $pendingDocs = $expiringDocs = $expiredDocs = 0;
+if ($pdo->query("SHOW TABLES LIKE 'documents'")->fetch()) {
+    $totalDocs = (int)$pdo->query("SELECT COUNT(*) FROM documents")->fetchColumn();
+    $pendingDocs = (int)$pdo->query("SELECT COUNT(*) FROM documents WHERE status IN ('Draft','Submitted','Verified')")->fetchColumn();
+    $expiringDocs = (int)$pdo->query("SELECT COUNT(*) FROM documents WHERE expiration_date IS NOT NULL AND expiration_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) AND expiration_date >= CURDATE()") ->fetchColumn();
+    $expiredDocs = (int)$pdo->query("SELECT COUNT(*) FROM documents WHERE expiration_date IS NOT NULL AND expiration_date < CURDATE()") ->fetchColumn();
+}
+// Logistics KPIs and table names
+$trips = $km = $liters = $fuel_cost = $completion = $ontime = $delays = 0;
+$recentDocs = $recentLogs = $assetNames = [];
+if ($pdo->query("SHOW TABLES LIKE 'logistics_records'")->fetch()) {
+    $kpi = $pdo->query("SELECT 
+      COUNT(*) AS trips,
+      COALESCE(SUM(distance_km),0) AS km,
+      COALESCE(SUM(fuel_liters),0) AS liters,
+      COALESCE(SUM(fuel_cost),0) AS fuel_cost,
+      COALESCE(SUM(deliveries_planned),0) AS dp,
+      COALESCE(SUM(deliveries_completed),0) AS dc,
+      COALESCE(SUM(on_time),0) AS ot,
+      COALESCE(SUM(delays),0) AS delays
+      FROM logistics_records WHERE archived_at IS NULL")->fetch(PDO::FETCH_ASSOC);
+    $trips = (int)($kpi['trips'] ?? 0);
+    $km = (float)($kpi['km'] ?? 0);
+    $liters = (float)($kpi['liters'] ?? 0);
+    $fuel_cost = (float)($kpi['fuel_cost'] ?? 0);
+    $dp = (float)($kpi['dp'] ?? 0);
+    $dc = (float)($kpi['dc'] ?? 0);
+    $ot = (float)($kpi['ot'] ?? 0);
+    $delays = (int)($kpi['delays'] ?? 0);
+    $completion = ($dp>0) ? round(($dc/$dp)*100,1) : 0;
+    $ontime = ($dc>0) ? round(($ot/$dc)*100,1) : 0;
+    $recentLogs = $pdo->query("SELECT id, trip_date, driver_name, trip_ref, asset_id, deliveries_completed, deliveries_planned, validation_status FROM logistics_records ORDER BY updated_at DESC, id DESC LIMIT 5")->fetchAll();
+    foreach($pdo->query("SELECT id, name FROM assets")->fetchAll() as $ass) { $assetNames[$ass['id']] = $ass['name']; }
+}
+if ($pdo->query("SHOW TABLES LIKE 'documents'")->fetch()) {
+    $recentDocs = $pdo->query("SELECT id, title, doc_type, status, expiration_date, file_path FROM documents ORDER BY updated_at DESC, id DESC LIMIT 5")->fetchAll();
+}
+?><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Unified Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="../css/style.css" rel="stylesheet">
+    <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+    <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+    <style>
+   body {
+  background: #f9fafc;
+  font-family: 'Inter', Arial, sans-serif;
+  color: #1e293b;
+}
+
+.sidebar {
+  background: #111827;
+  color: #f1f5f9;
+  min-height: 100vh;
+  width: 220px;
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 1040;
+  padding: 1.5rem 1rem;
+  border-right: 1px solid #1f2937;
+}
+
+.sidebar .nav-link {
+  color: #cbd5e1;
+  border-radius: 8px;
+  margin-bottom: 6px;
+  font-size: 0.95rem;
+  padding: 0.65rem 1rem;
+  transition: background .2s, color .2s;
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  font-weight: 500;
+}
+
+.sidebar .nav-link.active,
+.sidebar .nav-link:hover {
+  background: #374151;
+  color: #fff;
+}
+
+.sidebar .nav-link.text-danger {
+  color: #f87171;
+  font-weight: 600;
+}
+
+.sidebar .nav-link ion-icon {
+  font-size: 1.2rem;
+}
+
+.main-content {
+  margin-left: 220px;
+  padding: 1.8rem;
+}
+
+.dashboard-title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #1e3a8a;
+  margin-bottom: 1.5rem;
+}
+
+/* Stats Cards */
+.stats-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.stats-card {
+  background: #fff;
+  border-radius: 14px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+  padding: 1.2rem 1.4rem;
+  flex: 1 1 180px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  border: 1px solid #f1f5f9;
+  transition: transform .15s, box-shadow .15s;
+}
+
+.stats-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(0,0,0,0.07);
+}
+
+.stats-card .icon {
+  font-size: 1.7rem;
+  color: #4f46e5;
+  background: #eef2ff;
+  border-radius: 50%;
+  padding: 8px;
+  margin-bottom: 0.3rem;
+  display: inline-flex;
+}
+
+.stats-card .label {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: #6b7280;
+}
+
+.stats-card .value {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+/* Dashboard panels */
+.dashboard-row {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.dashboard-col {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+  padding: 1rem 1.2rem;
+  flex: 1 1 320px;
+  min-width: 280px;
+}
+
+.dashboard-col h5 {
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 0.9rem;
+}
+
+/* Tables */
+.table {
+  border-radius: 10px;
+  overflow: hidden;
+  font-size: 0.95rem;
+}
+
+.table th {
+  background: #f1f5f9;
+  color: #475569;
+  border: none;
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.table td {
+  border: none;
+  vertical-align: middle;
+  padding: 0.6rem 0.8rem;
+}
+
+.table tbody tr:nth-child(even) td {
+  background: #fafafa;
+}
+
+.table tbody tr:hover td {
+  background: #f8fafc;
+}
+
+/* Status Badges */
+.status-badge {
+  padding: 3px 12px;
+  border-radius: 9999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  display: inline-block;
+}
+
+.status-badge.s-draft      { background:#e0e7ff; color:#3730a3; }
+.status-badge.s-submitted  { background:#dbeafe; color:#1e40af; }
+.status-badge.s-verified   { background:#fef3c7; color:#92400e; }
+.status-badge.s-approved   { background:#d1fae5; color:#065f46; }
+.status-badge.s-rejected   { background:#fee2e2; color:#b91c1c; }
+.status-badge.s-archived   { background:#f3f4f6; color:#374151; }
+.status-badge.s-pending    { background:#ede9fe; color:#5b21b6; }
+.status-badge.s-validated  { background:#bbf7d0; color:#166534; }
+
+/* Buttons */
+.btn-sm {
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.btn-primary {
+  background: #4f46e5;
+  border: none;
+}
+
+.btn-primary:hover {
+  background: #4338ca;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .sidebar { left: -220px; transition: left .2s; }
+  .sidebar.show { left: 0; }
+  .main-content { margin-left: 0; }
+}
+
+    </style>
+</head>
+<body>
+<div class="container-fluid p-0">
+    <div class="row g-0">
+      <!-- Sidebar -->
+      <div class="sidebar" id="sidebar">
+        <div class="d-flex justify-content-center align-items-center mb-5 mt-3"><img src="logo.png" style="height:50px;" alt="Logo"></div>
+        <h6 style="color:white;">Navigation</h6>
+        <nav class="nav flex-column mb-3">
+          <a class="nav-link active" href="dashboard.php"><ion-icon name="home-outline"></ion-icon> Dashboard</a>
+          <a class="nav-link" href="document.php"><ion-icon name="document-text-outline"></ion-icon> Documents</a>
+          <a class="nav-link" href="logistic.php"><ion-icon name="cube-outline"></ion-icon> Logistics</a>
+          <a class="nav-link" href="settings.php"><ion-icon name="settings-outline"></ion-icon> Settings</a>
+        </nav>
+        <div class="p-3 border-top"><a class="nav-link text-danger" href="/login.php"><ion-icon name="log-out-outline"></ion-icon> Logout</a></div>
+      </div>
+      <div class="main-content col">
+          <div class="dashboard-title">Unified Operations Dashboard</div>
+          <!-- Stats Section -->
+          <div class="stats-cards mb-2">
+            <div class="stats-card"><div class="icon"><ion-icon name="cube-outline"></ion-icon></div><div class="label">Assets</div><div class="value"><?= $totalAssets ?></div></div>
+            <div class="stats-card"><div class="icon"><ion-icon name="checkmark-done-outline"></ion-icon></div><div class="label">Active</div><div class="value"><?= $activeAssets ?></div></div>
+            <div class="stats-card"><div class="icon"><ion-icon name="build-outline"></ion-icon></div><div class="label">In Maintenance</div><div class="value"><?= $maintenanceAssets ?></div></div>
+            <div class="stats-card"><div class="icon"><ion-icon name="archive-outline"></ion-icon></div><div class="label">Retired</div><div class="value"><?= $retiredAssets ?></div></div>
+            <div class="stats-card" onclick="location.href='doc.php'" style="cursor:pointer"><div class="icon"><ion-icon name="document-text-outline"></ion-icon></div><div class="label">Documents</div><div class="value"><?= $totalDocs ?></div></div>
+            <div class="stats-card"><div class="icon"><ion-icon name="time-outline"></ion-icon></div><div class="label">Pending Docs</div><div class="value"><?= $pendingDocs ?></div></div>
+            <div class="stats-card"><div class="icon"><ion-icon name="alert-outline"></ion-icon></div><div class="label">Expiring Soon</div><div class="value"><?= $expiringDocs ?></div></div>
+            <div class="stats-card"><div class="icon"><ion-icon name="skull-outline"></ion-icon></div><div class="label">Expired Docs</div><div class="value"><?= $expiredDocs ?></div></div>
+            <div class="stats-card" onclick="location.href='logisticsrecord.php'" style="cursor:pointer"><div class="icon"><ion-icon name="list-outline"></ion-icon></div><div class="label">Trips</div><div class="value"><?= $trips ?></div></div>
+            <div class="stats-card"><div class="icon"><ion-icon name="timer-outline"></ion-icon></div><div class="label">Pending Validate</div><div class="value"><?= ($trips-$completion*$trips/100)?></div></div>
+            <div class="stats-card"><div class="icon"><ion-icon name="checkmark-circle-outline"></ion-icon></div><div class="label">Completion %</div><div class="value"><?= number_format($completion,1) ?>%</div></div>
+            <div class="stats-card"><div class="icon"><ion-icon name="calendar-outline"></ion-icon></div><div class="label">On-time %</div><div class="value"><?= number_format($ontime,1) ?>%</div></div>
+            <div class="stats-card"><div class="icon"><ion-icon name="warning-outline"></ion-icon></div><div class="label">Delays</div><div class="value"><?= $delays ?></div></div>
+          </div>
+          <!-- Main content panel: Documents / Logistics / Asset Maintenance -->
+          <div class="dashboard-row">
+            <!-- Recent Docs -->
+            <div class="dashboard-col"><h5>Recent Documents</h5>
+              <table class="table mb-0"><thead><tr><th>Title</th><th>Type</th><th>Status</th><th>Expiry</th><th>Action</th></tr></thead><tbody>
+                <?php foreach ($recentDocs as $d): ?>
+                <tr>
+                  <td><?= htmlspecialchars($d['title']) ?></td>
+                  <td><?= htmlspecialchars($d['doc_type']) ?></td>
+                  <td><span class="status-badge s-<?= strtolower(htmlspecialchars($d['status'])) ?>"><?= htmlspecialchars($d['status']) ?></span></td>
+                  <td><?= htmlspecialchars($d['expiration_date'] ?: '—') ?></td>
+                  <td><a href="doc.php?id=<?= $d['id'] ?>" class="btn btn-outline-primary btn-sm">View</a> <?php if (!empty($d['file_path'])): ?><a href="doc.php?action=download&id=<?= $d['id'] ?>" class="btn btn-outline-secondary btn-sm">Download</a><?php endif; ?></td>
+                </tr><?php endforeach; ?>
+                <?php if(count($recentDocs)===0):?><tr><td colspan="5" style="color:#888">No recent documents found.</td></tr><?php endif; ?>
+              </tbody></table>
+              <a href="doc.php" class="btn btn-sm btn-primary mt-2">See all Documents</a>
+            </div>
+            <!-- Recent Logistics -->
+            <div class="dashboard-col"><h5>Recent Logistics Trips</h5>
+              <table class="table mb-0"><thead><tr><th>Date</th><th>Driver</th><th>Trip Ref</th><th>Completed</th><th>Status</th><th>Action</th></tr></thead><tbody>
+                <?php foreach($recentLogs as $l):?>
+                <tr>
+                  <td><?= htmlspecialchars($l['trip_date']) ?></td>
+                  <td><?= htmlspecialchars($l['driver_name'] ?: '-') ?></td>
+                  <td><?= htmlspecialchars($l['trip_ref'] ?: '-') ?></td>
+                  <td><?= (int)$l['deliveries_completed'] ?> / <?= (int)$l['deliveries_planned'] ?></td>
+                  <td><span class="status-badge s-<?= strtolower(htmlspecialchars($l['validation_status'])) ?>"><?= htmlspecialchars($l['validation_status']) ?></span></td>
+                  <td><a href="logisticsrecord.php?id=<?= $l['id'] ?>" class="btn btn-outline-primary btn-sm">View</a></td>
+                </tr><?php endforeach; ?>
+                <?php if(count($recentLogs)===0):?><tr><td colspan="6" style="color:#888">No recent trips found.</td></tr><?php endif; ?>
+              </tbody></table>
+              <a href="logisticsrecord.php" class="btn btn-sm btn-primary mt-2">See all Logistics</a>
+            </div>
+            <!-- Recent Assets / Requests (if any) -->
+            <div class="dashboard-col"><h5>Recent Assets & Maintenance</h5>
+              <strong>Assets</strong>
+              <table class="table mb-0"><thead><tr><th>Name</th><th>Status</th><th>Type</th><th>Department</th></tr></thead><tbody><?php foreach($recentAssets as $a):?><tr><td><?=htmlspecialchars($a['name'])?></td><td><span class="status-badge <?= $a['status']=='Active'?'online':'offline' ?>"><?=htmlspecialchars($a['status'])?></span></td><td><?=htmlspecialchars($a['asset_type'])?></td><td><?=htmlspecialchars($a['department'])?></td></tr><?php endforeach; ?></tbody></table>
+              <strong class="mt-2">Maint. Requests</strong>
+              <?php if(count($recentRequests)) {?>
+              <ul class="mb-0"> <?php foreach ($recentRequests as $req): ?> <li><?= htmlspecialchars($req['asset_name']) ?> - <?= htmlspecialchars($req['type']) ?> <span class="status-badge <?= $req['status']=='Completed' ? 'online' : 'offline' ?>"><?= htmlspecialchars($req['status']) ?></span></li> <?php endforeach; ?> </ul>
+              <a href="mainReq.php" class="btn btn-sm btn-primary mt-2">View All Requests</a>
+              <?php } else {?> <div style="color:#888">No recent requests.</div><?php }?>
+              <a href="ass1.php" class="btn btn-sm btn-primary mt-2">View All Assets</a>
+            </div>
+          </div>
+      </div>
+    </div>
+</div>
+<script>
+function toggleSidebar(){document.getElementById('sidebar').classList.toggle('show');}
+</script>
+</body>
+</html>
