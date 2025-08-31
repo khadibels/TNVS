@@ -577,8 +577,20 @@ for ($i = 0; $i < 14; $i++) {
         <a class="nav-link" href="../PLT/projectTracking.php"><ion-icon name="briefcase-outline"></ion-icon><span>Project Tracking</span></a>
         <a class="nav-link" href="../PLT/shipmentTracker.php"><ion-icon name="trail-sign-outline"></ion-icon><span>Shipment Tracker</span></a>
         <a class="nav-link" href="../PLT/deliverySchedule.php"><ion-icon name="calendar-outline"></ion-icon><span>Delivery Schedule</span></a>
-      </nav>
+        </nav>
 
+
+      <!-- ALMS --> 
+      <h6 class="text-uppercase mb-2">ALMS</h6>
+      <nav class="nav flex-column px-2 mb-4">
+        <a class="nav-link" href="./assetTracker.php"><ion-icon name="cube-outline"></ion-icon><span>Asset Tracking</span></a>
+        <a class="nav-link" href="./mainReq.php">
+            <ion-icon name="layers-outline"></ion-icon><span>Maintenance Requests</span>
+          </a>
+        <a class="nav-link" href="./repair.php">
+            <ion-icon name="hammer-outline"></ion-icon><span>Repair Logs</span>
+          </a>
+          
       <hr class="mx-3 my-2">
 
       <!-- Global tools (single versions) -->

@@ -1,25 +1,9 @@
 <?php
-// Repair Logs — Enhanced TNVS-related module (PDO + prepared statements + CSRF + filters + CSV)
-// Compatible with existing assets table
+require_once __DIR__ . "/../includes/config.php";
+require_once __DIR__ . "/../includes/auth.php";
+require_login();
 
-session_start();
-
-// DB config
-$DB_HOST = '127.0.0.1';
-$DB_NAME = 'alms_db';
-$DB_USER = 'root';
-$DB_PASS = '';
-
-try {
-    $pdo = new PDO("mysql:host=$DB_HOST;dbname=$DB_NAME;charset=utf8mb4", $DB_USER, $DB_PASS, [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-    ]);
-} catch (Throwable $e) {
-    http_response_code(500);
-    echo 'DB connection failed';
-    exit;
-}
+if (session_status() !== PHP_SESSION_ACTIVE) session_start();
 
 // Ensure assets table exists (minimal)
 $pdo->exec("CREATE TABLE IF NOT EXISTS assets (
@@ -266,8 +250,14 @@ $types = ['Preventive','Corrective','Inspection','Parts Replacement','Calibratio
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>TNVS Repair & Maintenance Logs</title>
-<link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+<link href="../css/style.css" rel="stylesheet" />
+<link href="../css/modules.css" rel="stylesheet" />
+
+<script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+<script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+<script src="../js/sidebar-toggle.js"></script>
+
 <style>
 :root{
   --bg: #f5f7fb; --card:#fff; --accent:#0f62fe; --muted:#6b7280; --text:#111827;
@@ -303,12 +293,51 @@ body{margin:0;font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe
 </style>
 </head>
 <body>
+
+  <div class="container-fluid p-0">
+    <div class="row g-0">
+
+      <div class="sidebar d-flex flex-column">
+        <div class="d-flex justify-content-center align-items-center mb-4 mt-3">
+          <img src="../img/logo.png" id="logo" class="img-fluid me-2" style="height:55px" alt="Logo">
+        </div>
+
+        <h6 class="text-uppercase mb-2">Asset Lifecycle &amp; Maintenance</h6>
+
+        <nav class="nav flex-column px-2 mb-4">
+          <a class="nav-link" href="ALMS.php">
+            <ion-icon name="home-outline"></ion-icon><span>Dashboard</span>
+          </a>
+          <a class="nav-link" href="./assetTracker.php">
+            <ion-icon name="cube-outline"></ion-icon><span>Asset Tracking</span>
+          </a>
+          <a class="nav-link" href="./mainReq.php">
+            <ion-icon name="layers-outline"></ion-icon><span>Maintenance Requests</span>
+          </a>
+          <a class="nav-link active" href="./repair.php">
+            <ion-icon name="hammer-outline"></ion-icon><span>Repair Logs</span>
+          </a>
+          <a class="nav-link" href="./reports.php">
+            <ion-icon name="file-tray-stacked-outline"></ion-icon><span>Reports</span>
+          </a>
+          <a class="nav-link" href="./settings.php">
+            <ion-icon name="settings-outline"></ion-icon><span>Settings</span>
+          </a>
+        </nav>
+
+        <div class="logout-section mt-auto">
+          <a class="nav-link text-danger" href="<?= BASE_URL ?>/auth/logout.php">
+            <ion-icon name="log-out-outline"></ion-icon> Logout
+          </a>
+        </div>
+      </div>
+
 <div class="container">
   <header class="header">
     <div style="display:flex;gap:8px;align-items:center">
       <a href="ALMS.php" class="btn ghost"><i class='bx bx-arrow-back'></i> Back</a>
       <a href="ass1.php" class="btn ghost"><i class='bx bx-package'></i> Assets</a>
-      <a href="ass2.php" class="btn ghost"><i class='bx bx-pie-chart-alt-2'></i> Asset Report</a>
+      <a href="reports.php" class="btn ghost"><i class='bx bx-pie-chart-alt-2'></i> Asset Report</a>
     </div>
     <div>
       <h2 style="margin:0;display:flex;align-items:center;gap:8px"><i class='bx bx-wrench'></i> TNVS Repair & Maintenance</h2>

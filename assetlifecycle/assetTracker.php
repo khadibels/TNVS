@@ -331,7 +331,7 @@ $userRole = $_SESSION["user"]["role"] ?? "Warehouse Manager";
           <a class="nav-link" href="./repair.php">
             <ion-icon name="hammer-outline"></ion-icon><span>Repair Logs</span>
           </a>
-          <a class="nav-link" href="./ass2.php">
+          <a class="nav-link" href="./reports.php">
             <ion-icon name="file-tray-stacked-outline"></ion-icon><span>Reports</span>
           </a>
           <a class="nav-link" href="./settings.php">
