@@ -424,7 +424,8 @@ if (function_exists("current_user")) {
 
   // Add/Edit
   window.editSup = (id,row)=>{
-    const m = new bootstrap.Modal('#mdlSup'); m.show();
+    const m = new bootstrap.Modal(document.getElementById('mdlSup'));
+    m.show();
     const f = document.getElementById('supForm');
     f.reset(); $('#supErr').classList.add('d-none');
     if (row) {

@@ -1,15 +1,17 @@
 <?php
-require_once __DIR__ . '/../../includes/config.php';
-require_once __DIR__ . '/../../includes/auth.php';
+require_once __DIR__ . "/../../includes/config.php";
+require_once __DIR__ . "/../../includes/auth.php";
 require_login();
 
-/* ---- user (same pattern as reports) ---- */
 $userName = $_SESSION["user"]["name"] ?? "Nicole Malitao";
 $userRole = $_SESSION["user"]["role"] ?? "Warehouse Manager";
 
 /* ---- data ---- */
-$catNames = $pdo->query("SELECT name FROM inventory_categories WHERE active=1 ORDER BY name")
-               ->fetchAll(PDO::FETCH_COLUMN);
+$catNames = $pdo
+    ->query(
+        "SELECT name FROM inventory_categories WHERE active=1 ORDER BY name"
+    )
+    ->fetchAll(PDO::FETCH_COLUMN);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -121,7 +123,9 @@ $catNames = $pdo->query("SELECT name FROM inventory_categories WHERE active=1 OR
                 <select id="fCategory" class="form-select">
                   <option value="">All Categories</option>
                   <?php foreach ($catNames as $n): ?>
-                    <option value="<?= htmlspecialchars($n) ?>"><?= htmlspecialchars($n) ?></option>
+                    <option value="<?= htmlspecialchars(
+                        $n
+                    ) ?>"><?= htmlspecialchars($n) ?></option>
                   <?php endforeach; ?>
                 </select>
               </div>
@@ -201,7 +205,9 @@ $catNames = $pdo->query("SELECT name FROM inventory_categories WHERE active=1 OR
               <label class="form-label">Category</label>
               <select class="form-select" name="category" id="itemCat" required>
                 <?php foreach ($catNames as $n): ?>
-                  <option value="<?= htmlspecialchars($n) ?>"><?= htmlspecialchars($n) ?></option>
+                  <option value="<?= htmlspecialchars(
+                      $n
+                  ) ?>"><?= htmlspecialchars($n) ?></option>
                 <?php endforeach; ?>
               </select>
               <?php if (!$catNames): ?>
@@ -250,7 +256,9 @@ $catNames = $pdo->query("SELECT name FROM inventory_categories WHERE active=1 OR
               <label class="form-label">Category</label>
               <select class="form-select" name="category" id="itemCatEdit" required>
                 <?php foreach ($catNames as $n): ?>
-                  <option value="<?= htmlspecialchars($n) ?>"><?= htmlspecialchars($n) ?></option>
+                  <option value="<?= htmlspecialchars(
+                      $n
+                  ) ?>"><?= htmlspecialchars($n) ?></option>
                 <?php endforeach; ?>
               </select>
               <?php if (!$catNames): ?>

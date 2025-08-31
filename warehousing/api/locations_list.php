@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . "/../../includes/config.php";
 require_once __DIR__ . "/../../includes/auth.php";
-require_login("json"); // any logged-in user may read
+require_login("json");
 
 header("Content-Type: application/json");
 

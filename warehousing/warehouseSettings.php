@@ -3,10 +3,9 @@ require_once __DIR__ . "/../includes/config.php";
 require_once __DIR__ . "/../includes/auth.php";
 require_role(["admin", "manager"]);
 
-
-$hasUsersApi = file_exists(__DIR__ . '/api/users_list.php') && file_exists(__DIR__ . '/api/user_set_role.php');
-
-
+$hasUsersApi =
+    file_exists(__DIR__ . "/api/users_list.php") &&
+    file_exists(__DIR__ . "/api/user_set_role.php");
 
 $user = current_user();
 $userName = $user["name"] ?? "—";
@@ -256,7 +255,7 @@ $isAdmin = $userRole === "admin";
 
 <script>
 
-  const HAS_USERS_API = <?= ($isAdmin && $hasUsersApi) ? 'true' : 'false' ?>;
+  const HAS_USERS_API = <?= $isAdmin && $hasUsersApi ? "true" : "false" ?>;
 
 
   // --- tiny toast helper (same as other pages)

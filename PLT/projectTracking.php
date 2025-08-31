@@ -1,12 +1,21 @@
 <?php
-$inc = __DIR__ . '/../includes';
-if (file_exists($inc . '/config.php')) require_once $inc . '/config.php';
-if (file_exists($inc . '/auth.php'))  require_once $inc . '/auth.php';
-if (function_exists('require_login')) require_login();
+$inc = __DIR__ . "/../includes";
+if (file_exists($inc . "/config.php")) {
+    require_once $inc . "/config.php";
+}
+if (file_exists($inc . "/auth.php")) {
+    require_once $inc . "/auth.php";
+}
+if (function_exists("require_login")) {
+    require_login();
+}
 
-$userName = 'Admin'; $userRole = 'System Admin';
-if (function_exists('current_user')) {
-  $u = current_user(); $userName = $u['name'] ?? $userName; $userRole = $u['role'] ?? $userRole;
+$userName = "Admin";
+$userRole = "System Admin";
+if (function_exists("current_user")) {
+    $u = current_user();
+    $userName = $u["name"] ?? $userName;
+    $userRole = $u["role"] ?? $userRole;
 }
 ?>
 <!DOCTYPE html>
@@ -36,13 +45,15 @@ if (function_exists('current_user')) {
       <h6 class="text-uppercase mb-2">PLT</h6>
       <nav class="nav flex-column px-2 mb-4">
         <a class="nav-link" href="./pltDashboard.php"><ion-icon name="home-outline"></ion-icon><span>Dashboard</span></a>
-        <a class="nav-link" href="./shipmentTracker.php"><ion-icon name="trail-sign-outline"></ion-icon><span>Shipment Tracker</span></a>
         <a class="nav-link active" href="./projectTracking.php"><ion-icon name="briefcase-outline"></ion-icon><span>Project Tracking</span></a>
+        <a class="nav-link" href="./shipmentTracker.php"><ion-icon name="trail-sign-outline"></ion-icon><span>Shipment Tracker</span></a>
         <a class="nav-link" href="./deliverySchedule.php"><ion-icon name="calendar-outline"></ion-icon><span>Delivery Schedule</span></a>
-        <a class="nav-link" href="./pltReports.php"><ion-icon name="analytics-outline"></ion-icon><span>Reports</span></a>
+        <a class="nav-link" href="./pltReports.php"><ion-icon name="file-tray-stacked-outline"></ion-icon><span>Reports</span></a>
       </nav>
       <div class="logout-section">
-        <a class="nav-link text-danger" href="<?= defined('BASE_URL') ? BASE_URL : '#' ?>/auth/logout.php">
+        <a class="nav-link text-danger" href="<?= defined("BASE_URL")
+            ? BASE_URL
+            : "#" ?>/auth/logout.php">
           <ion-icon name="log-out-outline"></ion-icon> Logout
         </a>
       </div>

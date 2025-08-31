@@ -1,11 +1,15 @@
 <?php
-require_once __DIR__ . '/../../../includes/config.php';
-require_once __DIR__ . '/../../../includes/auth.php';
+require_once __DIR__ . "/../../../includes/config.php";
+require_once __DIR__ . "/../../../includes/auth.php";
 require_login();
-header('Content-Type: application/json');
+header("Content-Type: application/json");
 
-$id = (int)($_GET['id'] ?? 0);
-if (!$id) { http_response_code(400); echo json_encode(['ok'=>false,'err'=>'Missing id']); exit; }
+$id = (int) ($_GET["id"] ?? 0);
+if (!$id) {
+    http_response_code(400);
+    echo json_encode(["ok" => false, "err" => "Missing id"]);
+    exit();
+}
 
 $hdr = $pdo->prepare("
   SELECT s.id, s.ref_no, s.status, s.carrier,
@@ -21,7 +25,11 @@ $hdr = $pdo->prepare("
 ");
 $hdr->execute([$id]);
 $shipment = $hdr->fetch(PDO::FETCH_ASSOC);
-if (!$shipment) { http_response_code(404); echo json_encode(['ok'=>false,'err'=>'Not found']); exit; }
+if (!$shipment) {
+    http_response_code(404);
+    echo json_encode(["ok" => false, "err" => "Not found"]);
+    exit();
+}
 
 $ev = $pdo->prepare("
   SELECT DATE_FORMAT(event_time,'%Y-%m-%d %H:%i:%s') AS event_time,
@@ -33,4 +41,4 @@ $ev = $pdo->prepare("
 $ev->execute([$id]);
 $events = $ev->fetchAll(PDO::FETCH_ASSOC);
 
-echo json_encode(['ok'=>true,'shipment'=>$shipment, 'events'=>$events]);
+echo json_encode(["ok" => true, "shipment" => $shipment, "events" => $events]);

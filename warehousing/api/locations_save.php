@@ -1,7 +1,7 @@
 <?php
 require_once __DIR__ . "/../../includes/config.php";
 require_once __DIR__ . "/../../includes/auth.php";
-require_role(["admin", "manager"], "json"); // only admins/managers may write
+require_role(["admin", "manager"], "json");
 
 header("Content-Type: application/json");
 
@@ -35,7 +35,6 @@ try {
     echo json_encode(["ok" => true]);
 } catch (PDOException $e) {
     if ($e->getCode() === "23000") {
-        
         http_response_code(409);
         echo json_encode(["ok" => false, "error" => "DUPLICATE_CODE"]);
     } else {
