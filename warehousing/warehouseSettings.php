@@ -8,8 +8,8 @@ $hasUsersApi =
     file_exists(__DIR__ . "/api/user_set_role.php");
 
 $user = current_user();
-$userName = $user["name"] ?? "—";
-$userRole = $user["role"] ?? "—";
+$userName = $user["name"] ?? "Guest";
+$userRole = $user["role"] ?? "Unknown";
 $isAdmin = $userRole === "admin";
 ?>
 
@@ -135,7 +135,7 @@ $isAdmin = $userRole === "admin";
             <div class="card-body">
               <div class="d-flex justify-content-between align-items-center mb-3">
                 <h5 class="mb-0">Access Control</h5>
-                <div class="text-muted small">Roles: Admin, Manager, Staff, Viewer, Procurement</div>
+                <div class="text-muted small">Roles: Admin, Warehouse Manager, Asset Manager, Viewer, Procurement Officer</div>
               </div>
 
               <div class="table-responsive">
@@ -325,34 +325,63 @@ $isAdmin = $userRole === "admin";
   });
 
   // ------- Users & Roles (admin only) -------
-  async function loadUsers(){
-    const wrap = document.getElementById('userBody'); if(!wrap) return;
-    const res = await fetch('./api/users_list.php',{credentials:'same-origin'});
-    const raw = await res.text(); if(!res.ok){ wrap.innerHTML=`<tr><td colspan="4" class="text-danger">${raw}</td></tr>`; return; }
-    const rows = JSON.parse(raw);
-    const roleOpts = ['admin','manager','staff','viewer','procurement'];
-    wrap.innerHTML = rows.map(u=>{
-      const sel = `<select class="form-select form-select-sm" id="role-${u.id}">
-        ${roleOpts.map(r=>`<option value="${r}" ${u.role===r?'selected':''}>${r}</option>`).join('')}
-      </select>`;
-      return `<tr>
-        <td>${u.name||'—'}</td><td>${u.email||'—'}</td>
-        <td style="max-width:180px">${sel}</td>
-        <td class="text-end">
-          <button class="btn btn-sm btn-outline-primary" onclick="saveRole(${u.id})">Save</button>
-        </td>
-      </tr>`;
-    }).join('') || '<tr><td colspan="4" class="text-center text-muted py-4">No users.</td></tr>';
-  }
+const ROLE_KEYS = [
+  'admin',
+  'manager',
+  'warehouse_staff',
+  'asset_manager',
+  'document_controller',
+  'project_lead',
+  'procurement_officer',
+  'viewer'
+];
 
-  async function saveRole(id){
-    const role = document.getElementById('role-'+id)?.value || 'viewer';
-    const res = await fetch('./api/user_set_role.php',{method:'POST',credentials:'same-origin',
-      headers:{'Content-Type':'application/x-www-form-urlencoded'},
-      body:`id=${encodeURIComponent(id)}&role=${encodeURIComponent(role)}`});
-    const raw = await res.text(); if(!res.ok){ alert(raw); return; }
-    toast('Role updated','success');
-  }
+// Pretty labels for the UI
+const ROLE_LABEL = {
+  admin: 'Admin',
+  manager: 'Warehouse Manager',
+  warehouse_staff: 'Warehouse Staff',
+  asset_manager: 'Asset Manager',
+  document_controller: 'Document Controller',
+  project_lead: 'Project Lead',
+  procurement_officer: 'Procurement Officer',
+  viewer: 'Viewer'
+};
+
+async function loadUsers(){
+  const wrap = document.getElementById('userBody'); if(!wrap) return;
+  const res = await fetch('./api/users_list.php',{credentials:'same-origin'});
+  const raw = await res.text();
+  if(!res.ok){ wrap.innerHTML=`<tr><td colspan="4" class="text-danger">${raw}</td></tr>`; return; }
+  const rows = JSON.parse(raw);
+
+  wrap.innerHTML = rows.map(u=>{
+    // normalize any legacy values like "Procurement Officer" → "procurement_officer"
+    const roleKey = String(u.role||'').toLowerCase().replace(/\s+/g,'_');
+
+    const sel = `<select class="form-select form-select-sm" id="role-${u.id}">
+      ${ROLE_KEYS.map(k=>`<option value="${k}" ${roleKey===k?'selected':''}>${ROLE_LABEL[k]}</option>`).join('')}
+    </select>`;
+
+    return `<tr>
+      <td>${u.name||'—'}</td>
+      <td>${u.email||'—'}</td>
+      <td style="max-width:220px">${sel}</td>
+      <td class="text-end">
+        <button class="btn btn-sm btn-outline-primary" onclick="saveRole(${u.id})">Save</button>
+      </td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="4" class="text-center text-muted py-4">No users.</td></tr>';
+}
+
+async function saveRole(id){
+  const role = document.getElementById('role-'+id)?.value || 'viewer'; // sends the key (snake_case)
+  const res = await fetch('./api/user_set_role.php',{method:'POST',credentials:'same-origin',
+    headers:{'Content-Type':'application/x-www-form-urlencoded'},
+    body:`id=${encodeURIComponent(id)}&role=${encodeURIComponent(role)}`});
+  const raw = await res.text(); if(!res.ok){ alert(raw); return; }
+  toast('Role updated','success');
+}
 
   
 async function loadCats(){

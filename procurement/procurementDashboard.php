@@ -1,15 +1,7 @@
 <?php
-// procurement/procurementDashboard.php
-$inc = __DIR__ . "/../includes";
-if (file_exists($inc . "/config.php")) {
-    require_once $inc . "/config.php";
-}
-if (file_exists($inc . "/auth.php")) {
-    require_once $inc . "/auth.php";
-}
-if (function_exists("require_login")) {
-    require_login();
-}
+require_once __DIR__ . "/../includes/config.php";
+require_once __DIR__ . "/../includes/auth.php";
+require_login();
 
 /* -------------------- helpers -------------------- */
 function table_exists(PDO $pdo = null, string $name = ""): bool
