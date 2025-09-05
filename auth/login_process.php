@@ -28,25 +28,9 @@ $_SESSION['user'] = [
 
 $role = strtolower($user['role'] ?? '');
 
-<<<<<<< HEAD
-switch ($role) {
-  case 'admin':
-    $dest = BASE_URL . 'all-modules-admin-access/Dashboard.php';
-    break;
-
-  case 'manager':
-    $dest = BASE_URL . 'warehousing/warehouseDashboard.php';
-    break;
-
-  default:
-    // fallback if role not recognized
-    $dest = BASE_URL . 'login.php?err=' . urlencode('Unauthorized role');
-    break;
-}
-=======
 // role → destination map
 $map = [
-  'admin'               => '../all-modules-admin-access/Dashboard.php',
+  'admin'               => '/all-modules-admin-access/Dashboard.php',
   'manager'             => '../warehousing/warehouseDashboard.php',
   'warehouse_staff'     => '../warehousing/warehouseDashboard.php',
   'procurement_officer' => '../procurement/procurementDashboard.php',
@@ -56,7 +40,6 @@ $map = [
 ];
 
 $dest = BASE_URL . ($map[$role] ?? 'login.php?err=' . urlencode('Unauthorized role'));
->>>>>>> origin/main
 
 header('Location: ' . $dest);
 exit;
