@@ -1,16 +1,26 @@
 <?php
 require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/auth.php';
-require_role(['admin']); // only admin
+require_role(['admin']); // only admin can add users
 
 $msg = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $name  = trim($_POST['name'] ?? '');
   $email = trim($_POST['email'] ?? '');
   $pass  = $_POST['password'] ?? '';
-  $role  = $_POST['role'] ?? 'staff';
+  $role  = $_POST['role'] ?? '';
 
-  $allowed = ['admin','manager','staff','viewer','procurement'];
+  // Updated roles to match login_process.php
+  $allowed = [
+    'admin',
+    'manager',
+    'warehouse_staff',
+    'procurement_officer',
+    'asset_manager',
+    'document_controller',
+    'project_lead'
+  ];
+
   if ($name === '' || $email === '' || $pass === '' || !in_array($role, $allowed, true)) {
     $msg = 'Please fill all fields correctly.';
   } else {
@@ -46,12 +56,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
     <div class="col-12">
       <label class="form-label">Role</label>
-      <select class="form-select" name="role">
-        <option>staff</option>
-        <option>manager</option>
-        <option>admin</option>
-        <option>viewer</option>
-        <option>procurement</option>
+      <select class="form-select" name="role" required>
+        <option value="admin">Admin</option>
+        <option value="manager">Warehouse Manager</option>
+        <option value="warehouse_staff">Warehouse Staff</option>
+        <option value="procurement_officer">Procurement Officer</option>
+        <option value="asset_manager">Asset Manager</option>
+        <option value="document_controller">Document Controller</option>
+        <option value="project_lead">Project Lead</option>
       </select>
     </div>
     <div class="col-12">

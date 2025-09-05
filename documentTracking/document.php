@@ -1,15 +1,7 @@
 <?php
-// doc.php — TNVS Document Tracking (PDO + CSRF + uploads + versioning + approvals + filters + CSV)
-// Purpose: Ensure all transport, compliance, and operational documents are available, accurate, and updated.
-// Steps covered: Creation/Collection, Verification/Approval, Indexing/Tagging, Storage/Archiving, Real-time Tracking (activity log), Retrieval, Expiration/Renewal monitoring
-
-session_start();
-
-// DB config
-$DB_HOST = '127.0.0.1';
-$DB_NAME = 'doc_log_db';
-$DB_USER = 'root';
-$DB_PASS = '';
+require_once __DIR__ . "/../includes/config.php";
+require_once __DIR__ . "/../includes/auth.php";
+require_login();
 
 try {
     $pdo = new PDO("mysql:host=$DB_HOST;dbname=$DB_NAME;charset=utf8mb4", $DB_USER, $DB_PASS, [

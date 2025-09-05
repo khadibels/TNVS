@@ -590,7 +590,16 @@ for ($i = 0; $i < 14; $i++) {
         <a class="nav-link" href="./repair.php">
             <ion-icon name="hammer-outline"></ion-icon><span>Repair Logs</span>
           </a>
-          
+</nav>
+
+        <!-- Document Tracking --> 
+      <h6 class="text-uppercase mb-2">Document Tracking</h6>
+      <nav class="nav flex-column px-2 mb-4">
+        <a class="nav-link" href="dashboard.php"><ion-icon name="home-outline"></ion-icon> Dashboard</a>
+          <a class="nav-link" href="document.php"><ion-icon name="document-text-outline"></ion-icon> Documents</a>
+          <a class="nav-link" href="logistic.php"><ion-icon name="cube-outline"></ion-icon> Logistics</a>
+          <a class="nav-link" href="settings.php"><ion-icon name="settings-outline"></ion-icon> Settings</a>
+</nav>
       <hr class="mx-3 my-2">
 
       <!-- Global tools (single versions) -->

@@ -1,15 +1,7 @@
 <?php
-// logisticsrecord.php — TNVS Logistics Records (PDO + CSRF + filters + CSV + validation + archiving + KPIs)
-// Purpose: Maintain accurate operational history for audits, optimization, and customer service.
-// Steps covered: Data Capture, Validation, Storage, Report Generation, Long-Term Archiving, Audit & Review
-
-session_start();
-
-// DB config
-$DB_HOST = '127.0.0.1';
-$DB_NAME = 'doc_log_db';
-$DB_USER = 'root';
-$DB_PASS = '';
+require_once __DIR__ . "/../includes/config.php";
+require_once __DIR__ . "/../includes/auth.php";
+require_login();
 
 try {
     $pdo = new PDO("mysql:host=$DB_HOST;dbname=$DB_NAME;charset=utf8mb4", $DB_USER, $DB_PASS, [

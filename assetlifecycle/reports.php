@@ -106,8 +106,7 @@ if (isset($_GET['action'])) {
     }
 
     if ($action === 'version') {
-        // Return a monotonic version so clients can detect changes without fetching full data
-        // Prefer updated_at if exists; otherwise fallback to max(installed_on/disposed_on) and count
+        // Monotonic version for change detection
         $version = 0; $count = 0;
         try {
             $stmt = $pdo->query("SELECT UNIX_TIMESTAMP(MAX(updated_at)) AS v, COUNT(*) AS c FROM assets");
@@ -125,14 +124,14 @@ if (isset($_GET['action'])) {
 
     jsonOut(['success'=>false,'msg'=>'Unknown action']);
 }
-
 ?>
 <!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>Asset Report — Asset Tracking</title>
+<title>Asset Report | ALMS</title>
+
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
 <link href="../css/style.css" rel="stylesheet" />
 <link href="../css/modules.css" rel="stylesheet" />
@@ -140,162 +139,184 @@ if (isset($_GET['action'])) {
 <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
 <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
 <script src="../js/sidebar-toggle.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
 <style>
-:root{
-  --bg: #f5f7fb;
-  --card: #ffffff;
-  --accent: #0f62fe;
-  --muted: #6b7280;
-  --text: #111827;
-  --shadow-lg: 0 10px 30px rgba(16,24,40,0.08);
-  --shadow-sm: 0 4px 12px rgba(16,24,40,0.06);
-  --success: #10b981; --danger: #ef4444; --warning: #f59e0b;
-}
-*{box-sizing:border-box}
-html,body{height:100%}
-body{margin:0;font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial;background:linear-gradient(180deg,#f7f9fc 0%,var(--bg) 100%);color:var(--text);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;padding:24px}
-.container{max-width:1200px;margin:0 auto}
-.header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:18px}
-.btn{display:inline-flex;align-items:center;gap:8px;background:#6d28d9;color:#fff;border:0;padding:10px 14px;border-radius:10px;box-shadow:var(--shadow-sm);cursor:pointer;font-weight:600;font-size:14px;text-decoration:none}
-.btn.ghost{background:transparent;color:#6d28d9;border:1px solid rgba(15,98,254,0.2)}
-.card{background:var(--card);padding:16px;border-radius:12px;box-shadow:var(--shadow-lg)}
-.grid{display:grid;grid-template-columns:1fr 360px;gap:16px}
-@media (max-width:1000px){.grid{grid-template-columns:1fr}}
-.stats{display:flex;gap:12px;flex-wrap:wrap}
-.stat{flex:1;min-width:140px;padding:12px;border-radius:10px;background:linear-gradient(180deg,#ffffff,#fbfdff);border:1px solid rgba(14,165,233,0.06)}
-.stat .label{font-size:12px;color:var(--muted)}
-.stat .number{font-size:20px;font-weight:700}
-.input, .select{padding:10px 12px;border-radius:10px;border:1px solid #e6edf6;background:transparent;font-size:14px;color:var(--text)}
-.table-wrap{overflow:auto;border-radius:10px;border:1px solid rgba(17,24,39,0.06)}
-.table{width:100%;border-collapse:collapse;min-width:820px}
-.table thead th{text-align:left;padding:12px 14px;background:linear-gradient(180deg,#fbfdff,#f7f9fc);font-size:13px;color:var(--muted);border-bottom:1px solid rgba(15,23,42,0.06)}
-.table tbody td{padding:12px 14px;border-bottom:1px solid rgba(15,23,42,0.06);font-size:14px}
-.badge{display:inline-block;padding:6px 10px;border-radius:999px;font-weight:600;font-size:12px}
-.status-installed{background:rgba(16,185,129,0.08);color:var(--success)}
-.status-inuse{background:rgba(59,130,246,0.08);color:#2563eb}
-.status-disposed{background:rgba(239,68,68,0.08);color:var(--danger)}
-tr.highlight { box-shadow: inset 0 0 0 9999px rgba(255,221,87,0.28); }
+  /* Keep typography identical to Repair Logs (Bootstrap defaults) */
+  body { background: #f7f9fc; }
+
+  /* KPI cards match Repair Logs */
+  .kpi .card-body{display:flex;align-items:center;gap:.75rem}
+  .kpi .icon-wrap{width:42px;height:42px;display:flex;align-items:center;justify-content:center;border-radius:12px}
+  .stat .label{font-size:.875rem;color:#6b7280}
+  .stat .number{font-weight:600}
+
+  /* Filters row spacing */
+  .filter-row .form-label{font-size:.8rem;color:#6b7280}
+
+  /* Table highlight (used by other pages too) */
+  tr.highlight { box-shadow: inset 0 0 0 9999px rgba(255,221,87,0.28); }
+
+  /* Status badges for table */
+  .status-installed{background:rgba(16,185,129,.1) !important;color:#0f766e}
+  .status-inuse{background:rgba(59,130,246,.12) !important;color:#1d4ed8}
+  .status-disposed{background:rgba(239,68,68,.12) !important;color:#b91c1c}
 </style>
 </head>
 <body>
+<div class="container-fluid p-0">
+  <div class="row g-0">
 
-  <div class="container-fluid p-0">
-    <div class="row g-0">
+    <!-- Sidebar (identical shell) -->
+    <div class="sidebar d-flex flex-column">
+      <div class="d-flex justify-content-center align-items-center mb-4 mt-3">
+        <img src="../img/logo.png" id="logo" class="img-fluid me-2" style="height:55px" alt="Logo">
+      </div>
 
-      <div class="sidebar d-flex flex-column">
-        <div class="d-flex justify-content-center align-items-center mb-4 mt-3">
-          <img src="../img/logo.png" id="logo" class="img-fluid me-2" style="height:55px" alt="Logo">
+      <h6 class="text-uppercase mb-2">Asset Lifecycle &amp; Maintenance</h6>
+
+      <nav class="nav flex-column px-2 mb-4">
+        <a class="nav-link" href="ALMS.php"><ion-icon name="home-outline"></ion-icon><span>Dashboard</span></a>
+        <a class="nav-link" href="./assetTracker.php"><ion-icon name="cube-outline"></ion-icon><span>Asset Tracking</span></a>
+        <a class="nav-link" href="./mainReq.php"><ion-icon name="layers-outline"></ion-icon><span>Maintenance Requests</span></a>
+        <a class="nav-link" href="./repair.php"><ion-icon name="hammer-outline"></ion-icon><span>Repair Logs</span></a>
+        <a class="nav-link active" href="./reports.php"><ion-icon name="file-tray-stacked-outline"></ion-icon><span>Reports</span></a>
+        <a class="nav-link" href="./settings.php"><ion-icon name="settings-outline"></ion-icon><span>Settings</span></a>
+      </nav>
+
+      <div class="logout-section mt-auto">
+        <a class="nav-link text-danger" href="<?= BASE_URL ?>/auth/logout.php">
+          <ion-icon name="log-out-outline"></ion-icon> Logout
+        </a>
+      </div>
+    </div>
+
+    <!-- Main -->
+    <div class="col main-content p-3 p-lg-4">
+
+      <!-- Topbar (matches Repair Logs spacing/buttons) -->
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="d-flex align-items-center gap-3">
+          <button class="sidebar-toggle d-lg-none btn btn-outline-secondary btn-sm" id="sidebarToggle2" aria-label="Toggle sidebar">
+            <ion-icon name="menu-outline"></ion-icon>
+          </button>
+          <h2 class="m-0 d-flex align-items-center gap-2">
+            <ion-icon name="pie-chart-outline"></ion-icon> Asset Report
+          </h2>
         </div>
-
-        <h6 class="text-uppercase mb-2">Asset Lifecycle &amp; Maintenance</h6>
-
-        <nav class="nav flex-column px-2 mb-4">
-          <a class="nav-link" href="ALMS.php">
-            <ion-icon name="home-outline"></ion-icon><span>Dashboard</span>
-          </a>
-          <a class="nav-link" href="./assetTracker.php">
-            <ion-icon name="cube-outline"></ion-icon><span>Asset Tracking</span>
-          </a>
-          <a class="nav-link" href="./mainReq.php">
-            <ion-icon name="layers-outline"></ion-icon><span>Maintenance Requests</span>
-          </a>
-          <a class="nav-link" href="./repair.php">
-            <ion-icon name="hammer-outline"></ion-icon><span>Repair Logs</span>
-          </a>
-          <a class="nav-link active" href="./reports.php">
-            <ion-icon name="file-tray-stacked-outline"></ion-icon><span>Reports</span>
-          </a>
-          <a class="nav-link" href="./settings.php">
-            <ion-icon name="settings-outline"></ion-icon><span>Settings</span>
-          </a>
-        </nav>
-
-        <div class="logout-section mt-auto">
-          <a class="nav-link text-danger" href="<?= BASE_URL ?>/auth/logout.php">
-            <ion-icon name="log-out-outline"></ion-icon> Logout
-          </a>
+        <div class="d-flex gap-2">
+          <button class="btn btn-violet" id="exportCsv"><ion-icon name="download-outline"></ion-icon> Export CSV</button>
+          <button class="btn btn-outline-secondary" id="printBtn"><ion-icon name="print-outline"></ion-icon> Print</button>
         </div>
       </div>
-<div class="container">
-  <header class="header">
-    <div style="display:flex;gap:8px;align-items:center">
-      <a href="ALMS.php" class="btn ghost"><i class='bx bx-arrow-back'></i> Back</a>
-      <a href="ass1.php" class="btn ghost"><i class='bx bx-package'></i> Assets</a>
-    </div>
-    <div>
-      <h2 style="margin:0;display:flex;align-items:center;gap:8px"><i class='bx bx-pie-chart-alt-2'></i> Asset Report</h2>
-      <div style="font-size:13px;color:var(--muted)">Summary • Filters • CSV Export</div>
-    </div>
-    <div style="display:flex;gap:8px;align-items:center">
-      <button class="btn" id="exportCsv"><i class='bx bx-download'></i> Export CSV</button>
-      <button class="btn ghost" id="printBtn"><i class='bx bx-printer'></i> Print</button>
-    </div>
-  </header>
 
-  <main class="grid">
-    <section>
-      <div class="card">
-        <div style="display:flex;justify-content:space-between;gap:18px;align-items:center;flex-wrap:wrap">
-          <div style="flex:1;min-width:320px">
-            <div class="stats">
-              <div class="stat"><div class="label">Total</div><div id="statTotal" class="number">—</div></div>
-              <div class="stat"><div class="label">Age (avg days)</div><div id="statAgeAvg" class="number">—</div></div>
-              <div class="stat"><div class="label">Oldest (days)</div><div id="statAgeMax" class="number">—</div></div>
+      <!-- Stats + Chart (same card style) -->
+      <section class="card shadow-sm mb-3">
+        <div class="card-body">
+          <div class="row g-3 align-items-center">
+            <div class="col-12 col-lg-8">
+              <div class="row g-3">
+                <div class="col-6 col-md-4">
+                  <div class="card kpi h-100 shadow-sm">
+                    <div class="card-body">
+                      <div class="icon-wrap bg-primary-subtle"><ion-icon name="albums-outline"></ion-icon></div>
+                      <div class="stat">
+                        <div class="label">Total</div>
+                        <div id="statTotal" class="number h4 m-0">—</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-6 col-md-4">
+                  <div class="card kpi h-100 shadow-sm">
+                    <div class="card-body">
+                      <div class="icon-wrap bg-info-subtle"><ion-icon name="hourglass-outline"></ion-icon></div>
+                      <div class="stat">
+                        <div class="label">Age (avg days)</div>
+                        <div id="statAgeAvg" class="number h4 m-0">—</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="col-6 col-md-4">
+                  <div class="card kpi h-100 shadow-sm">
+                    <div class="card-body">
+                      <div class="icon-wrap bg-warning-subtle"><ion-icon name="trending-up-outline"></ion-icon></div>
+                      <div class="stat">
+                        <div class="label">Oldest (days)</div>
+                        <div id="statAgeMax" class="number h4 m-0">—</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div><!-- /row -->
+            </div>
+            <div class="col-12 col-lg-4">
+              <canvas id="statusChart" height="120"></canvas>
             </div>
           </div>
-          <div style="min-width:260px">
-            <canvas id="statusChart" height="90"></canvas>
+        </div>
+      </section>
+
+      <!-- Filters + Table -->
+      <section class="card shadow-sm">
+        <div class="card-body">
+          <!-- Filters -->
+          <div class="row g-2 align-items-end filter-row">
+            <div class="col-12 col-md-3">
+              <label class="form-label">Status</label>
+              <select id="filterStatus" class="form-select">
+                <option value="">All statuses</option>
+                <option value="Installed">Installed</option>
+                <option value="In Use">In Use</option>
+                <option value="Disposed">Disposed</option>
+              </select>
+            </div>
+            <div class="col-6 col-md-2">
+              <label class="form-label">Installed From</label>
+              <input id="filterFrom" type="date" class="form-control" title="Installed from">
+            </div>
+            <div class="col-6 col-md-2">
+              <label class="form-label">Installed To</label>
+              <input id="filterTo" type="date" class="form-control" title="Installed to">
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label">Search</label>
+              <input id="filterQ" class="form-control" placeholder="Search name">
+            </div>
+            <div class="col-12 col-md-2 d-grid d-md-flex justify-content-md-end">
+              <button class="btn btn-outline-primary" id="applyFilters">
+                <ion-icon name="filter-outline"></ion-icon> Apply
+              </button>
+            </div>
+          </div>
+
+          <!-- Table -->
+          <div class="table-responsive mt-3">
+            <table class="table align-middle" id="assetTable">
+              <thead>
+                <tr>
+                  <th style="width:64px">ID</th>
+                  <th>Name</th>
+                  <th style="width:120px">Status</th>
+                  <th style="width:140px">Installed On</th>
+                  <th style="width:140px">Disposed On</th>
+                  <th style="width:120px">Age (days)</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+
+          <div class="d-flex justify-content-between align-items-center mt-2">
+            <div class="small text-muted">Showing up to 1000 rows</div>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div class="card" style="margin-top:14px">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
-          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-            <select id="filterStatus" class="select">
-              <option value="">All statuses</option>
-              <option value="Installed">Installed</option>
-              <option value="In Use">In Use</option>
-              <option value="Disposed">Disposed</option>
-            </select>
-            <input id="filterFrom" type="date" class="input" title="Installed from">
-            <input id="filterTo" type="date" class="input" title="Installed to">
-            <input id="filterQ" class="input" placeholder="Search name">
-            <button class="btn" id="applyFilters"><i class='bx bx-filter'></i> Apply</button>
-          </div>
-          <div style="font-size:12px;color:var(--muted)">Showing up to 1000 rows</div>
-        </div>
-
-        <div class="table-wrap" style="margin-top:10px">
-          <table class="table" id="assetTable">
-            <thead>
-              <tr>
-                <th style="width:64px">ID</th>
-                <th>Name</th>
-                <th style="width:120px">Status</th>
-                <th style="width:140px">Installed On</th>
-                <th style="width:140px">Disposed On</th>
-                <th style="width:100px">Age (days)</th>
-              </tr>
-            </thead>
-            <tbody></tbody>
-          </table>
-        </div>
-      </div>
-    </section>
-
-    <aside>
-      <div class="card">
-        <div style="font-size:13px;color:var(--muted);margin-bottom:6px">Tips</div>
-        <ul style="margin:0 0 0 18px;padding:0;color:#374151;font-size:13px;line-height:1.6">
-          <li>Use filters to restrict the report and then export CSV.</li>
-          <li>Age is computed from Installed On to Disposed On (or today).</li>
-          <li>The report auto-refreshes when assets change.</li>
-        </ul>
-      </div>
-    </aside>
-  </main>
-</div>
+    </div><!-- /main -->
+  </div><!-- /row -->
+</div><!-- /container -->
 
 <script>
 async function api(action, data=null){

@@ -1,19 +1,8 @@
 <?php
-session_start();
-if (!isset($_SESSION['Account_type'])) { header('Location: login.php'); exit; }
+require_once __DIR__ . "/../includes/config.php";
+require_once __DIR__ . "/../includes/auth.php";
+require_login();
 
-$DB_HOST = '127.0.0.1';
-$DB_NAME = 'doc_log_db';
-$DB_USER = 'root';
-$DB_PASS = '';
-try {
-    $pdo = new PDO("mysql:host=$DB_HOST;dbname=$DB_NAME;charset=utf8mb4", $DB_USER, $DB_PASS, [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-    ]);
-} catch (Throwable $e) {
-    die("Database connection failed");
-}
 // Asset Stats
 $totalAssets = $pdo->query("SELECT COUNT(*) FROM assets")->fetchColumn();
 $activeAssets = $pdo->query("SELECT COUNT(*) FROM assets WHERE status='Active'")->fetchColumn();

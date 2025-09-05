@@ -5,7 +5,9 @@ require_login();
 
 if (session_status() !== PHP_SESSION_ACTIVE) session_start();
 
-// Ensure assets table exists (minimal)
+/* ------------------------------
+   DB bootstrap (unchanged)
+------------------------------ */
 $pdo->exec("CREATE TABLE IF NOT EXISTS assets (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
@@ -14,7 +16,6 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS assets (
   disposed_on DATE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-// Ensure repairs table exists (with TNVS fields)
 $pdo->exec("CREATE TABLE IF NOT EXISTS repairs (
   id INT AUTO_INCREMENT PRIMARY KEY,
   asset_id INT NOT NULL,
@@ -33,7 +34,6 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS repairs (
   updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-// Attempt to add missing columns (ignore if exist)
 $maybeCols = [
   "technician VARCHAR(120) NULL",
   "status VARCHAR(40) NOT NULL DEFAULT 'Reported'",
@@ -51,35 +51,35 @@ foreach ($maybeCols as $def) { try { $pdo->exec("ALTER TABLE repairs ADD COLUMN 
 function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
 function money_fmt($v){ return number_format((float)$v, 2); }
 
-// Update asset.status based on open repairs
+/* Keep asset status refresh logic */
 function refresh_asset_status(PDO $pdo, int $assetId): void {
-    // Open statuses are those not Completed and not Cancelled
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM repairs WHERE asset_id = :aid AND status IN ('Reported','Scheduled','In Progress')");
     $stmt->execute([':aid' => $assetId]);
     $open = (int)$stmt->fetchColumn();
     if ($open > 0) {
         $pdo->prepare("UPDATE assets SET status = 'In Maintenance' WHERE id = :aid")->execute([':aid' => $assetId]);
     } else {
-        // If currently in maintenance and no open repairs, consider asset Active
         $pdo->prepare("UPDATE assets SET status = 'Active' WHERE id = :aid AND status = 'In Maintenance'")->execute([':aid' => $assetId]);
     }
 }
 
-// CSRF token
+/* CSRF */
 if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(16));
 }
 $csrf = $_SESSION['csrf_token'];
 function assert_csrf(){ if (($_POST['csrf'] ?? '') !== ($_SESSION['csrf_token'] ?? '')) { http_response_code(400); exit('Invalid CSRF'); } }
 
-// Filters for list/export
-$filterStatus = $_GET['status'] ?? '';
-$filterQ = trim($_GET['q'] ?? '');
-$filterFrom = $_GET['from'] ?? '';
-$filterTo = $_GET['to'] ?? '';
+/* Filters */
+$filterStatus  = $_GET['status'] ?? '';
+$filterQ       = trim($_GET['q'] ?? '');
+$filterFrom    = $_GET['from'] ?? '';
+$filterTo      = $_GET['to'] ?? '';
 $filterAssetId = isset($_GET['asset_id']) ? (int)$_GET['asset_id'] : 0;
 
-// CRUD handlers
+/* ------------------------------
+   CRUD handlers (unchanged)
+------------------------------ */
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $op = $_POST['op'] ?? '';
 
@@ -113,9 +113,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':downtime_hours'=>$downtime_hours,
                 ':notes'=>$notes ?: null,
             ]);
-            // Update asset status based on open repairs
             refresh_asset_status($pdo, $asset_id);
-            // Optional: broadcast to other tabs
             echo "<script>try{localStorage.setItem('repairs_changed', Date.now().toString())}catch(e){}</script>";
         }
         header('Location: repair.php' . ($filterAssetId? ('?asset_id='.$filterAssetId) : '')); exit;
@@ -153,7 +151,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ':downtime_hours'=>$downtime_hours,
                 ':notes'=>$notes ?: null,
             ]);
-            // Update asset status after change
             refresh_asset_status($pdo, $asset_id);
             echo "<script>try{localStorage.setItem('repairs_changed', Date.now().toString())}catch(e){}</script>";
         }
@@ -164,7 +161,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         assert_csrf();
         $id = (int)($_POST['id'] ?? 0);
         if ($id > 0) {
-            // Get asset_id for status refresh
             $aidStmt = $pdo->prepare("SELECT asset_id FROM repairs WHERE id = :id");
             $aidStmt->execute([':id'=>$id]);
             $aid = (int)($aidStmt->fetchColumn());
@@ -177,7 +173,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-// Export CSV (respects filters)
+/* Export (unchanged) */
 if (($_GET['action'] ?? '') === 'export') {
     $params = [];
     $where = [];
@@ -203,10 +199,9 @@ if (($_GET['action'] ?? '') === 'export') {
     exit;
 }
 
-// Fetch assets for dropdown
+/* Data for UI (unchanged) */
 $assets = $pdo->query("SELECT id, name FROM assets ORDER BY name ASC")->fetchAll();
 
-// Build filter query
 $params = [];
 $where = [];
 if ($filterStatus !== '') { $where[] = 'r.status = :status'; $params[':status'] = $filterStatus; }
@@ -216,13 +211,11 @@ if ($filterTo !== '') { $where[] = 'r.repair_date <= :to'; $params[':to'] = $fil
 if ($filterAssetId > 0) { $where[] = 'r.asset_id = :aid'; $params[':aid'] = $filterAssetId; }
 $w = $where ? ('WHERE '.implode(' AND ',$where)) : '';
 
-// Fetch repairs list (limited)
 $sqlList = "SELECT r.*, a.name AS asset_name FROM repairs r LEFT JOIN assets a ON r.asset_id = a.id $w ORDER BY r.repair_date DESC, r.id DESC LIMIT 1000";
 $stmtList = $pdo->prepare($sqlList);
 $stmtList->execute($params);
 $repairs = $stmtList->fetchAll();
 
-// Summary stats
 $stmtTot = $pdo->prepare("SELECT COUNT(*) FROM repairs r $w");
 $stmtTot->execute($params);
 $totalRepairs = (int)$stmtTot->fetchColumn();
@@ -231,8 +224,6 @@ $stmtCost = $pdo->prepare("SELECT COALESCE(SUM(cost),0) FROM repairs r $w");
 $stmtCost->execute($params);
 $totalCost = (float)$stmtCost->fetchColumn();
 
-$stmtOpen = $pdo->prepare("SELECT COUNT(*) FROM repairs r $w AND r.status <> 'Completed'");
-// ensure valid SQL when no where
 $qOpen = 'SELECT COUNT(*) FROM repairs r ' . ($w ? ($w . " AND r.status <> 'Completed'") : "WHERE r.status <> 'Completed'");
 $stmtOpen = $pdo->prepare($qOpen);
 $stmtOpen->execute($params);
@@ -243,267 +234,424 @@ $stmtDown->execute($params);
 $totalDowntime = (float)$stmtDown->fetchColumn();
 
 $statuses = ['Reported','Scheduled','In Progress','Completed','Cancelled'];
-$types = ['Preventive','Corrective','Inspection','Parts Replacement','Calibration','Other'];
+$types    = ['Preventive','Corrective','Inspection','Parts Replacement','Calibration','Other'];
+
+/* User info for topbar (like PLT ref) */
+$userName = "User";
+$userRole = "ALMS";
+if (function_exists("current_user")) {
+  $u = current_user();
+  $userName = $u["name"] ?? $userName;
+  $userRole = $u["role"] ?? $userRole;
+}
+
+/* Helper for bootstrap badge class */
+function status_badge_class(string $s): string {
+  $s = strtolower($s);
+  return match ($s) {
+    'reported','scheduled'   => 'secondary',
+    'in progress'            => 'warning',
+    'completed'              => 'success',
+    'cancelled'              => 'danger',
+    default                  => 'secondary',
+  };
+}
 ?>
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
-<link href="../css/style.css" rel="stylesheet" />
-<link href="../css/modules.css" rel="stylesheet" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Repair Logs | ALMS</title>
 
-<script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
-<script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
-<script src="../js/sidebar-toggle.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="../css/style.css" rel="stylesheet" />
+  <link href="../css/modules.css" rel="stylesheet" />
 
-<style>
-:root{
-  --bg: #f5f7fb; --card:#fff; --accent:#0f62fe; --muted:#6b7280; --text:#111827;
-  --success:#10b981; --danger:#ef4444; --warning:#f59e0b;
-  --shadow: 0 10px 30px rgba(16,24,40,0.08);
-}
-*{box-sizing:border-box}
-body{margin:0;font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial;background:linear-gradient(180deg,#f7f9fc 0%,var(--bg) 100%);color:var(--text);padding:22px}
-.container{max-width:1240px;margin:0 auto}
-.header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
-.btn{display:inline-flex;align-items:center;gap:8px;background:#6d28d9;color:#fff;border:0;padding:10px 14px;border-radius:10px;box-shadow:0 4px 12px rgba(16,24,40,0.06);cursor:pointer;font-weight:600;font-size:14px;text-decoration:none}
-.btn.ghost{background:transparent;color:#6d28d9;border:1px solid rgba(15,98,254,0.2)}
-.card{background:var(--card);padding:16px;border-radius:12px;box-shadow:var(--shadow);border:1px solid rgba(16,24,40,0.03)}
-.grid{display:grid;grid-template-columns:1fr 380px;gap:16px}
-@media (max-width:1100px){.grid{grid-template-columns:1fr}}
-.stats{display:flex;gap:12px;flex-wrap:wrap}
-.stat{flex:1;min-width:160px;padding:12px;border-radius:10px;background:linear-gradient(180deg,#ffffff,#fbfdff);border:1px solid rgba(14,165,233,0.06)}
-.stat .label{font-size:12px;color:var(--muted)}
-.stat .number{font-size:20px;font-weight:700}
-.input,.select,textarea{padding:10px 12px;border-radius:10px;border:1px solid #e6edf6;background:transparent;font-size:14px;color:var(--text)}
-.form-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-.table-wrap{overflow:auto;border-radius:10px;border:1px solid rgba(17,24,39,0.06)}
-.table{width:100%;border-collapse:collapse;min-width:1040px}
-.table thead th{text-align:left;padding:12px 14px;background:linear-gradient(180deg,#fbfdff,#f7f9fc);font-size:13px;color:var(--muted);border-bottom:1px solid rgba(15,23,42,0.06)}
-.table tbody td{padding:12px 14px;border-bottom:1px solid rgba(15,23,42,0.06);font-size:14px;vertical-align:top}
-.badge{display:inline-block;padding:6px 10px;border-radius:999px;font-weight:600;font-size:12px}
-.s-reported{background:rgba(59,130,246,0.08);color:#2563eb}
-.s-scheduled{background:rgba(59,130,246,0.08);color:#2563eb}
-.s-inprogress{background:rgba(245,158,11,0.12);color:var(--warning)}
-.s-completed{background:rgba(16,185,129,0.08);color:var(--success)}
-.s-cancelled{background:rgba(239,68,68,0.08);color:var(--danger)}
-.edit-row{background:#eef4ff}
-</style>
+  <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+  <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+  <script src="../js/sidebar-toggle.js"></script>
+
+  <style>
+    .kpi .card-body{display:flex;align-items:center;gap:.75rem}
+    .kpi .icon-wrap{width:42px;height:42px;display:flex;align-items:center;justify-content:center;border-radius:12px}
+    .filter-row .form-label{font-size:.8rem;color:#6b7280}
+    .edit-row{background:#f7f9ff}
+  </style>
 </head>
 <body>
+<div class="container-fluid p-0">
+  <div class="row g-0">
 
-  <div class="container-fluid p-0">
-    <div class="row g-0">
-
-      <div class="sidebar d-flex flex-column">
-        <div class="d-flex justify-content-center align-items-center mb-4 mt-3">
-          <img src="../img/logo.png" id="logo" class="img-fluid me-2" style="height:55px" alt="Logo">
-        </div>
-
-        <h6 class="text-uppercase mb-2">Asset Lifecycle &amp; Maintenance</h6>
-
-        <nav class="nav flex-column px-2 mb-4">
-          <a class="nav-link" href="ALMS.php">
-            <ion-icon name="home-outline"></ion-icon><span>Dashboard</span>
-          </a>
-          <a class="nav-link" href="./assetTracker.php">
-            <ion-icon name="cube-outline"></ion-icon><span>Asset Tracking</span>
-          </a>
-          <a class="nav-link" href="./mainReq.php">
-            <ion-icon name="layers-outline"></ion-icon><span>Maintenance Requests</span>
-          </a>
-          <a class="nav-link active" href="./repair.php">
-            <ion-icon name="hammer-outline"></ion-icon><span>Repair Logs</span>
-          </a>
-          <a class="nav-link" href="./reports.php">
-            <ion-icon name="file-tray-stacked-outline"></ion-icon><span>Reports</span>
-          </a>
-          <a class="nav-link" href="./settings.php">
-            <ion-icon name="settings-outline"></ion-icon><span>Settings</span>
-          </a>
-        </nav>
-
-        <div class="logout-section mt-auto">
-          <a class="nav-link text-danger" href="<?= BASE_URL ?>/auth/logout.php">
-            <ion-icon name="log-out-outline"></ion-icon> Logout
-          </a>
-        </div>
+    <!-- Sidebar (matches warehouse/PLT) -->
+    <div class="sidebar d-flex flex-column">
+      <div class="d-flex justify-content-center align-items-center mb-4 mt-3">
+        <img src="../img/logo.png" id="logo" class="img-fluid me-2" style="height:55px" alt="Logo">
       </div>
 
-<div class="container">
-  <header class="header">
-    <div style="display:flex;gap:8px;align-items:center">
-      <a href="ALMS.php" class="btn ghost"><i class='bx bx-arrow-back'></i> Back</a>
-      <a href="ass1.php" class="btn ghost"><i class='bx bx-package'></i> Assets</a>
-      <a href="reports.php" class="btn ghost"><i class='bx bx-pie-chart-alt-2'></i> Asset Report</a>
+      <h6 class="text-uppercase mb-2">ASSET LIFECYCLE &amp MAINTENANCE</h6>
+      <nav class="nav flex-column px-2 mb-4">
+        <a class="nav-link" href="ALMS.php"><ion-icon name="home-outline"></ion-icon><span>Dashboard</span></a>
+        <a class="nav-link" href="assetTracker.php"><ion-icon name="cube-outline"></ion-icon><span>Asset Tracking</span></a>
+        <a class="nav-link" href="mainReq.php"><ion-icon name="layers-outline"></ion-icon><span>Maintenance Requests</span></a>
+        <a class="nav-link active" href="repair.php"><ion-icon name="hammer-outline"></ion-icon><span>Repair Logs</span></a>
+        <a class="nav-link" href="reports.php"><ion-icon name="file-tray-stacked-outline"></ion-icon><span>Reports</span></a>
+        <a class="nav-link" href="settings.php"><ion-icon name="settings-outline"></ion-icon><span>Settings</span></a>
+      </nav>
+
+      <div class="logout-section mt-auto">
+        <a class="nav-link text-danger" href="<?= BASE_URL ?>/auth/logout.php">
+          <ion-icon name="log-out-outline"></ion-icon> Logout
+        </a>
+      </div>
     </div>
-    <div>
-      <h2 style="margin:0;display:flex;align-items:center;gap:8px"><i class='bx bx-wrench'></i> TNVS Repair & Maintenance</h2>
-      <div style="font-size:13px;color:var(--muted)">Logs • Cost • Downtime • Provider • Plate</div>
-    </div>
-    <div>
-      <a class="btn" href="?action=export&status=<?= h($filterStatus) ?>&from=<?= h($filterFrom) ?>&to=<?= h($filterTo) ?>&q=<?= urlencode($filterQ) ?>"><i class='bx bx-download'></i> Export CSV</a>
-    </div>
-  </header>
 
-  <main class="grid">
-    <section>
-      <div class="card">
-        <div class="stats">
-          <div class="stat"><div class="label">Total Repairs</div><div class="number"><?= (int)$totalRepairs ?></div></div>
-          <div class="stat"><div class="label">Open Repairs</div><div class="number"><?= (int)$openRepairs ?></div></div>
-          <div class="stat"><div class="label">Total Cost</div><div class="number">₱<?= money_fmt($totalCost) ?></div></div>
-          <div class="stat"><div class="label">Total Downtime (h)</div><div class="number"><?= money_fmt($totalDowntime) ?></div></div>
+    <!-- Main -->
+    <div class="col main-content p-3 p-lg-4">
+
+      <!-- Topbar -->
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="d-flex align-items-center gap-3">
+          <button class="sidebar-toggle d-lg-none btn btn-outline-secondary btn-sm" id="sidebarToggle2" aria-label="Toggle sidebar">
+            <ion-icon name="menu-outline"></ion-icon>
+          </button>
+          <h2 class="m-0"><ion-icon name="hammer-outline"></ion-icon> Repair &amp; Maintenance Logs</h2>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <img src="../img/profile.jpg" class="rounded-circle" width="36" height="36" alt="">
+          <div class="small">
+            <strong><?= h($userName) ?></strong><br/>
+            <span class="text-muted"><?= h($userRole) ?></span>
+          </div>
         </div>
       </div>
 
-      <div class="card" style="margin-top:14px">
-        <div class="form-row">
-          <select id="f_status" class="select" onchange="applyFilters()">
-            <option value="">All statuses</option>
-            <?php foreach ($statuses as $s): ?>
-              <option value="<?= h($s) ?>" <?= $filterStatus===$s?'selected':'' ?>><?= h($s) ?></option>
-            <?php endforeach; ?>
-          </select>
-          <input id="f_from" type="date" class="input" value="<?= h($filterFrom) ?>">
-          <input id="f_to" type="date" class="input" value="<?= h($filterTo) ?>">
-          <input id="f_q" class="input" placeholder="Search desc/asset/plate/provider" value="<?= h($filterQ) ?>">
-          <button class="btn" onclick="applyFilters()"><i class='bx bx-filter'></i> Apply</button>
+      <!-- KPI cards -->
+      <div class="row g-3 mb-3">
+        <div class="col-6 col-md-3">
+          <div class="card shadow-sm kpi h-100">
+            <div class="card-body">
+              <div class="icon-wrap bg-primary-subtle"><ion-icon name="construct-outline"></ion-icon></div>
+              <div>
+                <div class="text-muted small">Total Repairs</div>
+                <div class="h4 m-0"><?= (int)$totalRepairs ?></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="card shadow-sm kpi h-100">
+            <div class="card-body">
+              <div class="icon-wrap bg-warning-subtle"><ion-icon name="time-outline"></ion-icon></div>
+              <div>
+                <div class="text-muted small">Open Repairs</div>
+                <div class="h4 m-0"><?= (int)$openRepairs ?></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="card shadow-sm kpi h-100">
+            <div class="card-body">
+              <div class="icon-wrap bg-success-subtle"><ion-icon name="card-outline"></ion-icon></div>
+              <div>
+                <div class="text-muted small">Total Cost</div>
+                <div class="h4 m-0">₱<?= money_fmt($totalCost) ?></div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="card shadow-sm kpi h-100">
+            <div class="card-body">
+              <div class="icon-wrap bg-info-subtle"><ion-icon name="hourglass-outline"></ion-icon></div>
+              <div>
+                <div class="text-muted small">Downtime (h)</div>
+                <div class="h4 m-0"><?= money_fmt($totalDowntime) ?></div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
 
-      <div class="card" style="margin-top:14px">
-        <form method="POST" class="form-row" style="gap:8px;align-items:flex-start">
-          <input type="hidden" name="op" value="add">
-          <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-          <select name="asset_id" class="select" required>
-            <option value="">Select Asset</option>
-            <?php foreach($assets as $a): ?>
-              <option value="<?= (int)$a['id'] ?>" <?= (isset($filterAssetId) && $filterAssetId==$a['id'])?'selected':'' ?>><?php echo h($a['name']); ?></option>
-            <?php endforeach; ?>
-          </select>
-          <input type="date" name="repair_date" class="input" required>
-          <input type="text" name="maintenance_type" class="input" placeholder="Type (e.g., Preventive)">
-          <input type="text" name="technician" class="input" placeholder="Technician">
-          <select name="status" class="select">
-            <?php foreach ($statuses as $s): ?><option <?= $s==='Reported'?'selected':'' ?>><?= h($s) ?></option><?php endforeach; ?>
-          </select>
-          <input type="number" step="0.01" name="cost" class="input" placeholder="Cost" required>
-          <input type="number" name="odometer_km" class="input" placeholder="Odometer (km)">
-          <input type="number" step="0.1" name="downtime_hours" class="input" placeholder="Downtime (h)">
-          <input type="text" name="tnvs_vehicle_plate" class="input" placeholder="Vehicle Plate">
-          <input type="text" name="tnvs_provider" class="input" placeholder="Provider (TNVS)">
-          <input type="text" name="description" class="input" placeholder="Description" style="min-width:220px" required>
-          <textarea name="notes" rows="1" class="input" placeholder="Notes" style="min-width:180px"></textarea>
-          <button class="btn" type="submit"><i class='bx bx-plus'></i> Add Repair</button>
-        </form>
-      </div>
-
-      <div class="card" style="margin-top:14px">
-        <div class="table-wrap">
-          <table class="table">
-            <thead>
-              <tr>
-                <th>ID</th>
-                <th>Asset</th>
-                <th>Plate/Provider</th>
-                <th>Date</th>
-                <th>Type</th>
-                <th>Technician</th>
-                <th>Status</th>
-                <th>Cost</th>
-                <th>Odometer</th>
-                <th>Downtime (h)</th>
-                <th>Description</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-            <?php foreach ($repairs as $r): ?>
-              <tr>
-                <td><?= (int)$r['id'] ?></td>
-                <td><?= h($r['asset_name']) ?></td>
-                <td><?= h($r['tnvs_vehicle_plate']) ?><br><span style="color:#6b7280;font-size:12px"><?= h($r['tnvs_provider']) ?></span></td>
-                <td><?= h($r['repair_date']) ?></td>
-                <td><?= h($r['maintenance_type']) ?></td>
-                <td><?= h($r['technician']) ?></td>
-                <td>
-                  <?php $c = strtolower(str_replace(' ','',$r['status'])); ?>
-                  <span class="badge <?= 's-'.($c) ?>"><?= h($r['status']) ?></span>
-                </td>
-                <td>₱<?= money_fmt($r['cost']) ?></td>
-                <td><?= h($r['odometer_km']) ?></td>
-                <td><?= h($r['downtime_hours']) ?></td>
-                <td><?= h($r['description']) ?></td>
-                <td>
-                  <button class="btn ghost" onclick="toggleEdit(<?= (int)$r['id'] ?>)"><i class='bx bx-edit-alt'></i> Edit</button>
-                  <form method="POST" style="display:inline" onsubmit="return confirm('Delete this repair log?')">
-                    <input type="hidden" name="op" value="delete">
-                    <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-                    <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
-                    <button class="btn" style="background:var(--danger)"><i class='bx bx-trash'></i> Delete</button>
-                  </form>
-                </td>
-              </tr>
-              <tr id="edit-<?= (int)$r['id'] ?>" class="edit-row" style="display:none">
-                <td colspan="12">
-                  <form method="POST" class="form-row" style="gap:8px;align-items:flex-start">
-                    <input type="hidden" name="op" value="update">
-                    <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-                    <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
-                    <select name="asset_id" class="select" required>
-                      <?php foreach($assets as $a): ?>
-                        <option value="<?= (int)$a['id'] ?>" <?= $r['asset_id']==$a['id']?'selected':'' ?>><?= h($a['name']) ?></option>
-                      <?php endforeach; ?>
-                    </select>
-                    <input type="date" name="repair_date" class="input" value="<?= h($r['repair_date']) ?>" required>
-                    <input type="text" name="maintenance_type" class="input" value="<?= h($r['maintenance_type']) ?>" placeholder="Type">
-                    <input type="text" name="technician" class="input" value="<?= h($r['technician']) ?>" placeholder="Technician">
-                    <select name="status" class="select">
-                      <?php foreach ($statuses as $s): ?><option <?= $r['status']===$s?'selected':'' ?>><?= h($s) ?></option><?php endforeach; ?>
-                    </select>
-                    <input type="number" step="0.01" name="cost" class="input" value="<?= h($r['cost']) ?>" placeholder="Cost" required>
-                    <input type="number" name="odometer_km" class="input" value="<?= h($r['odometer_km']) ?>" placeholder="Odometer (km)">
-                    <input type="number" step="0.1" name="downtime_hours" class="input" value="<?= h($r['downtime_hours']) ?>" placeholder="Downtime (h)">
-                    <input type="text" name="tnvs_vehicle_plate" class="input" value="<?= h($r['tnvs_vehicle_plate']) ?>" placeholder="Vehicle Plate">
-                    <input type="text" name="tnvs_provider" class="input" value="<?= h($r['tnvs_provider']) ?>" placeholder="Provider (TNVS)">
-                    <input type="text" name="description" class="input" value="<?= h($r['description']) ?>" placeholder="Description" style="min-width:220px" required>
-                    <textarea name="notes" rows="1" class="input" placeholder="Notes" style="min-width:180px"><?= h($r['notes']) ?></textarea>
-                    <button class="btn" type="submit"><i class='bx bx-save'></i> Save</button>
-                    <button class="btn ghost" type="button" onclick="toggleEdit(<?= (int)$r['id'] ?>)"><i class='bx bx-x'></i> Cancel</button>
-                  </form>
-                </td>
-              </tr>
-            <?php endforeach; ?>
-            </tbody>
-          </table>
+      <!-- Filters + Export -->
+      <div class="card shadow-sm mb-3">
+        <div class="card-body filter-row">
+          <div class="row g-2 align-items-end">
+            <div class="col-12 col-md-2">
+              <label class="form-label">Status</label>
+              <select id="f_status" class="form-select">
+                <option value="">All</option>
+                <?php foreach ($statuses as $s): ?>
+                  <option value="<?= h($s) ?>" <?= $filterStatus===$s?'selected':'' ?>><?= h($s) ?></option>
+                <?php endforeach; ?>
+              </select>
+            </div>
+            <div class="col-6 col-md-2">
+              <label class="form-label">From</label>
+              <input id="f_from" type="date" class="form-control" value="<?= h($filterFrom) ?>">
+            </div>
+            <div class="col-6 col-md-2">
+              <label class="form-label">To</label>
+              <input id="f_to" type="date" class="form-control" value="<?= h($filterTo) ?>">
+            </div>
+            <div class="col-12 col-md-4">
+              <label class="form-label">Search</label>
+              <input id="f_q" class="form-control" placeholder="Description / Asset / Plate / Provider" value="<?= h($filterQ) ?>">
+            </div>
+            <div class="col-12 col-md-2 d-grid d-md-flex justify-content-md-end">
+              <button class="btn btn-outline-primary me-md-2" onclick="applyFilters()">
+                <ion-icon name="filter-outline"></ion-icon> Apply
+              </button>
+              <a class="btn btn-violet" href="?action=export&status=<?= h($filterStatus) ?>&from=<?= h($filterFrom) ?>&to=<?= h($filterTo) ?>&q=<?= urlencode($filterQ) ?>">
+                <ion-icon name="download-outline"></ion-icon> Export
+              </a>
+            </div>
+          </div>
         </div>
       </div>
-    </section>
 
-    <aside>
-      <div class="card">
-        <div style="font-size:13px;color:var(--muted);margin-bottom:6px">TNVS Notes</div>
-        <div style="font-size:13px;color:#374151;line-height:1.6">
-          Use the plate and provider fields to relate repairs to your TNVS fleet. Track downtime and cost per incident and export for compliance reporting.
-        </div>
-        <div style="margin-top:10px;font-size:13px;color:var(--muted)">
-          Status guide:
-          <ul style="margin:6px 0 0 18px;padding:0">
-            <li>Reported: Issue logged by driver/ops</li>
-            <li>Scheduled: Job scheduled with technician or service center</li>
-            <li>In Progress: Work underway</li>
-            <li>Completed: Work finished and asset available</li>
-            <li>Cancelled: Cancelled or duplicate</li>
-          </ul>
+      <!-- Add repair -->
+      <div class="card shadow-sm mb-3">
+        <div class="card-body">
+          <h6 class="mb-3">Add Repair</h6>
+          <form method="POST" class="row g-2 align-items-end">
+            <input type="hidden" name="op" value="add">
+            <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+
+            <div class="col-12 col-md-3">
+              <label class="form-label">Asset</label>
+              <select name="asset_id" class="form-select" required>
+                <option value="">Select Asset</option>
+                <?php foreach($assets as $a): ?>
+                  <option value="<?= (int)$a['id'] ?>" <?= ($filterAssetId==$a['id'])?'selected':'' ?>><?= h($a['name']) ?></option>
+                <?php endforeach; ?>
+              </select>
+            </div>
+
+            <div class="col-6 col-md-2">
+              <label class="form-label">Date</label>
+              <input type="date" name="repair_date" class="form-control" required>
+            </div>
+
+            <div class="col-6 col-md-2">
+              <label class="form-label">Type</label>
+              <input type="text" name="maintenance_type" class="form-control" placeholder="Preventive / …">
+            </div>
+
+            <div class="col-6 col-md-2">
+              <label class="form-label">Technician</label>
+              <input type="text" name="technician" class="form-control" placeholder="Tech/Shop">
+            </div>
+
+            <div class="col-6 col-md-2">
+              <label class="form-label">Status</label>
+              <select name="status" class="form-select">
+                <?php foreach ($statuses as $s): ?>
+                  <option <?= $s==='Reported'?'selected':'' ?>><?= h($s) ?></option>
+                <?php endforeach; ?>
+              </select>
+            </div>
+
+            <div class="col-6 col-md-2">
+              <label class="form-label">Cost</label>
+              <input type="number" step="0.01" name="cost" class="form-control" required>
+            </div>
+
+            <div class="col-6 col-md-2">
+              <label class="form-label">Odometer (km)</label>
+              <input type="number" name="odometer_km" class="form-control">
+            </div>
+
+            <div class="col-6 col-md-2">
+              <label class="form-label">Downtime (h)</label>
+              <input type="number" step="0.1" name="downtime_hours" class="form-control">
+            </div>
+
+            <div class="col-6 col-md-2">
+              <label class="form-label">Vehicle Plate</label>
+              <input type="text" name="tnvs_vehicle_plate" class="form-control" placeholder="ABC-1234">
+            </div>
+
+            <div class="col-6 col-md-2">
+              <label class="form-label">Provider</label>
+              <input type="text" name="tnvs_provider" class="form-control" placeholder="TNVS">
+            </div>
+
+            <div class="col-12 col-md-4">
+              <label class="form-label">Description</label>
+              <input type="text" name="description" class="form-control" placeholder="Issue / work done" required>
+            </div>
+
+            <div class="col-12 col-md-4">
+              <label class="form-label">Notes</label>
+              <textarea name="notes" rows="1" class="form-control" placeholder="(optional)"></textarea>
+            </div>
+
+            <div class="col-12 col-md-2 d-grid">
+              <button class="btn btn-violet"><ion-icon name="add-circle-outline"></ion-icon> Add</button>
+            </div>
+          </form>
         </div>
       </div>
-    </aside>
-  </main>
-</div>
 
+      <!-- Table -->
+      <div class="card shadow-sm">
+        <div class="card-body">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h5 class="m-0">Repair Logs</h5>
+          </div>
+
+          <div class="table-responsive">
+            <table class="table align-middle">
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Asset</th>
+                  <th>Plate / Provider</th>
+                  <th>Date</th>
+                  <th>Type</th>
+                  <th>Technician</th>
+                  <th>Status</th>
+                  <th>Cost</th>
+                  <th>Odometer</th>
+                  <th>Downtime</th>
+                  <th>Description</th>
+                  <th class="text-end">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+              <?php foreach ($repairs as $r): ?>
+                <tr>
+                  <td><?= (int)$r['id'] ?></td>
+                  <td><?= h($r['asset_name']) ?></td>
+                  <td>
+                    <?= h($r['tnvs_vehicle_plate']) ?><br>
+                    <span class="text-muted small"><?= h($r['tnvs_provider']) ?></span>
+                  </td>
+                  <td><?= h($r['repair_date']) ?></td>
+                  <td><?= h($r['maintenance_type']) ?></td>
+                  <td><?= h($r['technician']) ?></td>
+                  <td><span class="badge bg-<?= status_badge_class($r['status']) ?>"><?= h($r['status']) ?></span></td>
+                  <td>₱<?= money_fmt($r['cost']) ?></td>
+                  <td><?= h($r['odometer_km']) ?></td>
+                  <td><?= h($r['downtime_hours']) ?></td>
+                  <td><?= h($r['description']) ?></td>
+                  <td class="text-end">
+                    <button class="btn btn-sm btn-outline-secondary me-1" onclick="toggleEdit(<?= (int)$r['id'] ?>)">
+                      <ion-icon name="create-outline"></ion-icon> Edit
+                    </button>
+                    <form method="POST" class="d-inline" onsubmit="return confirm('Delete this repair log?')">
+                      <input type="hidden" name="op" value="delete">
+                      <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+                      <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
+                      <button class="btn btn-sm btn-danger">
+                        <ion-icon name="trash-outline"></ion-icon> Delete
+                      </button>
+                    </form>
+                  </td>
+                </tr>
+
+                <!-- inline edit row -->
+                <tr id="edit-<?= (int)$r['id'] ?>" class="edit-row" style="display:none">
+                  <td colspan="12">
+                    <form method="POST" class="row g-2 align-items-end">
+                      <input type="hidden" name="op" value="update">
+                      <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+                      <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
+
+                      <div class="col-12 col-md-3">
+                        <label class="form-label">Asset</label>
+                        <select name="asset_id" class="form-select" required>
+                          <?php foreach($assets as $a): ?>
+                            <option value="<?= (int)$a['id'] ?>" <?= $r['asset_id']==$a['id']?'selected':'' ?>><?= h($a['name']) ?></option>
+                          <?php endforeach; ?>
+                        </select>
+                      </div>
+
+                      <div class="col-6 col-md-2">
+                        <label class="form-label">Date</label>
+                        <input type="date" name="repair_date" class="form-control" value="<?= h($r['repair_date']) ?>" required>
+                      </div>
+
+                      <div class="col-6 col-md-2">
+                        <label class="form-label">Type</label>
+                        <input type="text" name="maintenance_type" class="form-control" value="<?= h($r['maintenance_type']) ?>">
+                      </div>
+
+                      <div class="col-6 col-md-2">
+                        <label class="form-label">Technician</label>
+                        <input type="text" name="technician" class="form-control" value="<?= h($r['technician']) ?>">
+                      </div>
+
+                      <div class="col-6 col-md-2">
+                        <label class="form-label">Status</label>
+                        <select name="status" class="form-select">
+                          <?php foreach ($statuses as $s): ?>
+                            <option <?= $r['status']===$s?'selected':'' ?>><?= h($s) ?></option>
+                          <?php endforeach; ?>
+                        </select>
+                      </div>
+
+                      <div class="col-6 col-md-2">
+                        <label class="form-label">Cost</label>
+                        <input type="number" step="0.01" name="cost" class="form-control" value="<?= h($r['cost']) ?>" required>
+                      </div>
+
+                      <div class="col-6 col-md-2">
+                        <label class="form-label">Odometer (km)</label>
+                        <input type="number" name="odometer_km" class="form-control" value="<?= h($r['odometer_km']) ?>">
+                      </div>
+
+                      <div class="col-6 col-md-2">
+                        <label class="form-label">Downtime (h)</label>
+                        <input type="number" step="0.1" name="downtime_hours" class="form-control" value="<?= h($r['downtime_hours']) ?>">
+                      </div>
+
+                      <div class="col-6 col-md-2">
+                        <label class="form-label">Vehicle Plate</label>
+                        <input type="text" name="tnvs_vehicle_plate" class="form-control" value="<?= h($r['tnvs_vehicle_plate']) ?>">
+                      </div>
+
+                      <div class="col-6 col-md-2">
+                        <label class="form-label">Provider</label>
+                        <input type="text" name="tnvs_provider" class="form-control" value="<?= h($r['tnvs_provider']) ?>">
+                      </div>
+
+                      <div class="col-12 col-md-4">
+                        <label class="form-label">Description</label>
+                        <input type="text" name="description" class="form-control" value="<?= h($r['description']) ?>" required>
+                      </div>
+
+                      <div class="col-12 col-md-4">
+                        <label class="form-label">Notes</label>
+                        <textarea name="notes" rows="1" class="form-control"><?= h($r['notes']) ?></textarea>
+                      </div>
+
+                      <div class="col-12 col-md-2 d-grid">
+                        <button class="btn btn-primary"><ion-icon name="save-outline"></ion-icon> Save</button>
+                      </div>
+                      <div class="col-12 col-md-2 d-grid">
+                        <button class="btn btn-outline-secondary" type="button" onclick="toggleEdit(<?= (int)$r['id'] ?>)">
+                          <ion-icon name="close-outline"></ion-icon> Cancel
+                        </button>
+                      </div>
+                    </form>
+                  </td>
+                </tr>
+              <?php endforeach; ?>
+              </tbody>
+            </table>
+          </div>
+
+        </div>
+      </div>
+
+    </div><!-- /main-content -->
+  </div><!-- /row -->
+</div><!-- /container -->
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 function applyFilters(){
   const s = document.getElementById('f_status').value;
@@ -519,9 +667,9 @@ function applyFilters(){
 }
 function toggleEdit(id){
   const el = document.getElementById('edit-'+id);
-  if (!el) return; el.style.display = (el.style.display==='none'||!el.style.display) ? 'table-row' : 'none';
+  if (!el) return;
+  el.style.display = (el.style.display==='none' || !el.style.display) ? 'table-row' : 'none';
 }
-// Optional: auto-refresh when repairs change in another tab
 window.addEventListener('storage', function(e){ if (e.key === 'repairs_changed') { window.location.reload(); } });
 </script>
 </body>

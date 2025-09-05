@@ -26,5 +26,22 @@ $_SESSION['user'] = [
   'role'  => $user['role'],
 ];
 
-header('Location: ' . BASE_URL . '/warehousing/warehouseDashboard.php');
+$role = strtolower($user['role'] ?? '');
+
+switch ($role) {
+  case 'admin':
+    $dest = BASE_URL . 'all-modules-admin-access/Dashboard.php';
+    break;
+
+  case 'manager':
+    $dest = BASE_URL . 'warehousing/warehouseDashboard.php';
+    break;
+
+  default:
+    // fallback if role not recognized
+    $dest = BASE_URL . 'login.php?err=' . urlencode('Unauthorized role');
+    break;
+}
+
+header('Location: ' . $dest);
 exit;
