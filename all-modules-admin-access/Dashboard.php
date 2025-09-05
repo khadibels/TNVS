@@ -1,7 +1,10 @@
 <?php
-require_once __DIR__ . "/../includes/config.php";
-require_once __DIR__ . "/../includes/auth.php";
+require_once __DIR__ . '/../includes/config.php';
+require_once __DIR__ . '/../includes/auth.php';
+
 require_login();
+require_role(['admin']);
+
 
 /* -------------------- Helpers (shared) -------------------- */
 function table_exists(PDO $pdo, string $name): bool
@@ -524,7 +527,7 @@ for ($i = 0; $i < 14; $i++) {
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Dashboard | Unified Admin</title>
+  <title>Dashboard | Admin</title>
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet"/>
   <link href="../css/style.css" rel="stylesheet"/>
@@ -583,23 +586,35 @@ for ($i = 0; $i < 14; $i++) {
       <!-- ALMS --> 
       <h6 class="text-uppercase mb-2">ALMS</h6>
       <nav class="nav flex-column px-2 mb-4">
-        <a class="nav-link" href="./assetTracker.php"><ion-icon name="cube-outline"></ion-icon><span>Asset Tracking</span></a>
-        <a class="nav-link" href="./mainReq.php">
+        <a class="nav-link" href="../assetlifecycle/ALMS.php"><ion-icon name="cube-outline"></ion-icon><span>Asset Tracking</span></a>
+        <a class="nav-link" href="../assetlifecycle/mainReq.php">
             <ion-icon name="layers-outline"></ion-icon><span>Maintenance Requests</span>
           </a>
-        <a class="nav-link" href="./repair.php">
+        <a class="nav-link" href="../assetlifecycle/repair.php">
             <ion-icon name="hammer-outline"></ion-icon><span>Repair Logs</span>
           </a>
+<<<<<<< HEAD
 </nav>
+=======
+          </nav>
+>>>>>>> origin/main
 
         <!-- Document Tracking --> 
       <h6 class="text-uppercase mb-2">Document Tracking</h6>
       <nav class="nav flex-column px-2 mb-4">
+<<<<<<< HEAD
         <a class="nav-link" href="dashboard.php"><ion-icon name="home-outline"></ion-icon> Dashboard</a>
           <a class="nav-link" href="document.php"><ion-icon name="document-text-outline"></ion-icon> Documents</a>
           <a class="nav-link" href="logistic.php"><ion-icon name="cube-outline"></ion-icon> Logistics</a>
           <a class="nav-link" href="settings.php"><ion-icon name="settings-outline"></ion-icon> Settings</a>
 </nav>
+=======
+          <a class="nav-link" href="document.php"><ion-icon name="document-text-outline"></ion-icon> Documents</a>
+          <a class="nav-link" href="logistic.php"><ion-icon name="cube-outline"></ion-icon> Logistics</a>
+          
+</nav>
+          
+>>>>>>> origin/main
       <hr class="mx-3 my-2">
 
       <!-- Global tools (single versions) -->

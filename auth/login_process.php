@@ -28,6 +28,7 @@ $_SESSION['user'] = [
 
 $role = strtolower($user['role'] ?? '');
 
+<<<<<<< HEAD
 switch ($role) {
   case 'admin':
     $dest = BASE_URL . 'all-modules-admin-access/Dashboard.php';
@@ -42,6 +43,20 @@ switch ($role) {
     $dest = BASE_URL . 'login.php?err=' . urlencode('Unauthorized role');
     break;
 }
+=======
+// role → destination map
+$map = [
+  'admin'               => '../all-modules-admin-access/Dashboard.php',
+  'manager'             => '../warehousing/warehouseDashboard.php',
+  'warehouse_staff'     => '../warehousing/warehouseDashboard.php',
+  'procurement_officer' => '../procurement/procurementDashboard.php',
+  'asset_manager'       => '../assetlifecycle/ALMS.php',                   
+  'document_controller' => '../documentTracking/dashboard.php',                  
+  'project_lead'        => '../PLT/projectTracking.php',              
+];
+
+$dest = BASE_URL . ($map[$role] ?? 'login.php?err=' . urlencode('Unauthorized role'));
+>>>>>>> origin/main
 
 header('Location: ' . $dest);
 exit;

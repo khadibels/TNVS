@@ -1,33 +1,39 @@
 <?php
-require_once __DIR__ . "/../../includes/config.php";
-require_once __DIR__ . "/../../includes/auth.php";
-require_role(["admin"], "json");
+require_once __DIR__ . '/../../includes/config.php';
+require_once __DIR__ . '/../../includes/auth.php';
+require_role(['admin']); // only admins can change roles
 
-header("Content-Type: application/json");
+header('Content-Type: application/json; charset=utf-8');
 
-$id = (int) ($_POST["id"] ?? 0);
-$role = trim($_POST["role"] ?? "");
+$id   = isset($_POST['id']) ? (int)$_POST['id'] : 0;
+$role = isset($_POST['role']) ? trim($_POST['role']) : '';
 
-$allowed = ["admin", "manager", "staff", "viewer", "procurement"];
-if ($id <= 0 || !in_array($role, $allowed, true)) {
-    http_response_code(422);
-    echo json_encode(["ok" => false, "error" => "INVALID_INPUT"]);
-    exit();
+$allowed = [
+  'admin',
+  'manager',
+  'warehouse_staff',
+  'procurement_officer',
+  'asset_manager',
+  'document_controller',
+  'project_lead',
+  'viewer'
+];
+
+if ($id <= 0 || $role === '' || !in_array($role, $allowed, true)) {
+  echo json_encode(['ok' => false, 'error' => 'INVALID_INPUT']);
+  exit;
 }
 
-try {
-    $me = current_user();
-    if ($me && (int) $me["id"] === $id && $role !== "admin") {
-        http_response_code(409);
-        echo json_encode(["ok" => false, "error" => "CANNOT_DEMOTE_SELF"]);
-        exit();
-    }
-
-    $st = $pdo->prepare("UPDATE users SET role = ? WHERE id = ?");
-    $st->execute([$role, $id]);
-
-    echo json_encode(["ok" => true]);
-} catch (Throwable $e) {
-    http_response_code(500);
-    echo json_encode(["ok" => false, "error" => "SERVER_ERROR"]);
+// check user exists
+$chk = $pdo->prepare("SELECT id FROM users WHERE id=?");
+$chk->execute([$id]);
+if (!$chk->fetchColumn()) {
+  echo json_encode(['ok' => false, 'error' => 'USER_NOT_FOUND']);
+  exit;
 }
+
+// update role
+$st = $pdo->prepare("UPDATE users SET role=? WHERE id=?");
+$st->execute([$role, $id]);
+
+echo json_encode(['ok' => true]);
