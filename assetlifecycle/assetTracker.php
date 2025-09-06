@@ -5,10 +5,12 @@ ini_set('display_errors', 1);
 ini_set('display_startup_errors', 1);
 error_reporting(E_ALL);
 
-// Includes (adjust paths if your tree is different)
 require_once __DIR__ . "/../includes/config.php";
 require_once __DIR__ . "/../includes/auth.php";
 require_login();
+
+$section = 'alms';
+$active  = 'assettracker';
 
 // While building, treat current user as admin
 $isAdmin = true;
@@ -278,76 +280,69 @@ $userRole = $_SESSION["user"]["role"] ?? "Warehouse Manager";
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Asset Tracking | TNVS</title>
 
+  <!-- Bootstrap -->
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+
+  <!-- Global & Modules CSS -->
   <link href="../css/style.css" rel="stylesheet" />
   <link href="../css/modules.css" rel="stylesheet" />
 
+  <!-- Ionicons -->
   <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
   <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
-  <script src="../js/sidebar-toggle.js"></script>
 
-  <style>
-    :root{
-      --bg:#f5f7fb; --card:#fff; --accent:#0f62fe; --muted:#6b7280; --text:#111827;
-      --success:#10b981; --danger:#ef4444; --warning:#f59e0b; --info:#3b82f6;
-      --shadow: 0 10px 30px rgba(16,24,40,0.08);
-    }
-    *{box-sizing:border-box}
-    body{margin:0;font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial;background:linear-gradient(180deg,#f7f9fc 0%,var(--bg) 100%);color:var(--text)}
-    .btn-violet{background:#6d28d9;border-color:#6d28d9;color:#fff}
-    .btn-violet:hover{filter:brightness(0.95);color:#fff}
-    .card{background:var(--card);border-radius:12px;box-shadow:var(--shadow);border:1px solid rgba(16,24,40,0.06)}
-    .stat .label{font-size:12px;color:var(--muted)}
-    .stat .number{font-size:20px;font-weight:700}
-    .badge.s-registered{background:rgba(59,130,246,0.08);color:#2563eb}
-    .badge.s-deployed{background:rgba(6,182,212,0.08);color:#0891b2}
-    .badge.s-active{background:rgba(16,185,129,0.08);color:#10b981}
-    .badge.s-inmaintenance{background:rgba(245,158,11,0.12);color:#f59e0b}
-    .badge.s-retired,.badge.s-disposed{background:rgba(239,68,68,0.08);color:#ef4444}
-    tr.highlight { box-shadow: inset 0 0 0 9999px rgba(255,221,87,0.28); }
-  </style>
+  <!-- Sidebar toggle -->
+  <script src="../js/sidebar-toggle.js"></script>
 </head>
 <body>
   <div class="container-fluid p-0">
     <div class="row g-0">
+
       <!-- Sidebar -->
-      <div class="sidebar d-flex flex-column">
-        <div class="d-flex justify-content-center align-items-center mb-4 mt-3">
-          <img src="../img/logo.png" id="logo" class="img-fluid me-2" style="height:55px" alt="Logo">
-        </div>
+      <?php include __DIR__ . '/../includes/sidebar.php'; ?>
 
-        <h6 class="text-uppercase mb-2">Asset Lifecycle & Maintenance</h6>
+      <!-- Force-activate the correct sidebar item even if sidebar.php doesn't read $active -->
+      <script>
+        (function() {
+          const activeKey = <?= json_encode($active) ?>;
+          const here = location.pathname.split('/').pop() || 'index.php';
+          const sidebar = document.querySelector('.sidebar, #sidebar, nav.sidebar');
+          if (!sidebar) return;
 
-        <nav class="nav flex-column px-2 mb-4">
-          <a class="nav-link" href="ALMS.php">
-            <ion-icon name="home-outline"></ion-icon><span>Dashboard</span>
-          </a>
-          <a class="nav-link active" href="./assetTracker.php">
-            <ion-icon name="cube-outline"></ion-icon><span>Asset Tracking</span>
-          </a>
-          <a class="nav-link" href="./mainReq.php">
-            <ion-icon name="layers-outline"></ion-icon><span>Maintenance Requests</span>
-          </a>
-          <a class="nav-link" href="./repair.php">
-            <ion-icon name="hammer-outline"></ion-icon><span>Repair Logs</span>
-          </a>
-          <a class="nav-link" href="./reports.php">
-            <ion-icon name="file-tray-stacked-outline"></ion-icon><span>Reports</span>
-          </a>
-          <a class="nav-link" href="./settings.php">
-            <ion-icon name="settings-outline"></ion-icon><span>Settings</span>
-          </a>
-        </nav>
+          // Clear existing .active marks
+          sidebar.querySelectorAll('.active').forEach(el => el.classList.remove('active'));
 
-        <div class="logout-section">
-          <a class="nav-link text-danger" href="<?= BASE_URL ?>/auth/logout.php">
-            <ion-icon name="log-out-outline"></ion-icon> Logout
-          </a>
-        </div>
-      </div>
+          // 1) Try data-key match (if your sidebar uses it)
+          let link = sidebar.querySelector(`[data-key="${activeKey}"]`);
+          // 2) Fallback: match href to current file
+          if (!link) {
+            link = Array.from(sidebar.querySelectorAll('a.nav-link, a.list-group-item, a'))
+              .find(a => (a.getAttribute('href') || '').split('/').pop() === here);
+          }
+          // 3) Fallback: match href containing the key
+          if (!link) {
+            link = Array.from(sidebar.querySelectorAll('a.nav-link, a.list-group-item, a'))
+              .find(a => (a.getAttribute('href') || '').includes(activeKey));
+          }
 
-      <!-- Main -->
+          if (link) {
+            link.classList.add('active');
+            const li = link.closest('li');
+            if (li) li.classList.add('active');
+            // open parent collapses if any
+            const collapse = link.closest('.collapse');
+            if (collapse && collapse.classList.contains('collapse')) {
+              collapse.classList.add('show');
+              const toggler = sidebar.querySelector(`[data-bs-target="#${collapse.id}"]`);
+              if (toggler) toggler.setAttribute('aria-expanded', 'true');
+            }
+          }
+        })();
+      </script>
+
+      <!-- Main Content -->
       <div class="col main-content p-3 p-lg-4">
+
         <!-- Topbar -->
         <div class="d-flex justify-content-between align-items-center mb-3">
           <div class="d-flex align-items-center gap-3">
@@ -355,10 +350,10 @@ $userRole = $_SESSION["user"]["role"] ?? "Warehouse Manager";
               <ion-icon name="menu-outline"></ion-icon>
             </button>
             <h2 class="m-0 d-flex align-items-center gap-2">
-              <ion-icon name="cube-outline"></ion-icon>Asset Tracking
+              <ion-icon name="cube-outline"></ion-icon>
+              <span>Asset Tracking</span>
             </h2>
           </div>
-
           <div class="d-flex align-items-center gap-2">
             <img src="../img/profile.jpg" class="rounded-circle" width="36" height="36" alt="">
             <div class="small">
@@ -376,7 +371,8 @@ $userRole = $_SESSION["user"]["role"] ?? "Warehouse Manager";
         <!-- Actions -->
         <section class="mb-3">
           <div class="d-flex gap-2">
-            <a class="btn btn-violet" href="?action=export&status=<?= h($fStatus) ?>&type=<?= h($fType) ?>&dept=<?= h($fDept) ?>&q=<?= urlencode($fQ) ?>">
+            <a class="btn btn-violet"
+               href="?action=export&status=<?= h($fStatus) ?>&type=<?= h($fType) ?>&dept=<?= h($fDept) ?>&q=<?= urlencode($fQ) ?>">
               <ion-icon name="download-outline"></ion-icon> Export CSV
             </a>
           </div>
@@ -510,7 +506,7 @@ $userRole = $_SESSION["user"]["role"] ?? "Warehouse Manager";
                 </thead>
                 <tbody>
                 <?php foreach ($assets as $a): ?>
-                  <tr class="<?= ($highlightId && $a['id']==$highlightId)?'highlight':'' ?>" id="asset-<?= (int)$a['id'] ?>">
+                  <tr class="<?= ($highlightId && $a['id']===$highlightId)?'highlight':'' ?>" id="asset-<?= (int)$a['id'] ?>">
                     <td><?= (int)$a['id'] ?></td>
                     <td>
                       <div class="fw-semibold"><?= h($a['unique_id'] ?: '—') ?></div>
@@ -718,6 +714,7 @@ $userRole = $_SESSION["user"]["role"] ?? "Warehouse Manager";
         el.scrollIntoView({behavior:'smooth', block:'center'});
       }
     }
+    
     (function(){ var el=document.querySelector('tr.highlight'); if(el){ el.scrollIntoView({behavior:'smooth', block:'center'}); }})();
   </script>
 

@@ -77,7 +77,7 @@ if ($role === 'admin') {
     <!-- ALMS -->
     <h6 class="text-uppercase mb-2">ALMS</h6>
     <nav class="nav flex-column px-2 mb-4">
-      <a class="nav-link<?= a('assets') ?>" href="<?= u('assetlifecycle/ALMS.php') ?>">
+      <a class="nav-link<?= a('assettracker') ?>" href="<?= u('assetlifecycle/assetTracker.php') ?>">
         <ion-icon name="cube-outline"></ion-icon><span>Asset Tracking</span>
       </a>
       <a class="nav-link<?= a('requests') ?>" href="<?= u('assetlifecycle/mainReq.php') ?>">
@@ -243,7 +243,7 @@ if ($section === 'alms') { ?>
       <a class="nav-link<?= a('dashboard') ?>" href="<?= u('assetlifecycle/ALMS.php') ?>">
         <ion-icon name="home-outline"></ion-icon><span>Dashboard</span>
       </a>
-      <a class="nav-link<?= a('assets') ?>" href="<?= u('assetlifecycle/assetTracker.php') ?>">
+      <a class="nav-link<?= a('assettracker') ?>" href="<?= u('assetlifecycle/assetTracker.php') ?>">
         <ion-icon name="cube-outline"></ion-icon><span>Asset Tracking</span>
       </a>
       <a class="nav-link<?= a('requests') ?>" href="<?= u('assetlifecycle/mainReq.php') ?>">

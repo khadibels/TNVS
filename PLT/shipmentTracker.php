@@ -12,6 +12,10 @@ if (function_exists("require_login")) {
 
 $userName = "Admin";
 $userRole = "System Admin";
+
+$section = 'plt';
+$active = 'tracker';
+
 if (function_exists("current_user")) {
     $u = current_user();
     $userName = $u["name"] ?? $userName;
@@ -37,27 +41,7 @@ if (function_exists("current_user")) {
 <div class="container-fluid p-0">
   <div class="row g-0">
 
-    <!-- Sidebar -->
-    <div class="sidebar d-flex flex-column">
-      <div class="d-flex justify-content-center align-items-center mb-4 mt-3">
-        <img src="../img/logo.png" id="logo" class="img-fluid me-2" style="height:55px" alt="Logo">
-      </div>
-      <h6 class="text-uppercase mb-2">PLT</h6>
-      <nav class="nav flex-column px-2 mb-4">
-        <a class="nav-link" href="./pltDashboard.php"><ion-icon name="home-outline"></ion-icon><span>Dashboard</span></a>
-        <a class="nav-link" href="./projectTracking.php"><ion-icon name="briefcase-outline"></ion-icon><span>Project Tracking</span></a>
-        <a class="nav-link active" href="./shipmentTracker.php"><ion-icon name="trail-sign-outline"></ion-icon><span>Shipment Tracker</span></a>
-        <a class="nav-link" href="./deliverySchedule.php"><ion-icon name="calendar-outline"></ion-icon><span>Delivery Schedule</span></a>
-        <a class="nav-link" href="./pltReports.php"><ion-icon name="file-tray-stacked-outline"></ion-icon><span>Reports</span></a>
-      </nav>
-      <div class="logout-section">
-        <a class="nav-link text-danger" href="<?= defined("BASE_URL")
-            ? BASE_URL
-            : "#" ?>/auth/logout.php">
-          <ion-icon name="log-out-outline"></ion-icon> Logout
-        </a>
-      </div>
-    </div>
+    <?php include __DIR__ . '/../includes/sidebar.php' ?>
 
     <!-- Main -->
     <div class="col main-content p-3 p-lg-4">

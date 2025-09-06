@@ -12,6 +12,11 @@ if (function_exists("require_login")) {
 
 $userName = "Procurement User";
 $userRole = "Procurement";
+
+$section = "procurement";
+$active = "reqs";
+
+
 if (function_exists("current_user")) {
     $u = current_user();
     $userName = $u["name"] ?? $userName;
@@ -38,29 +43,8 @@ if (function_exists("current_user")) {
 <body>
 <div class="container-fluid p-0">
   <div class="row g-0">
-    <div class="sidebar d-flex flex-column">
-      <div class="d-flex justify-content-center align-items-center mb-4 mt-3">
-        <img src="../img/logo.png" id="logo" class="img-fluid me-2" style="height:55px" alt="Logo">
-      </div>
-      <h6 class="text-uppercase mb-2">Procurement</h6>
-      <nav class="nav flex-column px-2 mb-4">
-        <a class="nav-link" href="./procurementDashboard.php"><ion-icon name="home-outline"></ion-icon><span>Dashboard</span></a>
-        <a class="nav-link" href="./supplierManagement.php"><ion-icon name="person-outline"></ion-icon><span>Supplier Management</span></a>
-        <a class="nav-link" href="./rfqManagement.php"><ion-icon name="mail-open-outline"></ion-icon><span>RFQs & Sourcing</span></a>
-        <a class="nav-link" href="./purchaseOrders.php"><ion-icon name="document-text-outline"></ion-icon><span>Purchase Orders</span></a>
-        <a class="nav-link active" href="./procurementRequests.php"><ion-icon name="clipboard-outline"></ion-icon><span>Procurement Requests</span></a>
-        <a class="nav-link" href="./inventoryView.php"><ion-icon name="archive-outline"></ion-icon><span>Inventory Management</span></a>
-        <a class="nav-link" href="./budgetReports.php"><ion-icon name="analytics-outline"></ion-icon><span>Budget & Reports</span></a>
-        <a class="nav-link" href="./settings.php"><ion-icon name="settings-outline"></ion-icon><span>Settings</span></a>
-      </nav>
-      <div class="logout-section">
-        <a class="nav-link text-danger" href="<?= defined("BASE_URL")
-            ? BASE_URL
-            : "#" ?>/auth/logout.php">
-          <ion-icon name="log-out-outline"></ion-icon> Logout
-        </a>
-      </div>
-    </div>
+    
+  <?php include __DIR__ . '/../includes/sidebar.php' ?>
 
     <div class="col main-content p-3 p-lg-4">
       <div class="d-flex justify-content-between align-items-center mb-3">
