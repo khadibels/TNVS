@@ -521,6 +521,23 @@ $catNames = $pdo
       }catch(e){ showInlineErr('#delForeverErr', e); }
     });
 
+    
+
+    document.getElementById('formAdd').addEventListener('submit', async (ev)=>{
+      ev.preventDefault();
+      try{
+        document.getElementById('addErr').classList.add('d-none');
+        await fetchJSON(api.add, { method:'POST', body:new FormData(ev.target) });
+        ev.target.reset();
+        bootstrap.Modal.getInstance(document.getElementById('addModal')).hide();
+        loadTable();
+      }catch(e){
+        showInlineErr('#addErr', e);
+      }
+    });
+
+
+
     // init
     loadTable().catch(e=>alert(parseErr(e)));
   </script>
