@@ -31,12 +31,12 @@ $role = strtolower($user['role'] ?? '');
 // role → destination map
 $map = [
   'admin'               => '/all-modules-admin-access/Dashboard.php',
-  'manager'             => '../warehousing/warehouseDashboard.php',
-  'warehouse_staff'     => '../warehousing/warehouseDashboard.php',
-  'procurement_officer' => '../procurement/procurementDashboard.php',
-  'asset_manager'       => '../assetlifecycle/ALMS.php',                   
-  'document_controller' => '../documentTracking/dashboard.php',                  
-  'project_lead'        => '../PLT/projectTracking.php',              
+  'manager'             => '/warehousing/warehouseDashboard.php',
+  'warehouse_staff'     => '/warehousing/warehouseDashboard.php',
+  'procurement_officer' => '/procurement/procurementDashboard.php',
+  'asset_manager'       => '/assetlifecycle/ALMS.php',                   
+  'document_controller' => '/documentTracking/dashboard.php',                  
+  'project_lead'        => '/PLT/projectTracking.php',              
 ];
 
 $dest = BASE_URL . ($map[$role] ?? 'login.php?err=' . urlencode('Unauthorized role'));

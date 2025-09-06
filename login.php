@@ -7,13 +7,13 @@ if (!empty($_SESSION["user"])) {
 
     switch ($role) {
         case 'admin':
-            $dest = BASE_URL . 'all-modules-admin-access/Dashboard.php';
+            $dest = BASE_URL . '/all-modules-admin-access/Dashboard.php';
             break;
         case 'manager':
-            $dest = BASE_URL . 'warehousing/warehouseDashboard.php';
+            $dest = BASE_URL . '/warehousing/warehouseDashboard.php';
             break;
         default:
-            $dest = BASE_URL . 'all-modules-admin-access/Dashboard.php';
+            $dest = BASE_URL . '/all-modules-admin-access/Dashboard.php';
             break;
     }
     header('Location: ' . $dest);
