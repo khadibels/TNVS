@@ -91,7 +91,7 @@ if ($role === 'admin') {
     <!-- Document Tracking -->
     <h6 class="text-uppercase mb-2">Document Tracking</h6>
     <nav class="nav flex-column px-2 mb-4">
-      <a class="nav-link<?= a('documents') ?>" href="<?= u('all-modules-admin-access/document.php') ?>">
+      <a class="nav-link<?= a('documents') ?>" href="<?= u('../documentTracking/document.php') ?>">
         <ion-icon name="document-text-outline"></ion-icon><span>Documents</span>
       </a>
       <a class="nav-link<?= a('logistics') ?>" href="<?= u('all-modules-admin-access/logistic.php') ?>">
@@ -185,6 +185,9 @@ if ($section === 'procurement') { ?>
       <a class="nav-link<?= a('reqs') ?>" href="<?= u('procurement/procurementRequests.php') ?>">
         <ion-icon name="clipboard-outline"></ion-icon><span>Procurement Requests</span>
       </a>
+      <a class="nav-link<?= a('inventoryview') ?>" href="<?= u('procurement/inventoryView.php') ?>">
+        <ion-icon name="archive-outline"></ion-icon><span>Inventory Management</span>
+      </a>
       <a class="nav-link<?= a('budget') ?>" href="<?= u('procurement/budgetReports.php') ?>">
         <ion-icon name="analytics-outline"></ion-icon><span>Budget & Reports</span>
       </a>
@@ -275,20 +278,14 @@ if ($section === 'docs') { ?>
     </div>
     <h6 class="text-uppercase mb-2">Document Tracking</h6>
     <nav class="nav flex-column px-2 mb-4">
-      <a class="nav-link<?= a('dashboard') ?>" href="<?= u('documenttracking/docDashboard.php') ?>">
+      <a class="nav-link<?= a('dashboard') ?>" href="<?= u('documentTracking/Dashboard.php') ?>">
         <ion-icon name="home-outline"></ion-icon><span>Dashboard</span>
       </a>
-      <a class="nav-link<?= a('register') ?>" href="<?= u('documenttracking/documentRegister.php') ?>">
-        <ion-icon name="document-text-outline"></ion-icon><span>Register Documents</span>
+      <a class="nav-link<?= a('documents') ?>" href="<?= u('documenttracking/document.php') ?>">
+        <ion-icon name="document-text-outline"></ion-icon><span>Documents</span>
       </a>
-      <a class="nav-link<?= a('logistics') ?>" href="<?= u('documenttracking/logistics.php') ?>">
+      <a class="nav-link<?= a('logistics') ?>" href="<?= u('documentTracking/logistic.php') ?>">
         <ion-icon name="cube-outline"></ion-icon><span>Logistics</span>
-      </a>
-      <a class="nav-link<?= a('search') ?>" href="<?= u('documenttracking/search.php') ?>">
-        <ion-icon name="search-outline"></ion-icon><span>Search</span>
-      </a>
-      <a class="nav-link<?= a('reports') ?>" href="<?= u('documenttracking/reports.php') ?>">
-        <ion-icon name="file-tray-stacked-outline"></ion-icon><span>Reports</span>
       </a>
       <a class="nav-link<?= a('settings') ?>" href="<?= u('documenttracking/settings.php') ?>">
         <ion-icon name="settings-outline"></ion-icon><span>Settings</span>

@@ -207,7 +207,8 @@ if (function_exists("current_user")) {
           <div class="alert alert-danger d-none mt-3" id="supErr"></div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+
           <button class="btn btn-primary" type="submit">Save</button>
         </div>
       </form>

@@ -168,8 +168,9 @@ if (function_exists("current_user")) {
           <div class="alert alert-danger d-none mt-3" id="rfqErr"></div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
           <button class="btn btn-primary" type="submit">Save</button>
+
         </div>
       </form>
     </div>
@@ -194,8 +195,9 @@ if (function_exists("current_user")) {
           <div class="alert alert-danger d-none" id="awardErr"></div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
           <button class="btn btn-success" type="submit">Award &amp; Create PO</button>
+
         </div>
       </form>
     </div>

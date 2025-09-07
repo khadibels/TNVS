@@ -10,18 +10,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   $pass  = $_POST['password'] ?? '';
   $role  = $_POST['role'] ?? '';
 
-<<<<<<< HEAD
-  // Updated roles to match login_process.php
-  $allowed = [
-    'admin',
-    'manager',
-    'warehouse_staff',
-    'procurement_officer',
-    'asset_manager',
-    'document_controller',
-    'project_lead'
-  ];
-=======
     $allowed = [
       'admin',
       'manager',
@@ -32,7 +20,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       'project_lead',
       'viewer'
 ];
->>>>>>> origin/main
 
   if ($name === '' || $email === '' || $pass === '' || !in_array($role, $allowed, true)) {
     $msg = 'Please fill all fields correctly.';

@@ -3,10 +3,6 @@ require_once __DIR__ . "/../includes/config.php";
 require_once __DIR__ . "/../includes/auth.php";
 require_role(["admin", "manager"]);
 
-$hasUsersApi =
-    file_exists(__DIR__ . "/api/users_list.php") &&
-    file_exists(__DIR__ . "/api/user_set_role.php");
-
 $user = current_user();
 $userName = $user["name"] ?? "Guest";
 $userRole = $user["role"] ?? "Unknown";
@@ -26,9 +22,6 @@ $isAdmin = $userRole === "admin";
   <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
   <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
   <script src="../js/sidebar-toggle.js"></script>
-
-
-
 </head>
 <body>
 <div class="container-fluid p-0">
@@ -76,28 +69,18 @@ $isAdmin = $userRole === "admin";
       </div>
 
       <!-- Tabs -->
-     <ul class="nav nav-tabs settings-tab mb-3" role="tablist">
-  <li class="nav-item" role="presentation">
-    <button class="nav-link active d-flex align-items-center" data-bs-toggle="tab" data-bs-target="#tabLoc" type="button" role="tab">
-      <ion-icon name="navigate-outline"></ion-icon> Locations
-    </button>
-  </li>
-  <?php if ($isAdmin && $hasUsersApi): ?>
-
-  <li class="nav-item" role="presentation">
-    <button class="nav-link d-flex align-items-center" data-bs-toggle="tab" data-bs-target="#tabUsers" type="button" role="tab">
-      <ion-icon name="people-outline"></ion-icon> Access Control
-    </button>
-  </li>
-  <?php endif; ?>
-  <li class="nav-item" role="presentation">
-    <button class="nav-link d-flex align-items-center" data-bs-toggle="tab" data-bs-target="#tabCats" type="button" role="tab">
-      <ion-icon name="pricetags-outline"></ion-icon> Categories
-    </button>
-  </li>
-</ul>
-
-
+      <ul class="nav nav-tabs settings-tab mb-3" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active d-flex align-items-center" data-bs-toggle="tab" data-bs-target="#tabLoc" type="button" role="tab">
+            <ion-icon name="navigate-outline"></ion-icon> Locations
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link d-flex align-items-center" data-bs-toggle="tab" data-bs-target="#tabCats" type="button" role="tab">
+            <ion-icon name="pricetags-outline"></ion-icon> Categories
+          </button>
+        </li>
+      </ul>
 
       <div class="tab-content">
 
@@ -117,9 +100,7 @@ $isAdmin = $userRole === "admin";
               <div class="table-responsive">
                 <table class="table align-middle">
                   <thead>
-                    <tr><th>Code</th><th>Name</th><th>Address</th><?php if (
-                        $isAdmin
-                    ): ?><th class="text-end">Actions</th><?php endif; ?></tr>
+                    <tr><th>Code</th><th>Name</th><th>Address</th><?php if ($isAdmin): ?><th class="text-end">Actions</th><?php endif; ?></tr>
                   </thead>
                   <tbody id="locBody"><tr><td colspan="4" class="text-center text-muted py-4">Loading…</td></tr></tbody>
                 </table>
@@ -128,47 +109,66 @@ $isAdmin = $userRole === "admin";
           </section>
         </div>
 
-        <!-- Users/Roles -->
-        <?php if ($isAdmin && $hasUsersApi): ?>
-<div class="tab-pane fade" id="tabUsers" role="tabpanel">
+        <!-- Categories -->
+        <div class="tab-pane fade" id="tabCats" role="tabpanel">
           <section class="card shadow-sm">
             <div class="card-body">
               <div class="d-flex justify-content-between align-items-center mb-3">
-                <h5 class="mb-0">Access Control</h5>
-                <div class="text-muted small">Roles: Admin, Warehouse Manager, Asset Manager, Viewer, Procurement Officer</div>
+                <h5 class="mb-0">Inventory Categories</h5>
+                <button class="btn btn-violet" data-bs-toggle="modal" data-bs-target="#mdlCat">
+                  <ion-icon name="add-circle-outline"></ion-icon> New Category
+                </button>
               </div>
 
               <div class="table-responsive">
                 <table class="table align-middle">
-                  <thead><tr><th>Name</th><th>Email</th><th>Role</th><th class="text-end">Save</th></tr></thead>
-                  <tbody id="userBody"><tr><td colspan="4" class="text-center text-muted py-4">Loading…</td></tr></tbody>
+                  <thead>
+                    <tr><th>Code</th><th>Name</th><th>Description</th><th>Status</th><th class="text-end">Actions</th></tr>
+                  </thead>
+                  <tbody id="catBody"><tr><td colspan="5" class="text-center text-muted py-4">Loading…</td></tr></tbody>
                 </table>
               </div>
             </div>
           </section>
         </div>
-        <?php endif; ?>
 
-        <div class="tab-pane fade" id="tabCats" role="tabpanel">
-  <section class="card shadow-sm">
-    <div class="card-body">
-      <div class="d-flex justify-content-between align-items-center mb-3">
-        <h5 class="mb-0">Inventory Categories</h5>
-        <button class="btn btn-violet" data-bs-toggle="modal" data-bs-target="#mdlCat">
-          <ion-icon name="add-circle-outline"></ion-icon> New Category
-        </button>
-      </div>
+      </div><!-- /tab-content -->
 
-      <div class="table-responsive">
-        <table class="table align-middle">
-          <thead>
-            <tr><th>Code</th><th>Name</th><th>Description</th><th>Status</th><th class="text-end">Actions</th></tr>
-          </thead>
-          <tbody id="catBody"><tr><td colspan="5" class="text-center text-muted py-4">Loading…</td></tr></tbody>
-        </table>
-      </div>
+    </div><!-- /main -->
+  </div>
+</div>
+
+<!-- Location Modal -->
+<div class="modal fade" id="mdlLoc" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="locForm">
+        <div class="modal-header">
+          <h5 class="modal-title">Location</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body row g-3">
+          <input type="hidden" name="id" id="locId">
+          <div class="col-4">
+            <label class="form-label">Code</label>
+            <input class="form-control" name="code" id="locCode" required maxlength="32">
+          </div>
+          <div class="col-8">
+            <label class="form-label">Name</label>
+            <input class="form-control" name="name" id="locName" required maxlength="128">
+          </div>
+          <div class="col-12">
+            <label class="form-label">Address (optional)</label>
+            <input class="form-control" name="address" id="locAddr" maxlength="255">
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button class="btn btn-primary" type="submit">Save</button>
+        </div>
+      </form>
     </div>
-  </section>
+  </div>
 </div>
 
 <!-- Category Modal -->
@@ -202,47 +202,7 @@ $isAdmin = $userRole === "admin";
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-          <button class="btn btn-primary" type="submit">Save</button>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
-
-
-      </div><!-- /tab-content -->
-
-    </div><!-- /main -->
-  </div>
-</div>
-
-<!-- Location Modal -->
-<div class="modal fade" id="mdlLoc" tabindex="-1">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <form id="locForm">
-        <div class="modal-header">
-          <h5 class="modal-title">Location</h5>
-          <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-        </div>
-        <div class="modal-body row g-3">
-          <input type="hidden" name="id" id="locId">
-          <div class="col-4">
-            <label class="form-label">Code</label>
-            <input class="form-control" name="code" id="locCode" required maxlength="32">
-          </div>
-          <div class="col-8">
-            <label class="form-label">Name</label>
-            <input class="form-control" name="name" id="locName" required maxlength="128">
-          </div>
-          <div class="col-12">
-            <label class="form-label">Address (optional)</label>
-            <input class="form-control" name="address" id="locAddr" maxlength="255">
-          </div>
-        </div>
-        <div class="modal-footer">
-          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
           <button class="btn btn-primary" type="submit">Save</button>
         </div>
       </form>
@@ -254,11 +214,7 @@ $isAdmin = $userRole === "admin";
 <div class="toast-container position-fixed top-0 end-0 p-3" id="toasts" style="z-index:1080"></div>
 
 <script>
-
-  const HAS_USERS_API = <?= $isAdmin && $hasUsersApi ? "true" : "false" ?>;
-
-
-  // --- tiny toast helper (same as other pages)
+  // --- tiny toast helper
   function toast(msg, variant='success', delay=2200){
     const wrap = document.getElementById('toasts');
     const el = document.createElement('div');
@@ -268,8 +224,11 @@ $isAdmin = $userRole === "admin";
     wrap.appendChild(el); const t=new bootstrap.Toast(el,{delay}); t.show();
     el.addEventListener('hidden.bs.toast', ()=> el.remove());
   }
-  function cleanupBackdrops(){ document.querySelectorAll('.modal-backdrop').forEach(el=>el.remove());
-    document.body.classList.remove('modal-open'); document.body.style.removeProperty('paddingRight'); }
+  function cleanupBackdrops(){
+    document.querySelectorAll('.modal-backdrop').forEach(el=>el.remove());
+    document.body.classList.remove('modal-open');
+    document.body.style.removeProperty('paddingRight');
+  }
   document.addEventListener('hidden.bs.modal', cleanupBackdrops);
 
   // ------- Locations -------
@@ -324,122 +283,59 @@ $isAdmin = $userRole === "admin";
     } finally { if(btn) btn.disabled=false; }
   });
 
-  // ------- Users & Roles (admin only) -------
-const ROLE_KEYS = [
-  'admin',
-  'manager',
-  'warehouse_staff',
-  'asset_manager',
-  'document_controller',
-  'project_lead',
-  'procurement_officer',
-  'viewer'
-];
+  // ------- Categories -------
+  async function loadCats(){
+    const r = await fetch('./api/categories_list.php',{credentials:'same-origin'});
+    const t = await r.text(); if(!r.ok){ alert(t); return; }
+    const rows = JSON.parse(t);
+    document.getElementById('catBody').innerHTML = rows.map(c=>`
+      <tr>
+        <td class="fw-semibold">${c.code}</td>
+        <td>${c.name}</td>
+        <td>${c.description||''}</td>
+        <td>${c.active ? 'Active' : '<span class="text-muted">Inactive</span>'}</td>
+        <td class="text-end">
+          <button class="btn btn-sm btn-outline-primary" onclick="editCat(${c.id})">Edit</button>
+          <button class="btn btn-sm btn-outline-danger" onclick="delCat(${c.id})">Delete</button>
+        </td>
+      </tr>`).join('') || '<tr><td colspan="5" class="text-center text-muted py-4">No categories yet.</td></tr>';
+  }
 
-// Pretty labels for the UI
-const ROLE_LABEL = {
-  admin: 'Admin',
-  manager: 'Warehouse Manager',
-  warehouse_staff: 'Warehouse Staff',
-  asset_manager: 'Asset Manager',
-  document_controller: 'Document Controller',
-  project_lead: 'Project Lead',
-  procurement_officer: 'Procurement Officer',
-  viewer: 'Viewer'
-};
+  function editCat(id){
+    fetch('./api/categories_list.php?id='+id,{credentials:'same-origin'}).then(r=>r.json()).then(a=>{
+      const c=a[0]; if(!c) return;
+      catId.value=c.id; catCode.value=c.code; catName.value=c.name;
+      catDesc.value=c.description||''; catActive.checked=!!c.active;
+      bootstrap.Modal.getOrCreateInstance(document.getElementById('mdlCat')).show();
+    });
+  }
 
-async function loadUsers(){
-  const wrap = document.getElementById('userBody'); if(!wrap) return;
-  const res = await fetch('./api/users_list.php',{credentials:'same-origin'});
-  const raw = await res.text();
-  if(!res.ok){ wrap.innerHTML=`<tr><td colspan="4" class="text-danger">${raw}</td></tr>`; return; }
-  const rows = JSON.parse(raw);
+  async function delCat(id){
+    if(!confirm('Delete this category? If in use by items, you’ll get a warning.')) return;
+    const r = await fetch('./api/categories_delete.php',{method:'POST',credentials:'same-origin',
+      headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'id='+encodeURIComponent(id)});
+    const t = await r.text();
+    if(!r.ok){ alert(t); return; }
+    try{ const j=JSON.parse(t); if(j.ok) toast('Category deleted'); else alert(t); }catch{}
+    loadCats();
+  }
 
-  wrap.innerHTML = rows.map(u=>{
-    // normalize any legacy values like "Procurement Officer" → "procurement_officer"
-    const roleKey = String(u.role||'').toLowerCase().replace(/\s+/g,'_');
-
-    const sel = `<select class="form-select form-select-sm" id="role-${u.id}">
-      ${ROLE_KEYS.map(k=>`<option value="${k}" ${roleKey===k?'selected':''}>${ROLE_LABEL[k]}</option>`).join('')}
-    </select>`;
-
-    return `<tr>
-      <td>${u.name||'—'}</td>
-      <td>${u.email||'—'}</td>
-      <td style="max-width:220px">${sel}</td>
-      <td class="text-end">
-        <button class="btn btn-sm btn-outline-primary" onclick="saveRole(${u.id})">Save</button>
-      </td>
-    </tr>`;
-  }).join('') || '<tr><td colspan="4" class="text-center text-muted py-4">No users.</td></tr>';
-}
-
-async function saveRole(id){
-  const role = document.getElementById('role-'+id)?.value || 'viewer'; // sends the key (snake_case)
-  const res = await fetch('./api/user_set_role.php',{method:'POST',credentials:'same-origin',
-    headers:{'Content-Type':'application/x-www-form-urlencoded'},
-    body:`id=${encodeURIComponent(id)}&role=${encodeURIComponent(role)}`});
-  const raw = await res.text(); if(!res.ok){ alert(raw); return; }
-  toast('Role updated','success');
-}
-
-  
-async function loadCats(){
-  const r = await fetch('./api/categories_list.php',{credentials:'same-origin'});
-  const t = await r.text(); if(!r.ok){ alert(t); return; }
-  const rows = JSON.parse(t);
-  document.getElementById('catBody').innerHTML = rows.map(c=>`
-    <tr>
-      <td class="fw-semibold">${c.code}</td>
-      <td>${c.name}</td>
-      <td>${c.description||''}</td>
-      <td>${c.active ? 'Active' : '<span class="text-muted">Inactive</span>'}</td>
-      <td class="text-end">
-        <button class="btn btn-sm btn-outline-primary" onclick="editCat(${c.id})">Edit</button>
-        <button class="btn btn-sm btn-outline-danger" onclick="delCat(${c.id})">Delete</button>
-      </td>
-    </tr>`).join('') || '<tr><td colspan="5" class="text-center text-muted py-4">No categories yet.</td></tr>';
-}
-function editCat(id){
-  fetch('./api/categories_list.php?id='+id,{credentials:'same-origin'}).then(r=>r.json()).then(a=>{
-    const c=a[0]; if(!c) return;
-    catId.value=c.id; catCode.value=c.code; catName.value=c.name;
-    catDesc.value=c.description||''; catActive.checked=!!c.active;
-    bootstrap.Modal.getOrCreateInstance(document.getElementById('mdlCat')).show();
+  document.getElementById('catForm')?.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    if(!document.getElementById('catActive').checked) fd.set('active','0');
+    const r = await fetch('./api/categories_save.php',{method:'POST',credentials:'same-origin',body:fd});
+    const t = await r.text(); if(!r.ok){ alert(t); return; }
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('mdlCat')).hide();
+    toast('Saved'); e.target.reset(); loadCats();
   });
-}
-async function delCat(id){
-  if(!confirm('Delete this category? If in use by items, you’ll get a warning.')) return;
-  const r = await fetch('./api/categories_delete.php',{method:'POST',credentials:'same-origin',
-    headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:'id='+encodeURIComponent(id)});
-  const t = await r.text();
-  if(!r.ok){ alert(t); return; }
-  try{ const j=JSON.parse(t); if(j.ok) toast('Category deleted'); else alert(t); }catch{}
-  loadCats();
-}
-document.getElementById('catForm')?.addEventListener('submit', async (e)=>{
-  e.preventDefault();
-  const fd = new FormData(e.target);
-  if(!document.getElementById('catActive').checked) fd.set('active','0');
-  const r = await fetch('./api/categories_save.php',{method:'POST',credentials:'same-origin',body:fd});
-  const t = await r.text(); if(!r.ok){ alert(t); return; }
-  bootstrap.Modal.getOrCreateInstance(document.getElementById('mdlCat')).hide();
-  toast('Saved'); e.target.reset(); loadCats();
-});
 
-
-
-
-// init
-document.addEventListener('DOMContentLoaded', ()=>{
-  loadLocations();
-  if (HAS_USERS_API) loadUsers();  
-  loadCats();                   
-});
-
+  // init
+  document.addEventListener('DOMContentLoaded', ()=>{
+    loadLocations();
+    loadCats();
+  });
 </script>
-
-
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 </body>

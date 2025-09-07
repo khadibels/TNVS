@@ -3,6 +3,9 @@ require_once __DIR__ . "/../includes/config.php";
 require_once __DIR__ . "/../includes/auth.php";
 require_login();
 
+$section = 'docs';
+$active = 'logistics';
+
 try {
     $pdo = new PDO("mysql:host=$DB_HOST;dbname=$DB_NAME;charset=utf8mb4", $DB_USER, $DB_PASS, [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
@@ -185,7 +188,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             log_activity($pdo, $id, 'created', $trip_ref);
             echo "<script>try{localStorage.setItem('logrec_changed', Date.now().toString())}catch(e){}</script>";
         }
-        header('Location: logisticsrecord.php'); exit;
+        header('Location: logistic.php'); exit;
     }
 
     if ($op === 'update') {
@@ -239,7 +242,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             log_activity($pdo, $id, 'updated');
             echo "<script>try{localStorage.setItem('logrec_changed', Date.now().toString())}catch(e){}</script>";
         }
-        header('Location: logisticsrecord.php'); exit;
+        header('Location: logistic.php'); exit;
     }
 
     if ($op === 'validate' || $op === 'reject') {
@@ -253,7 +256,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             log_activity($pdo, $id, strtolower($status), $notes);
             echo "<script>try{localStorage.setItem('logrec_changed', Date.now().toString())}catch(e){}</script>";
         }
-        header('Location: logisticsrecord.php'); exit;
+        header('Location: logistic.php'); exit;
     }
 
     if ($op === 'archive' || $op === 'unarchive') {
@@ -269,7 +272,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             echo "<script>try{localStorage.setItem('logrec_changed', Date.now().toString())}catch(e){}</script>";
         }
-        header('Location: logisticsrecord.php'); exit;
+        header('Location: logistic.php'); exit;
     }
 
     if ($op === 'delete') {
@@ -280,7 +283,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pdo->prepare("DELETE FROM logistics_records WHERE id=:id")->execute([':id'=>$id]);
             echo "<script>try{localStorage.setItem('logrec_changed', Date.now().toString())}catch(e){}</script>";
         }
-        header('Location: logisticsrecord.php'); exit;
+        header('Location: logistic.php'); exit;
     }
 }
 
@@ -328,251 +331,517 @@ $ontime = ($kpi['dc']>0) ? round(($kpi['ot']/$kpi['dc'])*100,1) : 0;
 $assets = $pdo->query("SELECT id,name FROM assets ORDER BY name ASC")->fetchAll();
 $statuses = ['Pending','Validated','Rejected'];
 
+// Topbar profile (optional)
+$userName = $_SESSION["user"]["name"] ?? "Nicole Malitao";
+$userRole = $_SESSION["user"]["role"] ?? "Logistics Coordinator";
 ?>
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width,initial-scale=1" />
-<title>TNVS Logistics Records</title>
-<link href="https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css" rel="stylesheet">
-<style>
-:root{ --bg:#f5f7fb; --card:#fff; --accent:#0f62fe; --muted:#6b7280; --text:#111827; --danger:#ef4444; --success:#10b981; --warning:#f59e0b; }
-*{box-sizing:border-box}
-body{margin:0;font-family:Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial;background:linear-gradient(180deg,#f7f9fc 0%,var(--bg) 100%);color:var(--text);padding:22px}
-.container{max-width:1260px;margin:0 auto}
-.header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
-.btn{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#fff;border:0;padding:10px 14px;border-radius:10px;box-shadow:0 4px 12px rgba(16,24,40,0.06);cursor:pointer;font-weight:600;font-size:14px;text-decoration:none}
-.btn.ghost{background:transparent;color:var(--accent);border:1px solid rgba(15,98,254,0.2)}
-.card{background:var(--card);padding:16px;border-radius:12px;box-shadow:0 10px 30px rgba(16,24,40,0.08);border:1px solid rgba(16,24,40,0.03)}
-.grid{display:grid;grid-template-columns:repeat(6,1fr);gap:12px}
-@media (max-width:1200px){.grid{grid-template-columns:repeat(3,1fr)}}
-@media (max-width:720px){.grid{grid-template-columns:repeat(2,1fr)}}
-.stat{padding:12px;border-radius:10px;background:linear-gradient(180deg,#ffffff,#fbfdff);border:1px solid rgba(14,165,233,0.06)}
-.stat .label{font-size:12px;color:var(--muted)}
-.stat .number{font-size:20px;font-weight:700}
-.form-row{display:flex;gap:8px;flex-wrap:wrap;align-items:flex-start}
-.input,.select,textarea{padding:10px 12px;border-radius:10px;border:1px solid #e6edf6;background:transparent;font-size:14px;color:var(--text)}
-.table-wrap{overflow:auto;border-radius:10px;border:1px solid rgba(17,24,39,0.06)}
-.table{width:100%;border-collapse:collapse;min-width:1200px}
-.table thead th{text-align:left;padding:12px 14px;background:linear-gradient(180deg,#fbfdff,#f7f9fc);font-size:13px;color:var(--muted);border-bottom:1px solid rgba(15,23,42,0.06)}
-.table tbody td{padding:12px 14px;border-bottom:1px solid rgba(15,23,42,0.06);font-size:14px;vertical-align:top}
-.badge{display:inline-block;padding:6px 10px;border-radius:999px;font-weight:600;font-size:12px}
-.s-pending{background:rgba(59,130,246,0.08);color:#2563eb}
-.s-validated{background:rgba(16,185,129,0.12);color:var(--success)}
-.s-rejected{background:rgba(239,68,68,0.12);color:var(--danger)}
-.quick{display:flex;gap:6px;flex-wrap:wrap}
-.quick .btn.ghost{padding:6px 10px;font-size:12px}
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Logistics Records | TNVS</title>
+
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="../css/style.css" rel="stylesheet" />
+  <link href="../css/modules.css" rel="stylesheet" />
+
+  <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+  <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+  <script src="../js/sidebar-toggle.js"></script>
+
+  <style>
+    /* Status chips */
+    .badge.s-pending{background:#dbeafe;color:#1d4ed8}
+    .badge.s-validated{background:#dcfce7;color:#065f46}
+    .badge.s-rejected{background:#fee2e2;color:#991b1b}
+    .levels-scroll, .tx-scroll { max-height: 60vh; }
+    .quick-btns .btn { padding: .25rem .5rem; font-size: .8rem; }
+  </style>
 </head>
 <body>
-<div class="container">
-  <header class="header">
-    <div style="display:flex;gap:8px;align-items:center">
-      <a href="DTLR.php" class="btn ghost"><i class='bx bx-arrow-back'></i> Back</a>
-      <a href="document.php" class="btn ghost"><i class='bx bx-file-blank'></i> Document Tracking</a>
-    </div>
-    <div>
-      <h2 style="margin:0;display:flex;align-items:center;gap:8px"><i class='bx bx-list-check'></i> TNVS Logistics Records</h2>
-      <div style="font-size:13px;color:var(--muted)">Data Capture • Validation • KPIs • Reports • Archiving • Audit</div>
-    </div>
-    <div>
-      <a class="btn" href="?action=export&driver=<?= h($fDriver) ?>&asset_id=<?= (int)$fAsset ?>&status=<?= h($fStatus) ?>&from=<?= h($fFrom) ?>&to=<?= h($fTo) ?>&arch=<?= h($fArch) ?>"><i class='bx bx-download'></i> Export CSV</a>
-    </div>
-  </header>
+  <div class="container-fluid p-0">
+    <div class="row g-0">
 
-  <section class="card">
-    <div class="grid">
-      <div class="stat"><div class="label">Trips</div><div class="number"><?= (int)$kpi['trips'] ?></div></div>
-      <div class="stat"><div class="label">Distance (km)</div><div class="number"><?= number_format((float)$kpi['km'],2) ?></div></div>
-      <div class="stat"><div class="label">Fuel (L)</div><div class="number"><?= number_format((float)$kpi['liters'],2) ?></div></div>
-      <div class="stat"><div class="label">Fuel Cost</div><div class="number">₱<?= number_format((float)$kpi['fuel_cost'],2) ?></div></div>
-      <div class="stat"><div class="label">Avg km/L</div><div class="number"><?= number_format((float)$km_per_l,2) ?></div></div>
-      <div class="stat"><div class="label">Completion %</div><div class="number"><?= number_format((float)$completion,1) ?>%</div></div>
-      <div class="stat"><div class="label">On-time %</div><div class="number"><?= number_format((float)$ontime,1) ?>%</div></div>
-      <div class="stat"><div class="label">Delays</div><div class="number"><?= (int)$kpi['delays'] ?></div></div>
-    </div>
-  </section>
+      <?php include __DIR__ . '/../includes/sidebar.php' ?>
 
-  <section class="card" style="margin-top:14px">
-    <form method="get" class="form-row" id="filterForm">
-      <input name="driver" class="input" placeholder="Driver" value="<?= h($fDriver) ?>">
-      <select name="asset_id" class="select">
-        <option value="0">All Assets</option>
-        <?php foreach ($assets as $a): ?><option value="<?= (int)$a['id'] ?>" <?= $fAsset===$a['id']?'selected':'' ?>><?= h($a['name']) ?></option><?php endforeach; ?>
-      </select>
-      <select name="status" class="select">
-        <option value="">All statuses</option>
-        <?php foreach ($statuses as $s): ?><option value="<?= h($s) ?>" <?= $fStatus===$s?'selected':'' ?>><?= h($s) ?></option><?php endforeach; ?>
-      </select>
-      <input type="date" name="from" class="input" id="fromDate" value="<?= h($fFrom) ?>">
-      <input type="date" name="to" class="input" id="toDate" value="<?= h($fTo) ?>">
-      <label style="display:inline-flex;align-items:center;gap:6px;color:#374151"><input type="checkbox" name="arch" value="1" <?= $fArch==='1'?'checked':'' ?>> Include archived</label>
-      <button class="btn" type="submit"><i class='bx bx-filter'></i> Apply</button>
-    </form>
-    <div class="quick" style="margin-top:8px">
-      <button class="btn ghost" onclick="quickRange('today')">Today</button>
-      <button class="btn ghost" onclick="quickRange('week')">This Week</button>
-      <button class="btn ghost" onclick="quickRange('month')">This Month</button>
-      <button class="btn ghost" onclick="quickRange('quarter')">This Quarter</button>
-    </div>
-  </section>
+      <!-- Main Content -->
+      <div class="col main-content p-3 p-lg-4">
 
-  <section class="card" style="margin-top:14px">
-    <form method="POST" enctype="multipart/form-data" class="form-row" style="gap:8px;align-items:flex-start">
-      <input type="hidden" name="op" value="add">
-      <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-      <input class="input" name="trip_ref" placeholder="Trip Ref">
-      <select name="asset_id" class="select">
-        <option value="">Asset</option>
-        <?php foreach ($assets as $a): ?><option value="<?= (int)$a['id'] ?>"><?= h($a['name']) ?></option><?php endforeach; ?>
-      </select>
-      <input class="input" name="driver_name" placeholder="Driver">
-      <input type="date" class="input" name="trip_date" required>
-      <input type="datetime-local" class="input" name="shift_start" title="Shift Start">
-      <input type="datetime-local" class="input" name="shift_end" title="Shift End">
-      <input class="input" name="origin" placeholder="Origin">
-      <input class="input" name="destination" placeholder="Destination">
-      <input type="number" step="0.01" class="input" name="distance_km" placeholder="Km">
-      <input type="number" step="0.01" class="input" name="fuel_liters" placeholder="Fuel L">
-      <input type="number" step="0.01" class="input" name="fuel_cost" placeholder="Fuel Cost">
-      <input type="number" class="input" name="deliveries_planned" placeholder="Planned">
-      <input type="number" class="input" name="deliveries_completed" placeholder="Completed">
-      <input type="number" class="input" name="on_time" placeholder="On-time">
-      <input type="number" class="input" name="delays" placeholder="Delays">
-      <label style="display:inline-flex;align-items:center;gap:6px;color:#374151"><input type="checkbox" name="customer_signed"> Customer signed</label>
-      <input type="file" name="gps" class="input" accept=".csv,.gpx,.json,.kml">
-      <button class="btn" type="submit"><i class='bx bx-plus'></i> Add Record</button>
-    </form>
-  </section>
+        <!-- Topbar -->
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <div class="d-flex align-items-center gap-3">
+            <button class="sidebar-toggle d-lg-none btn btn-outline-secondary btn-sm" id="sidebarToggle2" aria-label="Toggle sidebar">
+              <ion-icon name="menu-outline"></ion-icon>
+            </button>
+            <h2 class="m-0 d-flex align-items-center gap-2">
+              <ion-icon name="list-outline"></ion-icon> Logistics Records
+            </h2>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            <img src="../img/profile.jpg" class="rounded-circle" width="36" height="36" alt="">
+            <div class="small">
+              <strong><?= htmlspecialchars($userName) ?></strong><br/>
+              <span class="text-muted"><?= htmlspecialchars($userRole) ?></span>
+            </div>
+          </div>
+        </div>
 
-  <section class="card" style="margin-top:14px">
-    <div class="table-wrap">
-      <table class="table">
-        <thead>
-          <tr>
-            <th>ID</th>
-            <th>Trip / Asset</th>
-            <th>Driver / Date</th>
-            <th>Shift</th>
-            <th>Route</th>
-            <th>Performance</th>
-            <th>Fuel</th>
-            <th>Status</th>
-            <th>GPS</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-        <?php foreach ($rows as $r): ?>
-          <tr>
-            <td><?= (int)$r['id'] ?></td>
-            <td>
-              <div style="font-weight:600"><?= h($r['trip_ref'] ?: '—') ?></div>
-              <div style="color:#6b7280;font-size:12px">Asset: <?= h($r['asset_name'] ?: '—') ?></div>
-            </td>
-            <td>
-              <div><?= h($r['driver_name'] ?: '—') ?></div>
-              <div style="color:#6b7280;font-size:12px">Date: <?= h($r['trip_date']) ?></div>
-            </td>
-            <td>
-              <div><?= h($r['shift_start'] ?: '—') ?> → <?= h($r['shift_end'] ?: '—') ?></div>
-            </td>
-            <td>
-              <div><?= h($r['origin'] ?: '—') ?> → <?= h($r['destination'] ?: '—') ?></div>
-            </td>
-            <td>
-              <div>Completed/Planned: <?= (int)$r['deliveries_completed'] ?>/<?= (int)$r['deliveries_planned'] ?></div>
-              <div style="color:#6b7280;font-size:12px">On-time: <?= (int)$r['on_time'] ?> · Delays: <?= (int)$r['delays'] ?></div>
-              <div style="color:#6b7280;font-size:12px">Distance: <?= number_format((float)$r['distance_km'],2) ?> km</div>
-            </td>
-            <td>
-              <div><?= number_format((float)$r['fuel_liters'],2) ?> L</div>
-              <div>₱<?= number_format((float)$r['fuel_cost'],2) ?></div>
-            </td>
-            <td>
-              <?php $cls='s-'.strtolower($r['validation_status']); ?>
-              <span class="badge <?= h($cls) ?>"><?= h($r['validation_status']) ?></span>
-              <?php if ($r['archived_at']): ?><div style="color:#6b7280;font-size:12px">Archived</div><?php endif; ?>
-            </td>
-            <td>
-              <?php if ($r['gps_log_path']): ?>
-                <a class="btn ghost" href="?action=download_gps&id=<?= (int)$r['id'] ?>"><i class='bx bx-download'></i> GPS</a>
-              <?php else: ?><span style="color:#6b7280">—</span><?php endif; ?>
-            </td>
-            <td>
-              <button class="btn ghost" onclick="toggleEdit(<?= (int)$r['id'] ?>)"><i class='bx bx-edit-alt'></i> Edit</button>
-              <form method="POST" style="display:inline">
-                <input type="hidden" name="op" value="validate"><input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-                <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
-                <input class="input" name="validation_notes" placeholder="Notes" style="max-width:120px">
-                <button class="btn"><i class='bx bx-check'></i> Validate</button>
-              </form>
-              <form method="POST" style="display:inline" onsubmit="return confirm('Reject this record?')">
-                <input type="hidden" name="op" value="reject"><input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-                <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
-                <button class="btn" style="background:var(--danger)"><i class='bx bx-x'></i> Reject</button>
-              </form>
-              <?php if (!$r['archived_at']): ?>
-              <form method="POST" style="display:inline" onsubmit="return confirm('Archive this record?')">
-                <input type="hidden" name="op" value="archive"><input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-                <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
-                <button class="btn"><i class='bx bx-archive'></i> Archive</button>
-              </form>
-              <?php else: ?>
-              <form method="POST" style="display:inline">
-                <input type="hidden" name="op" value="unarchive"><input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-                <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
-                <button class="btn"><i class='bx bx-archive-out'></i> Unarchive</button>
-              </form>
-              <?php endif; ?>
-                          </td>
-          </tr>
-          <tr id="edit-<?= (int)$r['id'] ?>" style="display:none;background:#eef4ff">
-            <td colspan="10">
-              <form method="POST" enctype="multipart/form-data" class="form-row" style="gap:8px;align-items:flex-start">
-                <input type="hidden" name="op" value="update">
-                <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-                <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
-                <input class="input" name="trip_ref" value="<?= h($r['trip_ref']) ?>" placeholder="Trip Ref">
-                <select name="asset_id" class="select">
-                  <option value="">Asset</option>
-                  <?php foreach ($assets as $a): ?><option value="<?= (int)$a['id'] ?>" <?= $r['asset_id']==$a['id']?'selected':'' ?>><?= h($a['name']) ?></option><?php endforeach; ?>
+        <!-- KPI Cards -->
+        <div class="row g-3 mb-3">
+          <div class="col-6 col-md-3">
+            <div class="card shadow-sm h-100">
+              <div class="card-body d-flex align-items-center gap-3">
+                <div class="rounded-3 p-2 bg-primary-subtle"><ion-icon name="trail-sign-outline" style="font-size:20px"></ion-icon></div>
+                <div><div class="text-muted small">Trips</div><div class="h4 m-0"><?= (int)$kpi['trips'] ?></div></div>
+              </div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="card shadow-sm h-100">
+              <div class="card-body d-flex align-items-center gap-3">
+                <div class="rounded-3 p-2 bg-info-subtle"><ion-icon name="map-outline" style="font-size:20px"></ion-icon></div>
+                <div><div class="text-muted small">Distance (km)</div><div class="h4 m-0"><?= number_format((float)$kpi['km'],2) ?></div></div>
+              </div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="card shadow-sm h-100">
+              <div class="card-body d-flex align-items-center gap-3">
+                <div class="rounded-3 p-2 bg-warning-subtle"><ion-icon name="speedometer-outline" style="font-size:20px"></ion-icon></div>
+                <div><div class="text-muted small">Avg km/L</div><div class="h4 m-0"><?= number_format((float)$km_per_l,2) ?></div></div>
+              </div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="card shadow-sm h-100">
+              <div class="card-body d-flex align-items-center gap-3">
+                <div class="rounded-3 p-2 bg-danger-subtle"><ion-icon name="flame-outline" style="font-size:20px"></ion-icon></div>
+                <div><div class="text-muted small">Fuel (L)</div><div class="h4 m-0"><?= number_format((float)$kpi['liters'],2) ?></div></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-6 col-md-3">
+            <div class="card shadow-sm h-100">
+              <div class="card-body d-flex align-items-center gap-3">
+                <div class="rounded-3 p-2 bg-secondary-subtle"><ion-icon name="cash-outline" style="font-size:20px"></ion-icon></div>
+                <div><div class="text-muted small">Fuel Cost</div><div class="h4 m-0">₱<?= number_format((float)$kpi['fuel_cost'],2) ?></div></div>
+              </div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="card shadow-sm h-100">
+              <div class="card-body d-flex align-items-center gap-3">
+                <div class="rounded-3 p-2 bg-success-subtle"><ion-icon name="checkmark-done-outline" style="font-size:20px"></ion-icon></div>
+                <div><div class="text-muted small">Completion %</div><div class="h4 m-0"><?= number_format((float)$completion,1) ?>%</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="card shadow-sm h-100">
+              <div class="card-body d-flex align-items-center gap-3">
+                <div class="rounded-3 p-2 bg-teal-100"><ion-icon name="time-outline" style="font-size:20px"></ion-icon></div>
+                <div><div class="text-muted small">On-time %</div><div class="h4 m-0"><?= number_format((float)$ontime,1) ?>%</div></div>
+              </div>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="card shadow-sm h-100">
+              <div class="card-body d-flex align-items-center gap-3">
+                <div class="rounded-3 p-2 bg-danger-subtle"><ion-icon name="warning-outline" style="font-size:20px"></ion-icon></div>
+                <div><div class="text-muted small">Delays</div><div class="h4 m-0"><?= (int)$kpi['delays'] ?></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Filters & Export -->
+        <section class="card shadow-sm mb-3">
+          <div class="card-body">
+            <form method="get" class="row g-2 align-items-end" id="filterForm">
+              <div class="col-12 col-md-2">
+                <label class="form-label small text-muted">Driver</label>
+                <input name="driver" class="form-control" placeholder="Driver" value="<?= h($fDriver) ?>">
+              </div>
+              <div class="col-12 col-md-3">
+                <label class="form-label small text-muted">Asset</label>
+                <select name="asset_id" class="form-select">
+                  <option value="0">All Assets</option>
+                  <?php foreach ($assets as $a): ?>
+                    <option value="<?= (int)$a['id'] ?>" <?= $fAsset===$a['id']?'selected':'' ?>><?= h($a['name']) ?></option>
+                  <?php endforeach; ?>
                 </select>
-                <input class="input" name="driver_name" value="<?= h($r['driver_name']) ?>" placeholder="Driver">
-                <input type="date" class="input" name="trip_date" value="<?= h($r['trip_date']) ?>">
-                <input type="datetime-local" class="input" name="shift_start" value="<?= h(str_replace(' ','T',$r['shift_start'])) ?>">
-                <input type="datetime-local" class="input" name="shift_end" value="<?= h(str_replace(' ','T',$r['shift_end'])) ?>">
-                <input class="input" name="origin" value="<?= h($r['origin']) ?>" placeholder="Origin">
-                <input class="input" name="destination" value="<?= h($r['destination']) ?>" placeholder="Destination">
-                <input type="number" step="0.01" class="input" name="distance_km" value="<?= h($r['distance_km']) ?>" placeholder="Km">
-                <input type="number" step="0.01" class="input" name="fuel_liters" value="<?= h($r['fuel_liters']) ?>" placeholder="Fuel L">
-                <input type="number" step="0.01" class="input" name="fuel_cost" value="<?= h($r['fuel_cost']) ?>" placeholder="Fuel Cost">
-                <input type="number" class="input" name="deliveries_planned" value="<?= h($r['deliveries_planned']) ?>" placeholder="Planned">
-                <input type="number" class="input" name="deliveries_completed" value="<?= h($r['deliveries_completed']) ?>" placeholder="Completed">
-                <input type="number" class="input" name="on_time" value="<?= h($r['on_time']) ?>" placeholder="On-time">
-                <input type="number" class="input" name="delays" value="<?= h($r['delays']) ?>" placeholder="Delays">
-                <label style="display:inline-flex;align-items:center;gap:6px;color:#374151"><input type="checkbox" name="customer_signed" <?= $r['customer_signed']? 'checked':'' ?>> Customer signed</label>
-                <input type="file" name="gps" class="input" accept=".csv,.gpx,.json,.kml">
-                <button class="btn" type="submit"><i class='bx bx-save'></i> Save</button>
-                <button class="btn ghost" type="button" onclick="toggleEdit(<?= (int)$r['id'] ?>)"><i class='bx bx-x'></i> Cancel</button>
-              </form>
-            </td>
-          </tr>
-        <?php endforeach; ?>
-        </tbody>
-      </table>
-    </div>
-  </section>
-</div>
+              </div>
+              <div class="col-12 col-md-2">
+                <label class="form-label small text-muted">Status</label>
+                <select name="status" class="form-select">
+                  <option value="">All statuses</option>
+                  <?php foreach ($statuses as $s): ?>
+                    <option value="<?= h($s) ?>" <?= $fStatus===$s?'selected':'' ?>><?= h($s) ?></option>
+                  <?php endforeach; ?>
+                </select>
+              </div>
+              <div class="col-6 col-md-2">
+                <label class="form-label small text-muted">From</label>
+                <input type="date" name="from" class="form-control" id="fromDate" value="<?= h($fFrom) ?>">
+              </div>
+              <div class="col-6 col-md-2">
+                <label class="form-label small text-muted">To</label>
+                <input type="date" name="to" class="form-control" id="toDate" value="<?= h($fTo) ?>">
+              </div>
+              <div class="col-12 col-md-1 d-grid">
+                <label class="form-label small text-muted">&nbsp;</label>
+                <button class="btn btn-primary" type="submit"><ion-icon name="funnel-outline"></ion-icon></button>
+              </div>
+              <div class="col-12">
+                <div class="form-check mt-1">
+                  <input class="form-check-input" type="checkbox" name="arch" value="1" id="archivedChk" <?= $fArch==='1'?'checked':'' ?>>
+                  <label class="form-check-label small" for="archivedChk">Include archived</label>
+                </div>
+              </div>
+            </form>
 
-<script>
-function toggleEdit(id){ const el=document.getElementById('edit-'+id); if(!el) return; el.style.display=(el.style.display==='none'||!el.style.display)?'table-row':'none'; }
-function fmt(d){ const z=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}`; }
-function getMonday(d){ d=new Date(d); const day=d.getDay(); const diff=(day===0?-6:1)-day; d.setDate(d.getDate()+diff); return d; }
-function quickRange(type){ const from=document.getElementById('fromDate'); const to=document.getElementById('toDate'); const now=new Date(); let a,b; if(type==='today'){a=new Date(now); b=new Date(now);} if(type==='week'){a=getMonday(now); b=new Date(a); b.setDate(a.getDate()+6);} if(type==='month'){a=new Date(now.getFullYear(), now.getMonth(), 1); b=new Date(now.getFullYear(), now.getMonth()+1, 0);} if(type==='quarter'){const q=Math.floor(now.getMonth()/3); a=new Date(now.getFullYear(), q*3, 1); b=new Date(now.getFullYear(), q*3+3, 0);} from.value=fmt(a); to.value=fmt(b); document.getElementById('filterForm').submit(); }
-// Auto-refresh when another tab updates records
-window.addEventListener('storage', function(e){ if (e.key==='logrec_changed') { window.location.reload(); }});
-</script>
+            <div class="d-flex justify-content-between align-items-center mt-2">
+              <div class="quick-btns d-flex gap-2">
+                <button class="btn btn-sm btn-outline-secondary" onclick="quickRange('today')">Today</button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="quickRange('week')">This Week</button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="quickRange('month')">This Month</button>
+                <button class="btn btn-sm btn-outline-secondary" onclick="quickRange('quarter')">This Quarter</button>
+              </div>
+              <a class="btn btn-outline-secondary btn-sm"
+                 href="?action=export&driver=<?= h($fDriver) ?>&asset_id=<?= (int)$fAsset ?>&status=<?= h($fStatus) ?>&from=<?= h($fFrom) ?>&to=<?= h($fTo) ?>&arch=<?= h($fArch) ?>">
+                <ion-icon name="download-outline"></ion-icon> Export CSV
+              </a>
+            </div>
+          </div>
+        </section>
+
+        <!-- Add Record -->
+        <section class="card shadow-sm mb-3">
+          <div class="card-body">
+            <h5 class="mb-3">Add Logistics Record</h5>
+            <form method="POST" enctype="multipart/form-data" class="row g-2">
+              <input type="hidden" name="op" value="add">
+              <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+
+              <div class="col-12 col-md-2">
+                <label class="form-label small text-muted">Trip Ref</label>
+                <input class="form-control" name="trip_ref" placeholder="Trip Ref">
+              </div>
+              <div class="col-12 col-md-3">
+                <label class="form-label small text-muted">Asset</label>
+                <select name="asset_id" class="form-select">
+                  <option value="">Asset</option>
+                  <?php foreach ($assets as $a): ?>
+                    <option value="<?= (int)$a['id'] ?>"><?= h($a['name']) ?></option>
+                  <?php endforeach; ?>
+                </select>
+              </div>
+              <div class="col-12 col-md-3">
+                <label class="form-label small text-muted">Driver</label>
+                <input class="form-control" name="driver_name" placeholder="Driver">
+              </div>
+              <div class="col-6 col-md-2">
+                <label class="form-label small text-muted">Trip Date</label>
+                <input type="date" class="form-control" name="trip_date" required>
+              </div>
+              <div class="col-6 col-md-2">
+                <label class="form-label small text-muted">Shift Start</label>
+                <input type="datetime-local" class="form-control" name="shift_start">
+              </div>
+              <div class="col-6 col-md-2">
+                <label class="form-label small text-muted">Shift End</label>
+                <input type="datetime-local" class="form-control" name="shift_end">
+              </div>
+              <div class="col-6 col-md-2">
+                <label class="form-label small text-muted">Origin</label>
+                <input class="form-control" name="origin" placeholder="Origin">
+              </div>
+              <div class="col-6 col-md-2">
+                <label class="form-label small text-muted">Destination</label>
+                <input class="form-control" name="destination" placeholder="Destination">
+              </div>
+              <div class="col-6 col-md-2">
+                <label class="form-label small text-muted">Distance (km)</label>
+                <input type="number" step="0.01" class="form-control" name="distance_km" placeholder="Km">
+              </div>
+              <div class="col-6 col-md-2">
+                <label class="form-label small text-muted">Fuel (L)</label>
+                <input type="number" step="0.01" class="form-control" name="fuel_liters" placeholder="Fuel L">
+              </div>
+              <div class="col-6 col-md-2">
+                <label class="form-label small text-muted">Fuel Cost</label>
+                <input type="number" step="0.01" class="form-control" name="fuel_cost" placeholder="Fuel Cost">
+              </div>
+              <div class="col-6 col-md-2">
+                <label class="form-label small text-muted">Planned</label>
+                <input type="number" class="form-control" name="deliveries_planned" placeholder="Planned">
+              </div>
+              <div class="col-6 col-md-2">
+                <label class="form-label small text-muted">Completed</label>
+                <input type="number" class="form-control" name="deliveries_completed" placeholder="Completed">
+              </div>
+              <div class="col-6 col-md-2">
+                <label class="form-label small text-muted">On-time</label>
+                <input type="number" class="form-control" name="on_time" placeholder="On-time">
+              </div>
+              <div class="col-6 col-md-2">
+                <label class="form-label small text-muted">Delays</label>
+                <input type="number" class="form-control" name="delays" placeholder="Delays">
+              </div>
+              <div class="col-12 col-md-3">
+                <label class="form-label small text-muted">Customer Signed</label>
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" name="customer_signed" id="custSigned">
+                  <label class="form-check-label" for="custSigned">Yes</label>
+                </div>
+              </div>
+              <div class="col-12 col-md-3">
+                <label class="form-label small text-muted">GPS Log</label>
+                <input type="file" name="gps" class="form-control" accept=".csv,.gpx,.json,.kml">
+              </div>
+              <div class="col-12 col-md-2 d-grid">
+                <label class="form-label small text-muted">&nbsp;</label>
+                <button class="btn btn-violet"><ion-icon name="add-circle-outline"></ion-icon> Add Record</button>
+              </div>
+            </form>
+          </div>
+        </section>
+
+        <!-- Records Table -->
+        <section class="card shadow-sm">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h5 class="mb-0">Records</h5>
+              <span class="text-muted small"><?= count($rows) ?> row(s)</span>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table align-middle">
+                <thead>
+                  <tr>
+                    <th>#</th>
+                    <th>Trip / Asset</th>
+                    <th>Driver / Date</th>
+                    <th>Shift</th>
+                    <th>Route</th>
+                    <th>Performance</th>
+                    <th>Fuel</th>
+                    <th>Status</th>
+                    <th>GPS</th>
+                    <th class="text-end">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                <?php if (!count($rows)): ?>
+                  <tr><td colspan="10" class="text-center py-4 text-muted">No logistics records.</td></tr>
+                <?php endif; ?>
+
+                <?php foreach ($rows as $r): ?>
+                  <tr>
+                    <td class="text-muted">#<?= (int)$r['id'] ?></td>
+                    <td>
+                      <div class="fw-semibold"><?= h($r['trip_ref'] ?: '—') ?></div>
+                      <div class="small text-muted">Asset: <?= h($r['asset_name'] ?: '—') ?></div>
+                    </td>
+                    <td>
+                      <div><?= h($r['driver_name'] ?: '—') ?></div>
+                      <div class="small text-muted">Date: <?= h($r['trip_date']) ?></div>
+                    </td>
+                    <td><?= h($r['shift_start'] ?: '—') ?> → <?= h($r['shift_end'] ?: '—') ?></td>
+                    <td><?= h($r['origin'] ?: '—') ?> → <?= h($r['destination'] ?: '—') ?></td>
+                    <td>
+                      <div>Completed/Planned: <?= (int)$r['deliveries_completed'] ?>/<?= (int)$r['deliveries_planned'] ?></div>
+                      <div class="small text-muted">On-time: <?= (int)$r['on_time'] ?> · Delays: <?= (int)$r['delays'] ?></div>
+                      <div class="small text-muted">Distance: <?= number_format((float)$r['distance_km'],2) ?> km</div>
+                    </td>
+                    <td>
+                      <div><?= number_format((float)$r['fuel_liters'],2) ?> L</div>
+                      <div>₱<?= number_format((float)$r['fuel_cost'],2) ?></div>
+                    </td>
+                    <td>
+                      <?php $cls='s-'.strtolower($r['validation_status']); ?>
+                      <span class="badge <?= h($cls) ?>"><?= h($r['validation_status']) ?></span>
+                      <?php if ($r['archived_at']): ?><div class="small text-muted">Archived</div><?php endif; ?>
+                    </td>
+                    <td>
+                      <?php if ($r['gps_log_path']): ?>
+                        <a class="btn btn-sm btn-outline-secondary" href="?action=download_gps&id=<?= (int)$r['id'] ?>">
+                          <ion-icon name="download-outline"></ion-icon> GPS
+                        </a>
+                      <?php else: ?><span class="text-muted">—</span><?php endif; ?>
+                    </td>
+                    <td class="text-end">
+                      <button class="btn btn-sm btn-outline-primary me-1" onclick="toggleEdit(<?= (int)$r['id'] ?>)">
+                        <ion-icon name="create-outline"></ion-icon> Edit
+                      </button>
+
+                      <form method="POST" class="d-inline">
+                        <input type="hidden" name="op" value="validate">
+                        <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+                        <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
+                        <input class="form-control form-control-sm d-inline-block mb-1" name="validation_notes" placeholder="Notes" style="max-width:140px">
+                        <button class="btn btn-sm btn-success me-1"><ion-icon name="checkmark-circle-outline"></ion-icon> Validate</button>
+                      </form>
+
+                      <form method="POST" class="d-inline" onsubmit="return confirm('Reject this record?')">
+                        <input type="hidden" name="op" value="reject">
+                        <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+                        <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
+                        <button class="btn btn-sm btn-outline-danger me-1"><ion-icon name="close-circle-outline"></ion-icon> Reject</button>
+                      </form>
+
+                      <?php if (!$r['archived_at']): ?>
+                        <form method="POST" class="d-inline" onsubmit="return confirm('Archive this record?')">
+                          <input type="hidden" name="op" value="archive">
+                          <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+                          <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
+                          <button class="btn btn-sm btn-outline-secondary me-1"><ion-icon name="archive-outline"></ion-icon> Archive</button>
+                        </form>
+                      <?php else: ?>
+                        <form method="POST" class="d-inline">
+                          <input type="hidden" name="op" value="unarchive">
+                          <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+                          <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
+                          <button class="btn btn-sm btn-outline-secondary me-1"><ion-icon name="archive-outline"></ion-icon> Unarchive</button>
+                        </form>
+                      <?php endif; ?>
+
+                      <form method="POST" class="d-inline" onsubmit="return confirm('Delete this record?')">
+                        <input type="hidden" name="op" value="delete">
+                        <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+                        <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
+                        <button class="btn btn-sm btn-outline-danger"><ion-icon name="trash-outline"></ion-icon> Delete</button>
+                      </form>
+                    </td>
+                  </tr>
+
+                  <!-- Inline Edit Row -->
+                  <tr id="edit-<?= (int)$r['id'] ?>" style="display:none;background:#f6f8ff">
+                    <td colspan="10">
+                      <form method="POST" enctype="multipart/form-data" class="row g-2 align-items-end">
+                        <input type="hidden" name="op" value="update">
+                        <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+                        <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
+
+                        <div class="col-12 col-md-2">
+                          <label class="form-label small text-muted">Trip Ref</label>
+                          <input class="form-control" name="trip_ref" value="<?= h($r['trip_ref']) ?>">
+                        </div>
+                        <div class="col-12 col-md-3">
+                          <label class="form-label small text-muted">Asset</label>
+                          <select name="asset_id" class="form-select">
+                            <option value="">Asset</option>
+                            <?php foreach ($assets as $a): ?>
+                              <option value="<?= (int)$a['id'] ?>" <?= $r['asset_id']==$a['id']?'selected':'' ?>><?= h($a['name']) ?></option>
+                            <?php endforeach; ?>
+                          </select>
+                        </div>
+                        <div class="col-12 col-md-3">
+                          <label class="form-label small text-muted">Driver</label>
+                          <input class="form-control" name="driver_name" value="<?= h($r['driver_name']) ?>">
+                        </div>
+                        <div class="col-6 col-md-2">
+                          <label class="form-label small text-muted">Trip Date</label>
+                          <input type="date" class="form-control" name="trip_date" value="<?= h($r['trip_date']) ?>">
+                        </div>
+                        <div class="col-6 col-md-2">
+                          <label class="form-label small text-muted">Shift Start</label>
+                          <input type="datetime-local" class="form-control" name="shift_start" value="<?= h(str_replace(' ','T',$r['shift_start'])) ?>">
+                        </div>
+                        <div class="col-6 col-md-2">
+                          <label class="form-label small text-muted">Shift End</label>
+                          <input type="datetime-local" class="form-control" name="shift_end" value="<?= h(str_replace(' ','T',$r['shift_end'])) ?>">
+                        </div>
+                        <div class="col-6 col-md-2">
+                          <label class="form-label small text-muted">Origin</label>
+                          <input class="form-control" name="origin" value="<?= h($r['origin']) ?>">
+                        </div>
+                        <div class="col-6 col-md-2">
+                          <label class="form-label small text-muted">Destination</label>
+                          <input class="form-control" name="destination" value="<?= h($r['destination']) ?>">
+                        </div>
+                        <div class="col-6 col-md-2">
+                          <label class="form-label small text-muted">Distance (km)</label>
+                          <input type="number" step="0.01" class="form-control" name="distance_km" value="<?= h($r['distance_km']) ?>">
+                        </div>
+                        <div class="col-6 col-md-2">
+                          <label class="form-label small text-muted">Fuel (L)</label>
+                          <input type="number" step="0.01" class="form-control" name="fuel_liters" value="<?= h($r['fuel_liters']) ?>">
+                        </div>
+                        <div class="col-6 col-md-2">
+                          <label class="form-label small text-muted">Fuel Cost</label>
+                          <input type="number" step="0.01" class="form-control" name="fuel_cost" value="<?= h($r['fuel_cost']) ?>">
+                        </div>
+                        <div class="col-6 col-md-2">
+                          <label class="form-label small text-muted">Planned</label>
+                          <input type="number" class="form-control" name="deliveries_planned" value="<?= h($r['deliveries_planned']) ?>">
+                        </div>
+                        <div class="col-6 col-md-2">
+                          <label class="form-label small text-muted">Completed</label>
+                          <input type="number" class="form-control" name="deliveries_completed" value="<?= h($r['deliveries_completed']) ?>">
+                        </div>
+                        <div class="col-6 col-md-2">
+                          <label class="form-label small text-muted">On-time</label>
+                          <input type="number" class="form-control" name="on_time" value="<?= h($r['on_time']) ?>">
+                        </div>
+                        <div class="col-6 col-md-2">
+                          <label class="form-label small text-muted">Delays</label>
+                          <input type="number" class="form-control" name="delays" value="<?= h($r['delays']) ?>">
+                        </div>
+                        <div class="col-12 col-md-3">
+                          <label class="form-label small text-muted">Customer Signed</label>
+                          <div class="form-check">
+                            <input class="form-check-input" type="checkbox" name="customer_signed" id="custSigned<?= (int)$r['id'] ?>" <?= $r['customer_signed']? 'checked':'' ?>>
+                            <label class="form-check-label" for="custSigned<?= (int)$r['id'] ?>">Yes</label>
+                          </div>
+                        </div>
+                        <div class="col-12 col-md-3">
+                          <label class="form-label small text-muted">GPS Log</label>
+                          <input type="file" name="gps" class="form-control" accept=".csv,.gpx,.json,.kml">
+                        </div>
+
+                        <div class="col-12 col-md-3 d-flex gap-2">
+                          <button class="btn btn-primary"><ion-icon name="save-outline"></ion-icon> Save</button>
+                          <button class="btn btn-outline-secondary" type="button" onclick="toggleEdit(<?= (int)$r['id'] ?>)"><ion-icon name="close-outline"></ion-icon> Cancel</button>
+                        </div>
+                      </form>
+                    </td>
+                  </tr>
+                <?php endforeach; ?>
+                </tbody>
+              </table>
+            </div>
+
+          </div>
+        </section>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    function toggleEdit(id){
+      const el=document.getElementById('edit-'+id);
+      if(!el) return;
+      el.style.display=(el.style.display==='none'||!el.style.display)?'table-row':'none';
+    }
+    function fmt(d){ const z=n=>String(n).padStart(2,'0'); return `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}`; }
+    function getMonday(d){ d=new Date(d); const day=d.getDay(); const diff=(day===0?-6:1)-day; d.setDate(d.getDate()+diff); return d; }
+    function quickRange(type){
+      const from=document.getElementById('fromDate');
+      const to=document.getElementById('toDate');
+      const now=new Date(); let a,b;
+      if(type==='today'){a=new Date(now); b=new Date(now);}
+      if(type==='week'){a=getMonday(now); b=new Date(a); b.setDate(a.getDate()+6);}
+      if(type==='month'){a=new Date(now.getFullYear(), now.getMonth(), 1); b=new Date(now.getFullYear(), now.getMonth()+1, 0);}
+      if(type==='quarter'){const q=Math.floor(now.getMonth()/3); a=new Date(now.getFullYear(), q*3, 1); b=new Date(now.getFullYear(), q*3+3, 0);}
+      from.value=fmt(a); to.value=fmt(b); document.getElementById('filterForm').submit();
+    }
+    // Auto-refresh when another tab updates records
+    window.addEventListener('storage', function(e){ if (e.key==='logrec_changed') { window.location.reload(); }});
+  </script>
 </body>
 </html>

@@ -212,7 +212,7 @@ if (function_exists("current_user")) {
           <div class="alert alert-danger d-none" id="poErr"></div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
           <button class="btn btn-primary" type="submit">Save PO</button>
         </div>
       </form>
