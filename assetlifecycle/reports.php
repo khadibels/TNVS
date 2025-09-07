@@ -2,6 +2,7 @@
 require_once __DIR__ . "/../includes/config.php";
 require_once __DIR__ . "/../includes/auth.php";
 require_login();
+require_role(['admin', 'asset_manager']);
 
 if (session_status() !== PHP_SESSION_ACTIVE) session_start();
 

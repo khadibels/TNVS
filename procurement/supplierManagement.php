@@ -10,6 +10,8 @@ if (function_exists("require_login")) {
     require_login();
 }
 
+require_role(['admin', 'proc_officer']);
+
 $userName = "Procurement User";
 $userRole = "Procurement";
 

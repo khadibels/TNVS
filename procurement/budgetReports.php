@@ -11,6 +11,8 @@ if (function_exists("require_login")) {
     require_login();
 }
 
+require_role(['admin', 'proc_officer']);
+
 $userName = $_SESSION["user"]["name"] ?? "Procurement User";
 $userRole = $_SESSION["user"]["role"] ?? "Procurement";
 

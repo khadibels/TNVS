@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_login();
+require_role(['admin', 'proc_officer']);
 
 // pull category names for the filter
 $catNames = $pdo->query("SELECT name FROM inventory_categories WHERE active=1 ORDER BY name")

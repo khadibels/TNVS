@@ -10,6 +10,8 @@ if (function_exists("require_login")) {
     require_login();
 }
 
+require_role(['admin', 'project_lead']);
+
 $userName = "Admin";
 $userRole = "System Admin";
 

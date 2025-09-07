@@ -2,6 +2,7 @@
 require_once __DIR__ . "/../includes/config.php";
 require_once __DIR__ . "/../includes/auth.php";
 require_login();
+require_role(['admin', 'project_lead']);
 
 function table_exists(PDO $pdo, string $name): bool
 {

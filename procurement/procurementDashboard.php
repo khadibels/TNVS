@@ -3,6 +3,8 @@ require_once __DIR__ . "/../includes/config.php";
 require_once __DIR__ . "/../includes/auth.php";
 require_login();
 
+require_role(['admin', 'proc_officer']);
+
 /* -------------------- helpers -------------------- */
 function table_exists(PDO $pdo = null, string $name = ""): bool
 {
