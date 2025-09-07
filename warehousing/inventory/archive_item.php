@@ -4,6 +4,7 @@ require_once __DIR__ . "/../../includes/config.php";
 require_once __DIR__ . "/../../includes/auth.php";
 require_login();
 header("Content-Type: application/json");
+require_role(['admin', 'manager']);
 
 $id = (int) ($_POST["id"] ?? 0);
 if ($id <= 0) {

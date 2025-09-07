@@ -2,6 +2,7 @@
 require_once __DIR__ . "/../../includes/config.php";
 require_once __DIR__ . "/../../includes/auth.php";
 require_login();
+require_role(['admin', 'manager']);
 header("Content-Type: application/json");
 
 $page = max(1, (int) ($_GET["page"] ?? 1));

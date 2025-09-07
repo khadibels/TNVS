@@ -3,6 +3,7 @@ require_once __DIR__ . "/../includes/config.php";
 require_once __DIR__ . "/../includes/auth.php";
 require_role(["admin", "manager"]);
 
+
 $user = current_user();
 $userName = $user["name"] ?? "Guest";
 $userRole = $user["role"] ?? "Unknown";

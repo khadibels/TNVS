@@ -4,6 +4,7 @@ require_once __DIR__ . "/../../includes/auth.php";
 
 require_login("json");
 header("Content-Type: application/json; charset=utf-8");
+require_role(['admin', 'manager']);
 
 function jerr($msg, $code=400){
   http_response_code($code);
