@@ -91,10 +91,10 @@ if ($role === 'admin') {
     <!-- Document Tracking -->
     <h6 class="text-uppercase mb-2">Document Tracking</h6>
     <nav class="nav flex-column px-2 mb-4">
-      <a class="nav-link<?= a('documents') ?>" href="<?= u('../documentTracking/document.php') ?>">
+      <a class="nav-link<?= a('documents') ?>" href="<?= u('documentTracking/document.php') ?>">
         <ion-icon name="document-text-outline"></ion-icon><span>Documents</span>
       </a>
-      <a class="nav-link<?= a('logistics') ?>" href="<?= u('all-modules-admin-access/logistic.php') ?>">
+      <a class="nav-link<?= a('logistics') ?>" href="<?= u('documentTracking/logistic.php') ?>">
         <ion-icon name="cube-outline"></ion-icon><span>Logistics</span>
       </a>
     </nav>
@@ -281,7 +281,7 @@ if ($section === 'docs') { ?>
       <a class="nav-link<?= a('dashboard') ?>" href="<?= u('documentTracking/Dashboard.php') ?>">
         <ion-icon name="home-outline"></ion-icon><span>Dashboard</span>
       </a>
-      <a class="nav-link<?= a('documents') ?>" href="<?= u('documenttracking/document.php') ?>">
+      <a class="nav-link<?= a('documents') ?>" href="<?= u('documentTracking/document.php') ?>">
         <ion-icon name="document-text-outline"></ion-icon><span>Documents</span>
       </a>
       <a class="nav-link<?= a('logistics') ?>" href="<?= u('documentTracking/logistic.php') ?>">

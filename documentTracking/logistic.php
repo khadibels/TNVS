@@ -375,7 +375,7 @@ $userRole = $_SESSION["user"]["role"] ?? "Logistics Coordinator";
               <ion-icon name="menu-outline"></ion-icon>
             </button>
             <h2 class="m-0 d-flex align-items-center gap-2">
-              <ion-icon name="list-outline"></ion-icon> Logistics Records
+              <ion-icon name="cube-outline"></ion-icon> Logistics Records
             </h2>
           </div>
           <div class="d-flex align-items-center gap-2">
