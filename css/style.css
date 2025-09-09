@@ -6,7 +6,7 @@
   top: 0;
   left: 0;
   z-index: 1040;
-  width: 220px;
+  width: 230px;
   height: 100vh;
   min-height: 100vh;
   padding: 1rem 0.3rem;
@@ -74,6 +74,45 @@
   background: linear-gradient(90deg, #9a66ff 0%, #4311a5 100%);
   color: #fff;
 }
+
+/* Parent "Settings": turn text (and icon) white when any child is open/active */
+.sidebar .settings-parent.is-open {
+  color: #fff;
+}
+
+/* Submenu links: full width, no left border, lighter highlight */
+.sidebar .sub-link {
+  color: #c7cfda;
+  padding-left: 1.8rem;
+  border-left: none;
+}
+
+.sidebar .sub-link:hover {
+  background: rgba(154, 102, 255, 0.12);
+  color: #fff;
+}
+
+.sidebar .sub-link.active {
+  background: rgba(154, 102, 255, 0.22);
+  color: #fff;
+  border-left: none;
+}
+
+/* Keep parent "Settings" visibly active when a child is active/open */
+.sidebar .settings-parent.is-open,
+.sidebar .settings-parent.is-open:hover,
+.sidebar .settings-parent.is-open:focus {
+
+  color: #fff !important;
+  /* white text */
+}
+
+.sidebar .settings-parent.is-open ion-icon {
+  color: #fff !important;
+  /* white gear + chevron */
+}
+
+
 
 /* Normalize icon sizes (Chrome-friendly) */
 .sidebar .nav-link ion-icon {

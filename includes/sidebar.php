@@ -1,21 +1,16 @@
 <?php
 // includes/sidebar.php
 
-// Base URL helper (set BASE_URL in config; safe default = '')
 if (!defined('BASE_URL')) { define('BASE_URL', ''); }
 $BASE    = rtrim(BASE_URL, '/');
-$role    = strtolower($_SESSION['user']['role'] ?? ''); // 'admin', 'manager', etc.
-$active  = $active  ?? '';   // current page key to highlight
-$section = $section ?? '';   // module for non-admin sidebars
+$role    = strtolower($_SESSION['user']['role'] ?? '');
+$active  = $active  ?? '';
+$section = $section ?? '';
 
-// Build absolute URL from BASE_URL
 function u($path){ global $BASE; return $BASE . '/' . ltrim($path, '/'); }
-// Return " active" if matches current page key
 function a($key){ global $active; return $active === $key ? ' active' : ''; }
+function a_any(array $keys){ global $active; return in_array($active ?? '', $keys, true); }
 
-/* =========================================================
- * ADMIN (full system sidebar)
- * =======================================================*/
 if ($role === 'admin') {
   ?>
   <div class="sidebar d-flex flex-column">
@@ -29,7 +24,6 @@ if ($role === 'admin') {
       </a>
     </nav>
 
-    <!-- Smart Warehousing -->
     <h6 class="text-uppercase mb-2">Smart Warehousing</h6>
     <nav class="nav flex-column px-2 mb-4">
       <a class="nav-link<?= a('inventory') ?>" href="<?= u('warehousing/inventory/inventoryTracking.php') ?>">
@@ -43,7 +37,6 @@ if ($role === 'admin') {
       </a>
     </nav>
 
-    <!-- Procurement -->
     <h6 class="text-uppercase mb-2">Procurement and Sourcing Management</h6>
     <nav class="nav flex-column px-2 mb-4">
       <a class="nav-link<?= a('suppliers') ?>" href="<?= u('procurement/supplierManagement.php') ?>">
@@ -58,9 +51,11 @@ if ($role === 'admin') {
       <a class="nav-link<?= a('reqs') ?>" href="<?= u('procurement/procurementRequests.php') ?>">
         <ion-icon name="clipboard-outline"></ion-icon><span>Procurement Requests</span>
       </a>
+      <a class="nav-link<?= a('budgets') ?>" href="<?= u('procurement/budgets.php') ?>">
+        <ion-icon name="wallet-outline"></ion-icon><span>Budgets</span>
+      </a>
     </nav>
 
-    <!-- PLT -->
     <h6 class="text-uppercase mb-2">PLT</h6>
     <nav class="nav flex-column px-2 mb-4">
       <a class="nav-link<?= a('projects') ?>" href="<?= u('PLT/projectTracking.php') ?>">
@@ -74,7 +69,6 @@ if ($role === 'admin') {
       </a>
     </nav>
 
-    <!-- ALMS -->
     <h6 class="text-uppercase mb-2">ALMS</h6>
     <nav class="nav flex-column px-2 mb-4">
       <a class="nav-link<?= a('assettracker') ?>" href="<?= u('assetlifecycle/assetTracker.php') ?>">
@@ -88,7 +82,6 @@ if ($role === 'admin') {
       </a>
     </nav>
 
-    <!-- Document Tracking -->
     <h6 class="text-uppercase mb-2">Document Tracking</h6>
     <nav class="nav flex-column px-2 mb-4">
       <a class="nav-link<?= a('documents') ?>" href="<?= u('documentTracking/document.php') ?>">
@@ -102,33 +95,57 @@ if ($role === 'admin') {
     <hr class="mx-3 my-2">
 
     <nav class="nav flex-column px-2 mb-4">
-      <a class="nav-link<?= a('budgets') ?>" href="<?= u('procurement/budgetReports.php') ?>">
-        <ion-icon name="analytics-outline"></ion-icon><span>Budgets</span>
-      </a>
       <a class="nav-link<?= a('reports') ?>" href="<?= u('reports/globalReports.php') ?>">
         <ion-icon name="bar-chart-outline"></ion-icon><span>Reports</span>
       </a>
-      <a class="nav-link<?= a('settings') ?>" href="<?= u('settings.php') ?>">
-        <ion-icon name="settings-outline"></ion-icon><span>Settings</span>
-      </a>
+
+      <?php
+  $settingsChildren = ['settings_access','settings_locations','settings_categories','settings_departments'];
+  $isSettingsOpen = a_any($settingsChildren) || $active === 'settings';
+?>
+<a
+  class="nav-link d-flex align-items-center justify-content-between settings-parent<?= $isSettingsOpen ? ' is-open' : '' ?>"
+  data-bs-toggle="collapse"
+  data-bs-target="#adminSettings"
+  href="#"
+  role="button"
+  aria-expanded="<?= $isSettingsOpen ? 'true' : 'false' ?>"
+  aria-controls="adminSettings"
+>
+  <span><ion-icon name="settings-outline"></ion-icon><span>Settings</span></span>
+  <ion-icon name="<?= $isSettingsOpen ? 'chevron-down-outline' : 'chevron-forward-outline' ?>"></ion-icon>
+</a>
+
+<div class="collapse<?= $isSettingsOpen ? ' show' : '' ?>" id="adminSettings">
+  <div class="nav flex-column mt-1"><!-- removed ms-3 to make children full width -->
+    <a class="nav-link sub-link<?= a('settings_access') ?>" href="<?= u('all-modules-admin-access/accessControl.php') ?>">
+      <ion-icon name="lock-closed-outline"></ion-icon><span>Access Control</span>
+    </a>
+    <a class="nav-link sub-link<?= a('settings_locations') ?>" href="<?= u('all-modules-admin-access/locations.php') ?>">
+      <ion-icon name="location-outline"></ion-icon><span>Warehouse Locations</span>
+    </a>
+    <a class="nav-link sub-link<?= a('settings_categories') ?>" href="<?= u('all-modules-admin-access/categories.php') ?>">
+      <ion-icon name="pricetags-outline"></ion-icon><span>Inventory Categories</span>
+    </a>
+    <a class="nav-link sub-link<?= a('settings_departments') ?>" href="<?= u('all-modules-admin-access/departments.php') ?>">
+      <ion-icon name="business-outline"></ion-icon><span>Departments</span>
+    </a>
+  </div>
+</div>
     </nav>
 
     <div class="logout-section mt-auto">
-      <a class="nav-link text-danger" href="<?= u('auth/logout.php') ?>">
-        <ion-icon name="log-out-outline"></ion-icon> Logout
+      <a class="nav-link text-danger d-flex align-items-center gap-2" href="<?= u('auth/logout.php') ?>">
+        <ion-icon name="log-out-outline"></ion-icon><span>Logout</span>
       </a>
     </div>
   </div>
   <?php
   return;
 }
+?>
 
-/* =========================================================
- * NON-ADMIN: render sidebar based on $section
- * =======================================================*/
-
-/* -------- Warehousing -------- */
-if ($section === 'warehousing') { ?>
+<?php if ($section === 'warehousing') { ?>
   <div class="sidebar d-flex flex-column">
     <div class="d-flex justify-content-center align-items-center mb-4 mt-3">
       <img src="<?= u('img/logo.png') ?>" id="logo" class="img-fluid me-2" style="height:55px" alt="Logo">
@@ -155,15 +172,14 @@ if ($section === 'warehousing') { ?>
       </a>
     </nav>
     <div class="logout-section">
-      <a class="nav-link text-danger" href="<?= u('auth/logout.php') ?>">
-        <ion-icon name="log-out-outline"></ion-icon> Logout
+      <a class="nav-link text-danger d-flex align-items-center gap-2" href="<?= u('auth/logout.php') ?>">
+        <ion-icon name="log-out-outline"></ion-icon><span>Logout</span>
       </a>
     </div>
   </div>
-<?php return; }
+<?php return; } ?>
 
-/* -------- Procurement -------- */
-if ($section === 'procurement') { ?>
+<?php if ($section === 'procurement') { ?>
   <div class="sidebar d-flex flex-column">
     <div class="d-flex justify-content-center align-items-center mb-4 mt-3">
       <img src="<?= u('img/logo.png') ?>" id="logo" class="img-fluid me-2" style="height:55px" alt="Logo">
@@ -196,15 +212,14 @@ if ($section === 'procurement') { ?>
       </a>
     </nav>
     <div class="logout-section">
-      <a class="nav-link text-danger" href="<?= u('auth/logout.php') ?>">
-        <ion-icon name="log-out-outline"></ion-icon> Logout
+      <a class="nav-link text-danger d-flex align-items-center gap-2" href="<?= u('auth/logout.php') ?>">
+        <ion-icon name="log-out-outline"></ion-icon><span>Logout</span>
       </a>
     </div>
   </div>
-<?php return; }
+<?php return; } ?>
 
-/* -------- PLT -------- */
-if ($section === 'plt') { ?>
+<?php if ($section === 'plt') { ?>
   <div class="sidebar d-flex flex-column">
     <div class="d-flex justify-content-center align-items-center mb-4 mt-3">
       <img src="<?= u('img/logo.png') ?>" id="logo" class="img-fluid me-2" style="height:55px" alt="Logo">
@@ -228,15 +243,14 @@ if ($section === 'plt') { ?>
       </a>
     </nav>
     <div class="logout-section">
-      <a class="nav-link text-danger" href="<?= u('auth/logout.php') ?>">
-        <ion-icon name="log-out-outline"></ion-icon> Logout
+      <a class="nav-link text-danger d-flex align-items-center gap-2" href="<?= u('auth/logout.php') ?>">
+        <ion-icon name="log-out-outline"></ion-icon><span>Logout</span>
       </a>
     </div>
   </div>
-<?php return; }
+<?php return; } ?>
 
-/* -------- ALMS -------- */
-if ($section === 'alms') { ?>
+<?php if ($section === 'alms') { ?>
   <div class="sidebar d-flex flex-column">
     <div class="d-flex justify-content-center align-items-center mb-4 mt-3">
       <img src="<?= u('img/logo.png') ?>" id="logo" class="img-fluid me-2" style="height:55px" alt="Logo">
@@ -263,15 +277,14 @@ if ($section === 'alms') { ?>
       </a>
     </nav>
     <div class="logout-section">
-      <a class="nav-link text-danger" href="<?= u('auth/logout.php') ?>">
-        <ion-icon name="log-out-outline"></ion-icon> Logout
+      <a class="nav-link text-danger d-flex align-items-center gap-2" href="<?= u('auth/logout.php') ?>">
+        <ion-icon name="log-out-outline"></ion-icon><span>Logout</span>
       </a>
     </div>
   </div>
-<?php return; }
+<?php return; } ?>
 
-/* -------- Document Tracking -------- */
-if ($section === 'docs') { ?>
+<?php if ($section === 'docs') { ?>
   <div class="sidebar d-flex flex-column">
     <div class="d-flex justify-content-center align-items-center mb-4 mt-3">
       <img src="<?= u('img/logo.png') ?>" id="logo" class="img-fluid me-2" style="height:55px" alt="Logo">
@@ -292,15 +305,13 @@ if ($section === 'docs') { ?>
       </a>
     </nav>
     <div class="logout-section">
-      <a class="nav-link text-danger" href="<?= u('auth/logout.php') ?>">
-        <ion-icon name="log-out-outline"></ion-icon> Logout
+      <a class="nav-link text-danger d-flex align-items-center gap-2" href="<?= u('auth/logout.php') ?>">
+        <ion-icon name="log-out-outline"></ion-icon><span>Logout</span>
       </a>
     </div>
   </div>
-<?php return; }
+<?php return; } ?>
 
-/* -------- Fallback (unknown section/role) -------- */
-?>
 <div class="sidebar d-flex flex-column p-3">
   <div class="text-muted small">No sidebar configured.</div>
 </div>
