@@ -104,7 +104,7 @@ if ($role === 'admin') {
   $isSettingsOpen = a_any($settingsChildren) || $active === 'settings';
 ?>
 <a
-  class="nav-link d-flex align-items-center justify-content-between settings-parent<?= $isSettingsOpen ? ' is-open' : '' ?>"
+  class="nav-link d-flex align-items-center justify-content-between settings-parent<?= $isSettingsOpen ? ' active is-open' : '' ?>"
   data-bs-toggle="collapse"
   data-bs-target="#adminSettings"
   href="#"
@@ -115,6 +115,7 @@ if ($role === 'admin') {
   <span><ion-icon name="settings-outline"></ion-icon><span>Settings</span></span>
   <ion-icon name="<?= $isSettingsOpen ? 'chevron-down-outline' : 'chevron-forward-outline' ?>"></ion-icon>
 </a>
+
 
 <div class="collapse<?= $isSettingsOpen ? ' show' : '' ?>" id="adminSettings">
   <div class="nav flex-column mt-1"><!-- removed ms-3 to make children full width -->
