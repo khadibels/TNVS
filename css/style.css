@@ -153,7 +153,7 @@
 /* Main content shifts when sidebar is visible (desktop) */
 @media (min-width: 900px) {
   .main-content {
-    margin-left: 220px;
+    margin-left: 240px;
     padding: 2rem;
   }
 }
@@ -161,23 +161,67 @@
 /* ========================= MOBILE SIDEBAR ========================= */
 @media (max-width: 1000px) {
   .sidebar {
-    left: -240px;
-    width: 220px;
+    width: 250px;
+    left: 0;
+    /* anchor left */
+    transform: translateX(-100%);
+    /* hidden off-canvas */
+    box-shadow: 8px 0 24px rgba(0, 0, 0, .35);
+    touch-action: pan-y;
+    /* prevent horizontal drag */
+    overscroll-behavior: contain;
+    /* stop bounce from affecting page */
   }
 
   .sidebar.show {
-    left: 0;
+    transform: translateX(0);
   }
 
   .sidebar.hide {
-    left: -200px;
+    transform: translateX(-100%);
   }
 
+  /* keep content layout */
   .main-content {
     margin-left: 0;
     padding: 1rem 0.5rem;
   }
 }
+
+/* Lock page + show backdrop when sidebar is open (mobile only) */
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+#sidebarBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, .35);
+  z-index: 1035;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity .2s;
+}
+
+body.sidebar-open #sidebarBackdrop {
+  opacity: 1;
+  visibility: visible;
+}
+
+@media (min-width: 1000px) {
+  #sidebarBackdrop {
+    display: none;
+  }
+}
+
+body.sidebar-open {
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+}
+
 
 /* Sidebar toggle */
 .sidebar-toggle {
