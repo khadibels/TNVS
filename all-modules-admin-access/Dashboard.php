@@ -1,4 +1,6 @@
 <?php
+// all-modules-admin-access/Dashboard.php
+
 require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/db.php';
@@ -8,383 +10,327 @@ require_role(['admin']);
 
 $active = 'dashboard';
 
-/* -------------------- open the right DBs per module -------------------- */
-$wms  = db('wms');          // Smart Warehousing DB
-$proc = db('procurement');  // Procurement DB
-$plt  = db('plt');          // PLT DB
+/* -------------------- DB connections (one per module) -------------------- */
+$wmsPdo  = db('wms');                                // Smart Warehousing
+$procPdo = function_exists('db') ? (db('proc') ?: (function_exists('db') ? (db('procurement') ?: null) : null)) : null; // Procurement (support both keys)
+if (!$procPdo) {                                     // soft fallback so page still loads
+  try { $procPdo = db('procurement'); } catch(Throwable $e) {}
+}
+$pltPdo  = db('plt');                                // PLT
 
-/* -------------------- helpers (work with whichever PDO you pass) -------------------- */
-function table_exists(PDO $pdo, string $table): bool {
-    try {
-        $st = $pdo->prepare("SHOW TABLES LIKE ?");
-        $st->execute([$table]);
-        return (bool)$st->fetchColumn();
-    } catch (Throwable $e) {
-        return false;
-    }
+/* -------------------- helpers -------------------- */
+function table_exists(PDO $pdo = null, string $table = ''): bool {
+  if (!$pdo) return false;
+  try {
+    $stmt = $pdo->prepare("SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?");
+    $stmt->execute([$table]);
+    return (bool)$stmt->fetchColumn();
+  } catch (Throwable $e) { return false; }
 }
-function column_exists(PDO $pdo, string $table, string $col): bool {
-    try {
-        $s = $pdo->prepare("SHOW COLUMNS FROM `$table` LIKE ?");
-        $s->execute([$col]);
-        return (bool)$s->fetchColumn();
-    } catch (Throwable $e) {
-        return false;
-    }
+function column_exists(PDO $pdo = null, string $table = '', string $col = ''): bool {
+  if (!$pdo) return false;
+  try {
+    $s = $pdo->prepare("SHOW COLUMNS FROM `$table` LIKE ?");
+    $s->execute([$col]);
+    return (bool)$s->fetchColumn();
+  } catch (Throwable $e) { return false; }
 }
-function fetch_val(PDO $pdo, string $sql, array $params = [], $fallback = 0) {
-    try {
-        $st = $pdo->prepare($sql);
-        $st->execute($params);
-        $v = $st->fetchColumn();
-        return $v !== false ? $v : $fallback;
-    } catch (Throwable $e) {
-        return $fallback;
-    }
+function fetch_val(PDO $pdo = null, string $sql = '', array $params = [], $fallback = 0) {
+  if (!$pdo) return $fallback;
+  try {
+    $st = $pdo->prepare($sql);
+    $st->execute($params);
+    $v = $st->fetchColumn();
+    return $v !== false ? $v : $fallback;
+  } catch (Throwable $e) { return $fallback; }
 }
-function qall(PDO $pdo, string $sql, array $bind = []) {
-    try {
-        $st = $pdo->prepare($sql);
-        $st->execute($bind);
-        return $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
-    } catch (Throwable $e) {
-        return [];
-    }
+function qall(PDO $pdo = null, string $sql = '', array $bind = []) {
+  if (!$pdo) return [];
+  try {
+    $st = $pdo->prepare($sql);
+    $st->execute($bind);
+    return $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+  } catch (Throwable $e) { return []; }
 }
 
 /* -------------------- CURRENT USER (optional) -------------------- */
 $userName = "Admin";
 $userRole = "System Admin";
 if (function_exists("current_user")) {
-    $u = current_user();
-    $userName = $u["name"] ?? $userName;
-    $userRole = $u["role"] ?? $userRole;
+  $u = current_user();
+  $userName = $u["name"] ?? $userName;
+  $userRole = $u["role"] ?? $userRole;
 }
 
-/* timezone used by charts */
-$tz = new DateTimeZone("Asia/Manila");
-
 /* ================================================================
-   SECTION A: SMART WAREHOUSING (uses $wms)
-================================================================ */
-$sw_hasItems = table_exists($wms, "inventory_items");
-$sw_hasLvl   = table_exists($wms, "stock_levels");
-$sw_hasTx    = table_exists($wms, "stock_transactions");
-$sw_hasLoc   = table_exists($wms, "warehouse_locations");
-$sw_hasShip  = table_exists($wms, "shipments");
+  SECTION A: SMART WAREHOUSING  (uses $wmsPdo)
+=============================================================== */
+$sw_hasItems = table_exists($wmsPdo, "inventory_items");
+$sw_hasLvl   = table_exists($wmsPdo, "stock_levels");
+$sw_hasTx    = table_exists($wmsPdo, "stock_transactions");
+$sw_hasLoc   = table_exists($wmsPdo, "warehouse_locations");
+$sw_hasShip  = table_exists($wmsPdo, "shipments");
 
 /* KPIs */
-$sw_totalSkus      = $sw_hasItems ? (int) fetch_val($wms,"SELECT COUNT(*) FROM inventory_items WHERE archived=0") : 0;
-$sw_totalUnits     = $sw_hasLvl   ? (int) fetch_val($wms,"SELECT COALESCE(SUM(qty),0) FROM stock_levels") : 0;
-$sw_locationsCount = $sw_hasLoc   ? (int) fetch_val($wms,"SELECT COUNT(*) FROM warehouse_locations") : 0;
+$sw_totalSkus      = $sw_hasItems ? (int)fetch_val($wmsPdo, "SELECT COUNT(*) FROM inventory_items WHERE archived=0") : 0;
+$sw_totalUnits     = $sw_hasLvl   ? (int)fetch_val($wmsPdo, "SELECT COALESCE(SUM(qty),0) FROM stock_levels") : 0;
+$sw_locationsCount = $sw_hasLoc   ? (int)fetch_val($wmsPdo, "SELECT COUNT(*) FROM warehouse_locations") : 0;
 
-$sw_lowStockCount  = 0;
+$sw_lowStockCount = 0;
 if ($sw_hasItems && $sw_hasLvl) {
-    $sw_lowStockCount = (int) fetch_val($wms,"
-        SELECT COUNT(*) FROM (
-          SELECT i.id, i.reorder_level, COALESCE(SUM(l.qty),0) total
-          FROM inventory_items i
-          LEFT JOIN stock_levels l ON l.item_id=i.id
-          WHERE i.archived=0
-          GROUP BY i.id, i.reorder_level
-          HAVING i.reorder_level>0 AND COALESCE(SUM(l.qty),0) <= i.reorder_level
-        ) x
-    ");
+  $sw_lowStockCount = (int) fetch_val($wmsPdo, "
+    SELECT COUNT(*) FROM (
+      SELECT i.id, i.reorder_level, COALESCE(SUM(l.qty),0) total
+      FROM inventory_items i
+      LEFT JOIN stock_levels l ON l.item_id=i.id
+      WHERE i.archived=0
+      GROUP BY i.id, i.reorder_level
+      HAVING i.reorder_level>0 AND COALESCE(SUM(l.qty),0) <= i.reorder_level
+    ) x
+  ");
 }
 
 /* Charts: On-hand by Category */
-$sw_catLabels = ["Raw", "Packaging", "Finished"];
-$sw_catData   = [0, 0, 0];
+$sw_catLabels = ["Raw","Packaging","Finished"];
+$sw_catData   = [0,0,0];
 if ($sw_hasLvl && $sw_hasItems) {
-    $rows = qall($wms,"
-      SELECT i.category, COALESCE(SUM(l.qty),0) qty
-      FROM stock_levels l JOIN inventory_items i ON i.id=l.item_id
-      WHERE i.archived=0
-      GROUP BY i.category
-    ");
-    $tmp = [];
-    foreach ($rows as $r) { $tmp[$r["category"]] = (int)$r["qty"]; }
-    foreach ($sw_catLabels as $i => $lab) { $sw_catData[$i] = $tmp[$lab] ?? 0; }
+  $rows = qall($wmsPdo, "
+    SELECT i.category, COALESCE(SUM(l.qty),0) qty
+    FROM stock_levels l JOIN inventory_items i ON i.id=l.item_id
+    WHERE i.archived=0
+    GROUP BY i.category
+  ");
+  $tmp=[]; foreach ($rows as $r) $tmp[$r['category']] = (int)$r['qty'];
+  foreach ($sw_catLabels as $i=>$lab) $sw_catData[$i] = $tmp[$lab] ?? 0;
 }
 
 /* Charts: 30-day movements */
-$sw_trendLabels = [];
-$sw_incoming    = [];
-$sw_outgoing    = [];
+$sw_trendLabels=[]; $sw_incoming=[]; $sw_outgoing=[];
+$tz = new DateTimeZone("Asia/Manila");
 $today = new DateTime("today", $tz);
-$map   = [];
-for ($i = 29; $i >= 0; $i--) {
-    $d = clone $today; $d->modify("-$i day");
-    $k = $d->format("Y-m-d");
-    $map[$k] = ["in" => 0, "out" => 0];
+$map = [];
+for ($i=29; $i>=0; $i--) {
+  $d = clone $today; $d->modify("-$i day");
+  $map[$d->format("Y-m-d")] = ['in'=>0,'out'=>0];
 }
 if ($sw_hasTx) {
-    $rows = qall($wms,"
-      SELECT DATE(created_at) d,
-             SUM(CASE WHEN qty>0 THEN qty ELSE 0 END) incoming,
-             SUM(CASE WHEN qty<0 THEN -qty ELSE 0 END) outgoing
-      FROM stock_transactions
-      WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)
-      GROUP BY DATE(created_at)
-      ORDER BY DATE(created_at)
-    ");
-    foreach ($rows as $r) {
-        $k = $r["d"];
-        if (isset($map[$k])) {
-            $map[$k]["in"]  = (int)$r["incoming"];
-            $map[$k]["out"] = (int)$r["outgoing"];
-        }
-    }
+  $rows = qall($wmsPdo, "
+    SELECT DATE(created_at) d,
+           SUM(CASE WHEN qty>0 THEN qty ELSE 0 END) incoming,
+           SUM(CASE WHEN qty<0 THEN -qty ELSE 0 END) outgoing
+    FROM stock_transactions
+    WHERE created_at >= DATE_SUB(CURDATE(), INTERVAL 29 DAY)
+    GROUP BY DATE(created_at)
+    ORDER BY DATE(created_at)
+  ");
+  foreach ($rows as $r) {
+    $k=$r['d']; if(isset($map[$k])) { $map[$k]['in']=(int)$r['incoming']; $map[$k]['out']=(int)$r['outgoing']; }
+  }
 }
-foreach ($map as $k => $io) {
-    $d = DateTime::createFromFormat("Y-m-d", $k, $tz);
-    $sw_trendLabels[] = $d ? $d->format("M j") : $k;
-    $sw_incoming[]    = $io["in"];
-    $sw_outgoing[]    = $io["out"];
+foreach ($map as $k=>$io) {
+  $d = DateTime::createFromFormat("Y-m-d",$k,$tz);
+  $sw_trendLabels[] = $d ? $d->format("M j") : $k;
+  $sw_incoming[] = $io['in'];
+  $sw_outgoing[] = $io['out'];
 }
 
 /* Charts: On-hand by Location */
-$sw_locLabels = [];
-$sw_locData   = [];
+$sw_locLabels=[]; $sw_locData=[];
 if ($sw_hasLvl && $sw_hasLoc) {
-    $rows = qall($wms,"
-      SELECT w.name label, COALESCE(SUM(l.qty),0) qty
-      FROM stock_levels l JOIN warehouse_locations w ON w.id=l.location_id
-      GROUP BY w.id HAVING COALESCE(SUM(l.qty),0)>0
-      ORDER BY qty DESC
-    ");
-    $top = 6; $sumOthers = 0;
-    foreach ($rows as $i => $r) {
-        if ($i < $top) {
-            $sw_locLabels[] = $r["label"];
-            $sw_locData[]   = (int)$r["qty"];
-        } else {
-            $sumOthers += (int)$r["qty"];
-        }
-    }
-    if ($sumOthers > 0) { $sw_locLabels[] = "Others"; $sw_locData[] = $sumOthers; }
+  $rows = qall($wmsPdo, "
+    SELECT w.name label, COALESCE(SUM(l.qty),0) qty
+    FROM stock_levels l JOIN warehouse_locations w ON w.id=l.location_id
+    GROUP BY w.id HAVING COALESCE(SUM(l.qty),0)>0
+    ORDER BY qty DESC
+  ");
+  $top=6; $others=0;
+  foreach ($rows as $i=>$r) {
+    if ($i<$top){ $sw_locLabels[]=$r['label']; $sw_locData[]=(int)$r['qty']; }
+    else { $others += (int)$r['qty']; }
+  }
+  if ($others>0){ $sw_locLabels[]='Others'; $sw_locData[]=$others; }
 }
 
 /* Charts: Shipment status */
-$sw_shipLabels = ["In Transit", "Delivered", "Delayed"];
-$sw_shipData   = [0, 0, 0];
+$sw_shipLabels = ["In Transit","Delivered","Delayed"];
+$sw_shipData   = [0,0,0];
 if ($sw_hasShip) {
-    $rows = qall($wms,"SELECT status, COUNT(*) c FROM shipments GROUP BY status");
-    $map  = [];
-    foreach ($rows as $r) { $map[$r["status"]] = (int)$r["c"]; }
-    foreach ($sw_shipLabels as $i => $s) { $sw_shipData[$i] = $map[$s] ?? 0; }
+  $rows = qall($wmsPdo, "SELECT status, COUNT(*) c FROM shipments GROUP BY status");
+  $map=[]; foreach ($rows as $r) $map[$r['status']] = (int)$r['c'];
+  foreach ($sw_shipLabels as $i=>$s) $sw_shipData[$i] = $map[$s] ?? 0;
 }
 
 /* ================================================================
-   SECTION B: PROCUREMENT (uses $proc)
-================================================================ */
-$hasDB = $proc instanceof PDO;
+  SECTION B: PROCUREMENT & SOURCING  (uses $procPdo)
+=============================================================== */
+$hasProcDB = $procPdo instanceof PDO;
 
-$poHeaderTbl = null;
-$poItemTbl   = null;
-if ($hasDB) {
-    if (table_exists($proc, "pos"))               $poHeaderTbl = "pos";
-    elseif (table_exists($proc, "purchase_orders")) $poHeaderTbl = "purchase_orders";
+$poHeaderTbl = null; $poItemTbl = null;
+if ($hasProcDB) {
+  if (table_exists($procPdo,'pos'))                $poHeaderTbl = 'pos';
+  elseif (table_exists($procPdo,'purchase_orders'))$poHeaderTbl = 'purchase_orders';
 
-    if (table_exists($proc, "po_items"))            $poItemTbl = "po_items";
-    elseif (table_exists($proc, "purchase_order_items")) $poItemTbl = "purchase_order_items";
+  if (table_exists($procPdo,'po_items'))                 $poItemTbl='po_items';
+  elseif (table_exists($procPdo,'purchase_order_items')) $poItemTbl='purchase_order_items';
 }
-$poDateCol  = null;
+
+$poDateCol = null;
+if ($poHeaderTbl) foreach (['issue_date','order_date','created_at','date'] as $c) { if (column_exists($procPdo,$poHeaderTbl,$c)) { $poDateCol=$c; break; } }
 $poTotalCol = null;
-if ($poHeaderTbl) {
-    foreach (["issue_date","order_date","created_at","date"] as $c) {
-        if (column_exists($proc, $poHeaderTbl, $c)) { $poDateCol = $c; break; }
-    }
-    foreach (["total","total_amount","grand_total"] as $c) {
-        if (column_exists($proc, $poHeaderTbl, $c)) { $poTotalCol = $c; break; }
-    }
-}
-$hasSup = $hasDB && table_exists($proc, "suppliers");
-$hasRFQ = $hasDB && table_exists($proc, "rfqs");
-$hasPR  = $hasDB && table_exists($proc, "procurement_requests");
+if ($poHeaderTbl) foreach (['total','total_amount','grand_total'] as $c) { if (column_exists($procPdo,$poHeaderTbl,$c)) { $poTotalCol=$c; break; } }
+
+$hasSup = $hasProcDB && table_exists($procPdo,'suppliers');
+$hasRFQ = $hasProcDB && table_exists($procPdo,'rfqs');
+$hasPR  = $hasProcDB && table_exists($procPdo,'procurement_requests');
 
 /* KPIs */
-$pr_activeSuppliers = $hasSup ? (int)fetch_val($proc, "SELECT COUNT(*) FROM suppliers WHERE IFNULL(is_active,1)=1") : 0;
-$pr_openRFQs        = $hasRFQ? (int)fetch_val($proc, "SELECT COUNT(*) FROM rfqs WHERE status IN ('open','sent','pending','draft')") : 0;
-$pr_openPOs         = 0;
-if ($poHeaderTbl) {
-    $pr_openPOs = (int)fetch_val($proc, "SELECT COUNT(*) FROM `$poHeaderTbl` WHERE LOWER(IFNULL(status,'')) IN ('draft','approved','ordered','partially_received')");
-}
-$pr_pendingPRs      = $hasPR ? (int)fetch_val($proc, "SELECT COUNT(*) FROM procurement_requests WHERE status IN ('pending','for_approval','approved','submitted')") : 0;
+$pr_activeSuppliers = $hasSup ? (int)fetch_val($procPdo,"SELECT COUNT(*) FROM suppliers WHERE IFNULL(is_active,1)=1") : 0;
+$pr_openRFQs        = $hasRFQ ? (int)fetch_val($procPdo,"SELECT COUNT(*) FROM rfqs WHERE status IN ('open','sent','pending','draft')") : 0;
+$pr_openPOs         = ($poHeaderTbl) ? (int)fetch_val($procPdo,"SELECT COUNT(*) FROM `$poHeaderTbl` WHERE LOWER(IFNULL(status,'')) IN ('draft','approved','ordered','partially_received')") : 0;
+$pr_pendingPRs      = $hasPR ? (int)fetch_val($procPdo,"SELECT COUNT(*) FROM procurement_requests WHERE status IN ('pending','for_approval','approved','submitted')") : 0;
 
-/* Spend this month */
 $pr_spendThisMonth = 0.0;
 if ($poHeaderTbl && $poDateCol) {
-    if ($poItemTbl && column_exists($proc, $poItemTbl, "qty") && column_exists($proc, $poItemTbl, "price")) {
-        $joinKey = column_exists($proc, $poItemTbl, "po_id")
-            ? "po_id"
-            : (column_exists($proc, $poItemTbl, "purchase_order_id") ? "purchase_order_id" : null);
-        if ($joinKey) {
-            $pr_spendThisMonth = (float)fetch_val($proc,"
-                SELECT COALESCE(SUM(i.qty*i.price),0)
-                FROM `$poHeaderTbl` p
-                JOIN `$poItemTbl` i ON i.$joinKey=p.id
-                WHERE DATE_FORMAT(p.`$poDateCol`,'%Y-%m') = DATE_FORMAT(CURDATE(),'%Y-%m')
-            ", [], 0.0);
-        }
-    } elseif ($poTotalCol) {
-        $pr_spendThisMonth = (float)fetch_val($proc,"
-            SELECT COALESCE(SUM(p.`$poTotalCol`),0)
-            FROM `$poHeaderTbl` p
-            WHERE DATE_FORMAT(p.`$poDateCol`,'%Y-%m') = DATE_FORMAT(CURDATE(),'%Y-%m')
-        ", [], 0.0);
+  if ($poItemTbl && column_exists($procPdo,$poItemTbl,'qty') && column_exists($procPdo,$poItemTbl,'price')) {
+    $joinKey = column_exists($procPdo,$poItemTbl,'po_id') ? 'po_id' : (column_exists($procPdo,$poItemTbl,'purchase_order_id') ? 'purchase_order_id' : null);
+    if ($joinKey) {
+      $pr_spendThisMonth = (float)fetch_val($procPdo,"
+        SELECT COALESCE(SUM(i.qty*i.price),0)
+        FROM `$poHeaderTbl` p JOIN `$poItemTbl` i ON i.$joinKey=p.id
+        WHERE DATE_FORMAT(p.`$poDateCol`,'%Y-%m') = DATE_FORMAT(CURDATE(),'%Y-%m')
+      ",[],0.0);
     }
+  } elseif ($poTotalCol) {
+    $pr_spendThisMonth = (float)fetch_val($procPdo,"
+      SELECT COALESCE(SUM(p.`$poTotalCol`),0)
+      FROM `$poHeaderTbl` p
+      WHERE DATE_FORMAT(p.`$poDateCol`,'%Y-%m') = DATE_FORMAT(CURDATE(),'%Y-%m')
+    ",[],0.0);
+  }
 }
 
-/* Charts: PO Status */
-$pr_poStatusLabels = ["draft","approved","ordered","partially_received","received","closed","cancelled"];
-$pr_poStatusData   = array_fill(0, count($pr_poStatusLabels), 0);
+/* Charts */
+$pr_poStatusLabels = ['draft','approved','ordered','partially_received','received','closed','cancelled'];
+$pr_poStatusData   = array_fill(0,count($pr_poStatusLabels),0);
 if ($poHeaderTbl) {
-    $rows = qall($proc, "SELECT LOWER(IFNULL(status,'')) s, COUNT(*) c FROM `$poHeaderTbl` GROUP BY s");
-    $map  = [];
-    foreach ($rows as $r) { $map[$r["s"]] = (int)$r["c"]; }
-    foreach ($pr_poStatusLabels as $i => $s) { $pr_poStatusData[$i] = $map[$s] ?? 0; }
+  $rows = qall($procPdo,"SELECT LOWER(IFNULL(status,'')) s, COUNT(*) c FROM `$poHeaderTbl` GROUP BY s");
+  $map=[]; foreach($rows as $r) $map[$r['s']] = (int)$r['c'];
+  foreach ($pr_poStatusLabels as $i=>$s) $pr_poStatusData[$i] = $map[$s] ?? 0;
 }
 
-/* Charts: Monthly Spend (last 6 months) */
-$pr_monLabels  = [];
-$pr_monAmounts = [];
+$pr_monLabels=[]; $pr_monAmounts=[];
 if ($poHeaderTbl && $poDateCol) {
-    $first   = new DateTime("first day of this month", $tz);
-    $buckets = [];
-    for ($i = 5; $i >= 0; $i--) {
-        $d  = (clone $first)->modify("-$i months");
-        $ym = $d->format("Y-m");
-        $pr_monLabels[] = $d->format("M Y");
-        $buckets[$ym]   = 0.0;
+  $first = new DateTime("first day of this month", $tz);
+  $buckets=[];
+  for ($i=5;$i>=0;$i--){
+    $d=(clone $first)->modify("-$i months");
+    $ym=$d->format('Y-m'); $pr_monLabels[]=$d->format('M Y'); $buckets[$ym]=0.0;
+  }
+  $sql=null;
+  if ($poItemTbl && column_exists($procPdo,$poItemTbl,'qty') && column_exists($procPdo,$poItemTbl,'price')) {
+    $joinKey = column_exists($procPdo,$poItemTbl,'po_id') ? 'po_id' : (column_exists($procPdo,$poItemTbl,'purchase_order_id') ? 'purchase_order_id' : null);
+    if ($joinKey) {
+      $sql = "SELECT DATE_FORMAT(p.`$poDateCol`,'%Y-%m') ym, SUM(i.qty*i.price) amt
+              FROM `$poHeaderTbl` p JOIN `$poItemTbl` i ON i.`$joinKey`=p.id
+              WHERE p.`$poDateCol` >= DATE_SUB(DATE_FORMAT(CURDATE(),'%Y-%m-01'), INTERVAL 5 MONTH)
+              GROUP BY DATE_FORMAT(p.`$poDateCol`,'%Y-%m')";
     }
-    $sql = null;
-    if ($poItemTbl && column_exists($proc, $poItemTbl, "qty") && column_exists($proc, $poItemTbl, "price")) {
-        $joinKey = column_exists($proc, $poItemTbl, "po_id")
-            ? "po_id"
-            : (column_exists($proc, $poItemTbl, "purchase_order_id") ? "purchase_order_id" : null);
-        if ($joinKey) {
-            $sql = "SELECT DATE_FORMAT(p.`$poDateCol`,'%Y-%m') ym, SUM(i.qty*i.price) amt
-                    FROM `$poHeaderTbl` p
-                    JOIN `$poItemTbl` i ON i.`$joinKey`=p.id
-                    WHERE p.`$poDateCol` >= DATE_SUB(DATE_FORMAT(CURDATE(),'%Y-%m-01'), INTERVAL 5 MONTH)
-                    GROUP BY DATE_FORMAT(p.`$poDateCol`,'%Y-%m')";
-        }
-    } elseif ($poTotalCol) {
-        $sql = "SELECT DATE_FORMAT(p.`$poDateCol`,'%Y-%m') ym, SUM(p.`$poTotalCol`) amt
-                FROM `$poHeaderTbl` p
-                WHERE p.`$poDateCol` >= DATE_SUB(DATE_FORMAT(CURDATE(),'%Y-%m-01'), INTERVAL 5 MONTH)
-                GROUP BY DATE_FORMAT(p.`$poDateCol`,'%Y-%m')";
-    }
-    if ($sql) {
-        $rows = qall($proc, $sql);
-        foreach ($rows as $r) {
-            $ym = $r["ym"];
-            if (isset($buckets[$ym])) {
-                $buckets[$ym] = (float)$r["amt"];
-            }
-        }
-    }
-    foreach ($buckets as $amt) { $pr_monAmounts[] = (float)$amt; }
+  } elseif ($poTotalCol) {
+    $sql = "SELECT DATE_FORMAT(p.`$poDateCol`,'%Y-%m') ym, SUM(p.`$poTotalCol`) amt
+            FROM `$poHeaderTbl` p
+            WHERE p.`$poDateCol` >= DATE_SUB(DATE_FORMAT(CURDATE(),'%Y-%m-01'), INTERVAL 5 MONTH)
+            GROUP BY DATE_FORMAT(p.`$poDateCol`,'%Y-%m')";
+  }
+  if ($sql){
+    $rows = qall($procPdo,$sql);
+    foreach($rows as $r){ if(isset($buckets[$r['ym']])) $buckets[$r['ym']] = (float)$r['amt']; }
+  }
+  foreach ($buckets as $amt) $pr_monAmounts[] = (float)$amt;
 }
 
-/* Charts: Top Suppliers (last 90d) */
-$pr_topSupLabels = [];
-$pr_topSupAmts   = [];
+$pr_topSupLabels=[]; $pr_topSupAmts=[];
 if ($hasSup && $poHeaderTbl && $poDateCol) {
-    $sql = null;
-    if ($poItemTbl && column_exists($proc, $poItemTbl, "qty") && column_exists($proc, $poItemTbl, "price") && column_exists($proc, $poHeaderTbl, "supplier_id")) {
-        $joinKey = column_exists($proc, $poItemTbl, "po_id")
-            ? "po_id"
-            : (column_exists($proc, $poItemTbl, "purchase_order_id") ? "purchase_order_id" : null);
-        if ($joinKey) {
-            $sql = "SELECT s.name, SUM(i.qty*i.price) amt
-                    FROM `$poHeaderTbl` p
-                    JOIN suppliers s ON s.id=p.supplier_id
-                    JOIN `$poItemTbl` i ON i.`$joinKey`=p.id
-                    WHERE p.`$poDateCol` >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)
-                    GROUP BY s.id
-                    ORDER BY amt DESC
-                    LIMIT 6";
-        }
-    } elseif ($poTotalCol && column_exists($proc, $poHeaderTbl, "supplier_id")) {
-        $sql = "SELECT s.name, SUM(p.`$poTotalCol`) amt
-                FROM `$poHeaderTbl` p
-                JOIN suppliers s ON s.id=p.supplier_id
-                WHERE p.`$poDateCol` >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)
-                GROUP BY s.id
-                ORDER BY amt DESC
-                LIMIT 6";
+  $sql=null;
+  if ($poItemTbl && column_exists($procPdo,$poItemTbl,'qty') && column_exists($procPdo,$poItemTbl,'price') && column_exists($procPdo,$poHeaderTbl,'supplier_id')) {
+    $joinKey = column_exists($procPdo,$poItemTbl,'po_id') ? 'po_id' : (column_exists($procPdo,$poItemTbl,'purchase_order_id') ? 'purchase_order_id' : null);
+    if ($joinKey) {
+      $sql = "SELECT s.name, SUM(i.qty*i.price) amt
+              FROM `$poHeaderTbl` p
+              JOIN suppliers s ON s.id=p.supplier_id
+              JOIN `$poItemTbl` i ON i.`$joinKey`=p.id
+              WHERE p.`$poDateCol` >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)
+              GROUP BY s.id ORDER BY amt DESC LIMIT 6";
     }
-    if ($sql) {
-        $rows = qall($proc, $sql);
-        foreach ($rows as $r) {
-            $pr_topSupLabels[] = $r["name"];
-            $pr_topSupAmts[]   = (float)$r["amt"];
-        }
-    }
+  } elseif ($poTotalCol && column_exists($procPdo,$poHeaderTbl,'supplier_id')) {
+    $sql = "SELECT s.name, SUM(p.`$poTotalCol`) amt
+            FROM `$poHeaderTbl` p JOIN suppliers s ON s.id=p.supplier_id
+            WHERE p.`$poDateCol` >= DATE_SUB(CURDATE(), INTERVAL 90 DAY)
+            GROUP BY s.id ORDER BY amt DESC LIMIT 6";
+  }
+  if ($sql){
+    $rows = qall($procPdo,$sql);
+    foreach($rows as $r){ $pr_topSupLabels[]=$r['name']; $pr_topSupAmts[]=(float)$r['amt']; }
+  }
 }
 
 /* ================================================================
-   SECTION C: PLT (uses $plt)
-================================================================ */
-$plt_kToday = (int) fetch_val($plt, "SELECT COUNT(*) FROM plt_shipments WHERE schedule_date = CURDATE()");
-$plt_kWeek  = (int) fetch_val($plt, "SELECT COUNT(*) FROM plt_shipments WHERE schedule_date >= CURDATE() AND schedule_date < DATE_ADD(CURDATE(), INTERVAL 7 DAY)");
-$plt_kDel7  = (int) fetch_val($plt, "SELECT COUNT(*) FROM plt_shipments WHERE status='delivered' AND COALESCE(delivered_at, eta_date, schedule_date) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)");
-$plt_kProj  = (int) fetch_val($plt, "SELECT COUNT(*) FROM plt_projects WHERE status IN('planned','ongoing','delayed')");
-$plt_kVeh   = (int) fetch_val($plt, "SELECT COUNT(DISTINCT TRIM(vehicle)) FROM plt_shipments WHERE TRIM(COALESCE(vehicle,'')) <> ''");
-$plt_kDrv   = (int) fetch_val($plt, "SELECT COUNT(DISTINCT TRIM(driver))  FROM plt_shipments WHERE TRIM(COALESCE(driver,'')) <> ''");
+  SECTION C: PLT  (uses $pltPdo)
+=============================================================== */
+$plt_kToday = (int)fetch_val($pltPdo, "SELECT COUNT(*) FROM plt_shipments WHERE schedule_date = CURDATE()");
+$plt_kWeek  = (int)fetch_val($pltPdo, "SELECT COUNT(*) FROM plt_shipments WHERE schedule_date >= CURDATE() AND schedule_date < DATE_ADD(CURDATE(), INTERVAL 7 DAY)");
+$plt_kDel7  = (int)fetch_val($pltPdo, "SELECT COUNT(*) FROM plt_shipments WHERE status='delivered' AND COALESCE(delivered_at, eta_date, schedule_date) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)");
+$plt_kProj  = (int)fetch_val($pltPdo, "SELECT COUNT(*) FROM plt_projects WHERE status IN('planned','ongoing','delayed')");
+$plt_kVeh   = (int)fetch_val($pltPdo, "SELECT COUNT(DISTINCT TRIM(vehicle)) FROM plt_shipments WHERE TRIM(COALESCE(vehicle,'')) <> ''");
+$plt_kDrv   = (int)fetch_val($pltPdo, "SELECT COUNT(DISTINCT TRIM(driver))  FROM plt_shipments WHERE TRIM(COALESCE(driver,'')) <> ''");
 
-$plt_rowsStatus = qall($plt,"
-    SELECT LOWER(status) AS status, COUNT(*) AS total
-    FROM plt_shipments
-    WHERE schedule_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-    GROUP BY LOWER(status)
-    ORDER BY total DESC
+$plt_rowsStatus = qall($pltPdo, "
+  SELECT LOWER(status) AS status, COUNT(*) AS total
+  FROM plt_shipments
+  WHERE schedule_date >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+  GROUP BY LOWER(status)
+  ORDER BY total DESC
 ");
-$plt_rowsDaily = qall($plt,"
-    SELECT DATE(schedule_date) d, COUNT(*) total
-    FROM plt_shipments
-    WHERE schedule_date >= DATE_SUB(CURDATE(), INTERVAL 13 DAY)
-    GROUP BY DATE(schedule_date)
-    ORDER BY d ASC
+$plt_rowsDaily = qall($pltPdo, "
+  SELECT DATE(schedule_date) d, COUNT(*) total
+  FROM plt_shipments
+  WHERE schedule_date >= DATE_SUB(CURDATE(), INTERVAL 13 DAY)
+  GROUP BY DATE(schedule_date)
+  ORDER BY d ASC
 ");
-$plt_upcoming = qall($plt,"
-    SELECT s.id, s.shipment_no, s.origin, s.destination, s.schedule_date, s.status, s.vehicle, s.driver,
-           p.name AS project_name
-    FROM plt_shipments s
-    LEFT JOIN plt_projects p ON p.id = s.project_id
-    WHERE s.schedule_date >= CURDATE() AND s.schedule_date < DATE_ADD(CURDATE(), INTERVAL 7 DAY)
-    ORDER BY s.schedule_date ASC, s.id ASC
-    LIMIT 10
+$plt_upcoming = qall($pltPdo, "
+  SELECT s.id, s.shipment_no, s.origin, s.destination, s.schedule_date, s.status, s.vehicle, s.driver,
+         p.name AS project_name
+  FROM plt_shipments s
+  LEFT JOIN plt_projects p ON p.id = s.project_id
+  WHERE s.schedule_date >= CURDATE() AND s.schedule_date < DATE_ADD(CURDATE(), INTERVAL 7 DAY)
+  ORDER BY s.schedule_date ASC, s.id ASC
+  LIMIT 10
 ");
-$plt_recent = qall($plt,"
-    SELECT s.id, s.shipment_no, s.origin, s.destination, s.schedule_date, s.eta_date, s.status,
-           p.name AS project_name
-    FROM plt_shipments s
-    LEFT JOIN plt_projects p ON p.id = s.project_id
-    ORDER BY s.id DESC
-    LIMIT 10
+$plt_recent = qall($pltPdo, "
+  SELECT s.id, s.shipment_no, s.origin, s.destination, s.schedule_date, s.eta_date, s.status,
+         p.name AS project_name
+  FROM plt_shipments s
+  LEFT JOIN plt_projects p ON p.id = s.project_id
+  ORDER BY s.id DESC
+  LIMIT 10
 ");
-$plt_atRisk = qall($plt,"
-    SELECT id, code, name, owner_name, deadline_date
-    FROM plt_projects
-    WHERE status='delayed'
-    ORDER BY COALESCE(deadline_date, '9999-12-31') ASC, id DESC
-    LIMIT 10
+$plt_atRisk = qall($pltPdo, "
+  SELECT id, code, name, owner_name, deadline_date
+  FROM plt_projects
+  WHERE status='delayed'
+  ORDER BY COALESCE(deadline_date, '9999-12-31') ASC, id DESC
+  LIMIT 10
 ");
-$plt_stLabels = array_map(fn($r) => $r["status"], $plt_rowsStatus);
-$plt_stValues = array_map(fn($r) => (int) $r["total"], $plt_rowsStatus);
-$plt_dailyLabels = [];
-$plt_dailyValues = [];
+$plt_stLabels = array_map(fn($r)=>$r['status'],$plt_rowsStatus);
+$plt_stValues = array_map(fn($r)=>(int)$r['total'],$plt_rowsStatus);
+$plt_dailyLabels=[]; $plt_dailyValues=[];
 $start = new DateTime(date("Y-m-d", strtotime("-13 days")));
-for ($i = 0; $i < 14; $i++) {
-    $day = clone $start;
-    $day->modify("+$i day");
-    $lbl = $day->format("Y-m-d");
-    $plt_dailyLabels[] = $lbl;
-    $match = array_values(array_filter($plt_rowsDaily, fn($r) => $r["d"] === $lbl));
-    $plt_dailyValues[] = $match ? (int)$match[0]["total"] : 0;
+for ($i=0;$i<14;$i++){
+  $day = clone $start; $day->modify("+$i day");
+  $lbl = $day->format("Y-m-d");
+  $plt_dailyLabels[]=$lbl;
+  $match = array_values(array_filter($plt_rowsDaily, fn($r)=>$r['d']===$lbl));
+  $plt_dailyValues[] = $match ? (int)$match[0]['total'] : 0;
 }
 ?>
 <!DOCTYPE html>
@@ -473,9 +419,7 @@ for ($i = 0; $i < 14; $i++) {
         <div class="col-12 col-lg-6"><div class="card shadow-sm chart-card h-100"><div class="card-body">
           <div class="d-flex justify-content-between align-items-center mb-2"><h6 class="m-0">Shipment Status</h6><ion-icon name="paper-plane-outline"></ion-icon></div>
           <canvas id="sw_shipChart"></canvas>
-          <?php if (!$sw_hasShip): ?>
-            <div class="text-muted small mt-2">Tip: create a <code>shipments</code> table with a <code>status</code> column.</div>
-          <?php endif; ?>
+          <?php if(!$sw_hasShip): ?><div class="text-muted small mt-2">Tip: create a <code>shipments</code> table with a <code>status</code> column.</div><?php endif; ?>
         </div></div></div>
       </div>
 
@@ -497,7 +441,7 @@ for ($i = 0; $i < 14; $i++) {
         </div></div></div>
         <div class="col-6 col-md-3"><div class="card shadow-sm kpi-card h-100"><div class="card-body d-flex gap-3 align-items-center">
           <div class="icon-wrap bg-success-subtle"><ion-icon name="cash-outline"></ion-icon></div>
-          <div><div class="text-muted small">Spend (This Month)</div><div class="h4 m-0">₱<?= number_format($pr_spendThisMonth, 2) ?></div></div>
+          <div><div class="text-muted small">Spend (This Month)</div><div class="h4 m-0">₱<?= number_format($pr_spendThisMonth,2) ?></div></div>
         </div></div></div>
       </div>
 
@@ -505,17 +449,13 @@ for ($i = 0; $i < 14; $i++) {
         <div class="col-12 col-lg-6"><div class="card shadow-sm chart-card h-100"><div class="card-body">
           <div class="d-flex justify-content-between align-items-center mb-2"><h6 class="m-0">PO Status</h6><ion-icon name="pie-chart-outline"></ion-icon></div>
           <canvas id="pr_chartStatus"></canvas>
-          <?php if (!$poHeaderTbl): ?>
-            <div class="text-muted small mt-2">Tip: ensure a <code>pos</code> or <code>purchase_orders</code> table with a <code>status</code> column.</div>
-          <?php endif; ?>
+          <?php if(!$poHeaderTbl): ?><div class="text-muted small mt-2">Tip: ensure a <code>pos</code> or <code>purchase_orders</code> table with a <code>status</code> column.</div><?php endif; ?>
         </div></div></div>
 
         <div class="col-12 col-lg-6"><div class="card shadow-sm chart-card h-100"><div class="card-body">
           <div class="d-flex justify-content-between align-items-center mb-2"><h6 class="m-0">Monthly Spend</h6><ion-icon name="stats-chart-outline"></ion-icon></div>
           <canvas id="pr_chartMonth"></canvas>
-          <?php if (!$poHeaderTbl || !$poDateCol): ?>
-            <div class="text-muted small mt-2">Tip: add a date column like <code>issue_date</code> to your PO header.</div>
-          <?php endif; ?>
+          <?php if(!$poHeaderTbl || !$poDateCol): ?><div class="text-muted small mt-2">Tip: add a date column like <code>issue_date</code> to your PO header.</div><?php endif; ?>
         </div></div></div>
       </div>
 
@@ -523,9 +463,7 @@ for ($i = 0; $i < 14; $i++) {
         <div class="col-12"><div class="card shadow-sm chart-card h-100"><div class="card-body">
           <div class="d-flex justify-content-between align-items-center mb-2"><h6 class="m-0">Top Suppliers (last 90 days)</h6><ion-icon name="ribbon-outline"></ion-icon></div>
           <canvas id="pr_chartSup"></canvas>
-          <?php if (!$hasSup || !$poHeaderTbl): ?>
-            <div class="text-muted small mt-2">Tip: ensure <code>suppliers</code> and POs are linked via <code>supplier_id</code>.</div>
-          <?php endif; ?>
+          <?php if(!$hasSup || !$poHeaderTbl): ?><div class="text-muted small mt-2">Tip: ensure <code>suppliers</code> and POs are linked via <code>supplier_id</code>.</div><?php endif; ?>
         </div></div></div>
       </div>
 
@@ -565,7 +503,7 @@ for ($i = 0; $i < 14; $i++) {
           <canvas id="plt_status"></canvas>
         </div></div></div>
         <div class="col-12 col-lg-6"><div class="card shadow-sm chart-card h-100"><div class="card-body">
-          <h6 class="mb-2 d-flex align-items-center gap-2"><ion-icon name="bar-chart-outline"></ion-icon> Shipments per Day (last 14d)</h6>
+          <h6 class="mb-2 d-flex align-items-center gap-2"><ion-icon name="bar-chart-outline"></ionicon> Shipments per Day (last 14d)</h6>
           <canvas id="plt_daily"></canvas>
         </div></div></div>
       </div>
@@ -655,7 +593,7 @@ for ($i = 0; $i < 14; $i++) {
 </div><!-- /container -->
 
 <script>
-  // Global Chart.js
+  // Global Chart.js defaults
   Chart.defaults.font.family = getComputedStyle(document.body).fontFamily || 'system-ui';
   Chart.defaults.color = getComputedStyle(document.body).color || '#222';
 
@@ -724,10 +662,10 @@ for ($i = 0; $i < 14; $i++) {
   });
 
   /* ---------- PLT charts ---------- */
-  const plt_stLabels     = <?= json_encode($plt_stLabels) ?>;
-  const plt_stValues     = <?= json_encode($plt_stValues) ?>;
-  const plt_dailyLabels  = <?= json_encode($plt_dailyLabels) ?>;
-  const plt_dailyValues  = <?= json_encode($plt_dailyValues) ?>;
+  const plt_stLabels    = <?= json_encode($plt_stLabels) ?>;
+  const plt_stValues    = <?= json_encode($plt_stValues) ?>;
+  const plt_dailyLabels = <?= json_encode($plt_dailyLabels) ?>;
+  const plt_dailyValues = <?= json_encode($plt_dailyValues) ?>;
 
   new Chart(document.getElementById('plt_status'), {
     type:'doughnut',
