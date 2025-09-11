@@ -7,21 +7,91 @@ require_once $inc . "/auth.php";
 require_once $inc . "/db.php";
 
 require_login();
-require_role(['admin','proc_officer']);
+require_role(['admin','procurement_officer']);
 
-// always connect to Warehousing DB (since reports pull from inventory/PO)
-$pdo = db('wms');
+$pdoProc = db('proc');
+$pdoWms  = db('wms');
 
-$user = current_user();
+// Procurement Requests
+$pendingPRs = $pdoProc->query("SELECT COUNT(*) FROM procurement_requests WHERE status='submitted'")->fetchColumn();
+$totalPRs   = $pdoProc->query("SELECT COUNT(*) FROM procurement_requests")->fetchColumn();
+
+// Purchase Orders
+$openPOs = $pdoProc->query("SELECT COUNT(*) FROM purchase_orders WHERE status IN ('draft','approved','ordered')")->fetchColumn();
+$totalPOs= $pdoProc->query("SELECT COUNT(*) FROM purchase_orders")->fetchColumn();
+
+// RFQs
+$openRFQs = $pdoProc->query("SELECT COUNT(*) FROM rfqs WHERE status IN ('draft','sent')")->fetchColumn();
+$totalRFQs= $pdoProc->query("SELECT COUNT(*) FROM rfqs")->fetchColumn();
+
+// Suppliers
+$totalSuppliers = $pdoProc->query("SELECT COUNT(*) FROM suppliers WHERE is_active=1")->fetchColumn();
+
+// Budgets (from budgets table in Procurement DB)
+$totalBudgets = $pdoProc->query("SELECT COUNT(*) FROM budgets")->fetchColumn();
+
+
+
+function table_exists(PDO $pdo=null, string $table=''): bool {
+  if (!$pdo) return false;
+  try {
+    $stmt = $pdo->prepare("SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?");
+    $stmt->execute([$table]);
+    return (bool)$stmt->fetchColumn();
+  } catch(Throwable $e) { return false; }
+}
+
+
+function qAll(PDO $pdo=null, string $sql='', int $mode = PDO::FETCH_ASSOC) : array {
+  if (!$pdo) return [];
+  try { return $pdo->query($sql)->fetchAll($mode); } catch(Throwable $e) { return []; }
+}
+
+
+$user = function_exists('current_user') ? current_user() : [];
 $userName = $user['name'] ?? 'Procurement User';
 $userRole = $user['role'] ?? 'Procurement';
 
-// pull filter options from warehousing tables
-$depts  = $pdo->query("SELECT id, name FROM departments ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
-$cats   = $pdo->query("SELECT DISTINCT category FROM inventory_items WHERE category IS NOT NULL AND category<>'' ORDER BY category")->fetchAll(PDO::FETCH_COLUMN);
-$years  = $pdo->query("SELECT DISTINCT fiscal_year FROM budgets ORDER BY fiscal_year DESC")->fetchAll(PDO::FETCH_COLUMN);
-$catMap = $pdo->query("SELECT id, name FROM inventory_categories ORDER BY name")->fetchAll(PDO::FETCH_KEY_PAIR);
+
+if (table_exists($pdoWms, 'departments')) {
+  $depts = qAll($pdoWms, "SELECT id, name FROM departments ORDER BY name");
+} else {
+  $depts = table_exists($pdoProc, 'departments')
+    ? qAll($pdoProc, "SELECT id, name FROM departments ORDER BY name")
+    : [];
+}
+
+
+if (table_exists($pdoWms, 'inventory_items')) {
+  $cats = qAll($pdoWms, "SELECT DISTINCT category FROM inventory_items WHERE category IS NOT NULL AND category<>'' ORDER BY category", PDO::FETCH_COLUMN);
+} elseif (table_exists($pdoProc, 'inventory_items')) {
+  $cats = qAll($pdoProc, "SELECT DISTINCT category FROM inventory_items WHERE category IS NOT NULL AND category<>'' ORDER BY category", PDO::FETCH_COLUMN);
+} else {
+  $cats = table_exists($pdoProc, 'inventory_categories')
+    ? qAll($pdoProc, "SELECT name FROM inventory_categories ORDER BY name", PDO::FETCH_COLUMN)
+    : [];
+}
+
+if (table_exists($pdoProc, 'budgets')) {
+  $years = qAll($pdoProc, "SELECT DISTINCT fiscal_year FROM budgets ORDER BY fiscal_year DESC", PDO::FETCH_COLUMN);
+} elseif (table_exists($pdoWms, 'budgets')) {
+  $years = qAll($pdoWms, "SELECT DISTINCT fiscal_year FROM budgets ORDER BY fiscal_year DESC", PDO::FETCH_COLUMN);
+} else {
+  $years = [];
+}
+
+if (table_exists($pdoWms, 'inventory_categories')) {
+  $catMap = $pdoWms->query("SELECT id, name FROM inventory_categories ORDER BY name")
+                   ->fetchAll(PDO::FETCH_KEY_PAIR);
+} elseif (table_exists($pdoProc, 'inventory_categories')) {
+  $catMap = $pdoProc->query("SELECT id, name FROM inventory_categories ORDER BY name")
+                    ->fetchAll(PDO::FETCH_KEY_PAIR);
+} else {
+  $catMap = [];
+}
+
 ?>
+
 
 <!DOCTYPE html>
 <html lang="en">

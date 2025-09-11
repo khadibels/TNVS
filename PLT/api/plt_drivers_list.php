@@ -1,52 +1,47 @@
 <?php
-require_once __DIR__ . "/../../includes/config.php";
-header("Content-Type: application/json");
+declare(strict_types=1);
 
-$page = max(1, (int) ($_GET["page"] ?? 1));
-$per = max(1, min(100, (int) ($_GET["per_page"] ?? 10)));
-$search = trim($_GET["search"] ?? "");
-$onlyActive =
-    isset($_GET["active"]) && $_GET["active"] !== ""
-        ? (int) $_GET["active"]
-        : null;
+$inc = __DIR__ . "/../../includes";
+if (file_exists($inc."/config.php")) require_once $inc."/config.php";
+if (file_exists($inc."/auth.php"))   require_once $inc."/auth.php";
+if (file_exists($inc."/db.php"))     require_once $inc."/db.php";
+if (function_exists("require_login")) require_login();
 
-$where = [];
-$bind = [];
-if ($search !== "") {
-    $where[] = "(name LIKE :q OR phone LIKE :q OR license_no LIKE :q)";
-    $bind[":q"] = "%$search%";
-}
-if ($onlyActive !== null) {
-    $where[] = "active=:a";
-    $bind[":a"] = $onlyActive;
-}
-$whereSQL = $where ? "WHERE " . implode(" AND ", $where) : "";
+header("Content-Type: application/json; charset=utf-8");
 
-try {
+$pdo = db('plt');
+if (!$pdo) { http_response_code(500); echo json_encode(["error"=>"DB connection failed (plt)"]); exit; }
+
+$page  = max(1, (int)($_GET["page"] ?? 1));
+$per   = max(1, min(100, (int)($_GET["per_page"] ?? 10)));
+$search = trim((string)($_GET["search"] ?? ""));
+$onlyActive = (isset($_GET["active"]) && $_GET["active"]!=="") ? (int)$_GET["active"] : null;
+
+$where=[]; $bind=[];
+if ($search!==""){ $where[]="(name LIKE :q OR phone LIKE :q OR license_no LIKE :q)"; $bind[":q"]="%$search%"; }
+if ($onlyActive!==null){ $where[]="active=:a"; $bind[":a"]=$onlyActive; }
+$whereSQL = $where ? "WHERE ".implode(" AND ", $where) : "";
+
+try{
     $stmt = $pdo->prepare("SELECT COUNT(*) FROM plt_drivers $whereSQL");
     $stmt->execute($bind);
-    $total = (int) $stmt->fetchColumn();
+    $total = (int)$stmt->fetchColumn();
 
-    $off = ($page - 1) * $per;
+    $off = ($page-1)*$per;
     $sql = "SELECT id, name, phone, license_no, notes, active
-        FROM plt_drivers
-        $whereSQL
-        ORDER BY id DESC
-        LIMIT :lim OFFSET :off";
+            FROM plt_drivers
+            $whereSQL
+            ORDER BY id DESC
+            LIMIT :lim OFFSET :off";
     $stmt = $pdo->prepare($sql);
-    foreach ($bind as $k => $v) {
-        $stmt->bindValue($k, $v);
-    }
-    $stmt->bindValue(":lim", $per, PDO::PARAM_INT);
-    $stmt->bindValue(":off", $off, PDO::PARAM_INT);
+    foreach($bind as $k=>$v){ $stmt->bindValue($k,$v); }
+    $stmt->bindValue(":lim",$per,PDO::PARAM_INT);
+    $stmt->bindValue(":off",$off,PDO::PARAM_INT);
     $stmt->execute();
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
-    echo json_encode([
-        "data" => $rows,
-        "pagination" => ["page" => $page, "perPage" => $per, "total" => $total],
-    ]);
-} catch (Throwable $e) {
+    echo json_encode(["data"=>$rows,"pagination"=>["page"=>$page,"perPage"=>$per,"total"=>$total]]);
+}catch(Throwable $e){
     http_response_code(400);
-    echo json_encode(["error" => $e->getMessage()]);
+    echo json_encode(["error"=>$e->getMessage()]);
 }

@@ -1,43 +1,46 @@
 <?php
-require_once __DIR__ . "/../../includes/config.php";
-require_once __DIR__ . "/../../includes/auth.php";
-require_login();
+declare(strict_types=1);
+
+$inc = __DIR__ . "/../../includes";
+if (file_exists($inc . "/config.php")) require_once $inc . "/config.php";
+if (file_exists($inc . "/auth.php"))   require_once $inc . "/auth.php";
+if (file_exists($inc . "/db.php"))     require_once $inc . "/db.php";
+
+if (function_exists("require_login")) require_login();
 
 header("Content-Type: application/json; charset=utf-8");
 
-function norm(?string $s): ?string
-{
+// ✅ FIX: establish PLT DB connection
+$pdo = db('plt');
+if (!$pdo) {
+    http_response_code(500);
+    echo json_encode(["error" => "DB connection failed (plt)"]);
+    exit();
+}
+
+function norm(?string $s): ?string {
     $s = is_string($s) ? trim($s) : "";
     return $s === "" ? null : $s;
 }
-function norm_date(?string $s): ?string
-{
+function norm_date(?string $s): ?string {
     $s = norm($s);
-    if (!$s) {
-        return null;
-    }
-    // accept YYYY-MM-DD only
-    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $s)) {
-        return null;
-    }
-    return $s;
+    if (!$s) return null;
+    return preg_match('/^\d{4}-\d{2}-\d{2}$/', $s) ? $s : null;
 }
 
 try {
     $id = (int) ($_POST["id"] ?? 0);
-    $project_id =
-        ($_POST["project_id"] ?? "") === "" ? null : (int) $_POST["project_id"];
+    $project_id  = ($_POST["project_id"] ?? "") === "" ? null : (int) $_POST["project_id"];
     $shipment_no = norm($_POST["shipment_no"] ?? "");
-    $status = strtolower(norm($_POST["status"] ?? "") ?? "planned");
+    $status      = strtolower(norm($_POST["status"] ?? "") ?? "planned");
 
-    $origin = norm($_POST["origin"] ?? "");
+    $origin      = norm($_POST["origin"] ?? "");
     $destination = norm($_POST["destination"] ?? "");
-    $schedule = norm_date($_POST["schedule_date"] ?? "");
-    $eta = norm_date($_POST["eta_date"] ?? "");
-
-    $vehicle = norm($_POST["vehicle"] ?? "");
-    $driver = norm($_POST["driver"] ?? "");
-    $notes = norm($_POST["notes"] ?? "");
+    $schedule    = norm_date($_POST["schedule_date"] ?? "");
+    $eta         = norm_date($_POST["eta_date"] ?? "");
+    $vehicle     = norm($_POST["vehicle"] ?? "");
+    $driver      = norm($_POST["driver"] ?? "");
+    $notes       = norm($_POST["notes"] ?? "");
 
     $isDelivered = $status === "delivered";
 

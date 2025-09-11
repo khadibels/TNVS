@@ -1,15 +1,19 @@
 <?php
 declare(strict_types=1);
+
 $inc = __DIR__ . "/../../includes";
-if (file_exists($inc . "/config.php")) {
-    require_once $inc . "/config.php";
+if (file_exists($inc . "/config.php"))  require_once $inc . "/config.php";
+if (file_exists($inc . "/auth.php"))    require_once $inc . "/auth.php";
+if (file_exists($inc . "/db.php"))      require_once $inc . "/db.php"; 
+if (function_exists("require_login"))    require_login();
+require_role(['admin', 'project_lead']);
+
+if (!isset($pdo) || !$pdo instanceof PDO) {
+    if (function_exists('db')) {
+        $pdo = db('plt');  
+    }
 }
-if (file_exists($inc . "/auth.php")) {
-    require_once $inc . "/auth.php";
-}
-if (function_exists("require_login")) {
-    require_login();
-}
+
 header("Content-Type: application/json; charset=utf-8");
 
 try {

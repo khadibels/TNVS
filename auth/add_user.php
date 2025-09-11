@@ -1,8 +1,11 @@
 <?php
 require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/db.php';
 
 require_role(['admin']); // only admin can add users
+
+$pdo = db('auth');
 
 $msg = '';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

@@ -1,9 +1,22 @@
 <?php
-require_once __DIR__ . "/../../includes/config.php";
-require_once __DIR__ . "/../../includes/auth.php";
+declare(strict_types=1);
+
+$inc = __DIR__ . "/../../includes";
+if (file_exists($inc . "/config.php")) require_once $inc . "/config.php";
+if (file_exists($inc . "/auth.php"))   require_once $inc . "/auth.php";
+if (file_exists($inc . "/db.php"))     require_once $inc . "/db.php";
+
 require_login();
 
+$pdo = db('plt');
+if (!$pdo) {
+    http_response_code(500);
+    echo json_encode(["error" => "DB connection failed (plt)"]);
+    exit();
+}
+
 header("Cache-Control: no-store");
+
 
 $fmt = strtolower($_GET["format"] ?? "json");
 $from = trim($_GET["from"] ?? "");

@@ -1,6 +1,15 @@
 <?php
-require_once __DIR__ . "/../../includes/config.php";
-header("Content-Type: application/json");
+declare(strict_types=1);
+
+$inc = __DIR__ . "/../../includes";
+if (file_exists($inc . "/config.php")) require_once $inc . "/config.php";
+if (file_exists($inc . "/auth.php"))   require_once $inc . "/auth.php";
+if (file_exists($inc . "/db.php"))     require_once $inc . "/db.php";
+
+if (function_exists("require_login")) require_login();
+require_role(['admin', 'project_lead']);
+
+header("Content-Type: application/json; charset=utf-8");
 
 $id = (int) ($_POST["id"] ?? 0);
 $name = trim($_POST["name"] ?? "");

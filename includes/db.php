@@ -1,13 +1,4 @@
 <?php
-/**
- * Unified PDO connector with simple pooling.
- *
- * Usage:
- *   $pdo = db('wms');   // warehousing
- *   $pdo = db('auth');  // authentication
- *   $pdo = db('proc');  // procurement
- */
-
 function db(string $which = 'wms'): ?PDO
 {
     static $pool = [];
@@ -16,7 +7,6 @@ function db(string $which = 'wms'): ?PDO
         return $pool[$which];
     }
 
-    // Build connection map (pulls constants from includes/config.php)
     $map = [
         'auth' => [
             'host'    => defined('DB_AUTH_HOST') ? DB_AUTH_HOST : (defined('DB_HOST') ? DB_HOST : '127.0.0.1'),
@@ -37,6 +27,27 @@ function db(string $which = 'wms'): ?PDO
             'name'    => defined('DB_PROC_NAME') ? DB_PROC_NAME : (defined('DB_NAME') ? DB_NAME : ''),
             'user'    => defined('DB_PROC_USER') ? DB_PROC_USER : (defined('DB_USER') ? DB_USER : 'root'),
             'pass'    => defined('DB_PROC_PASS') ? DB_PROC_PASS : (defined('DB_PASS') ? DB_PASS : ''),
+            'charset' => defined('DB_CHARSET')   ? DB_CHARSET   : 'utf8mb4',
+        ],
+        'plt' => [
+            'host'    => defined('DB_PLT_HOST') ? DB_PLT_HOST : (defined('DB_HOST') ? DB_HOST : '127.0.0.1'),
+            'name'    => defined('DB_PLT_NAME') ? DB_PLT_NAME : 'logi_plt',
+            'user'    => defined('DB_PLT_USER') ? DB_PLT_USER : (defined('DB_USER') ? DB_USER : 'root'),
+            'pass'    => defined('DB_PLT_PASS') ? DB_PLT_PASS : (defined('DB_PASS') ? DB_PASS : ''),
+            'charset' => defined('DB_CHARSET')  ? DB_CHARSET  : 'utf8mb4',
+        ],
+        'alms' => [
+            'host'    => defined('DB_ALMS_HOST') ? DB_ALMS_HOST : (defined('DB_HOST') ? DB_HOST : '127.0.0.1'),
+            'name'    => defined('DB_ALMS_NAME') ? DB_ALMS_NAME : 'logi_alms',
+            'user'    => defined('DB_ALMS_USER') ? DB_ALMS_USER : (defined('DB_USER') ? DB_USER : 'root'),
+            'pass'    => defined('DB_ALMS_PASS') ? DB_ALMS_PASS : (defined('DB_PASS') ? DB_PASS : ''),
+            'charset' => defined('DB_CHARSET')   ? DB_CHARSET   : 'utf8mb4',
+        ],
+        'docs' => [
+            'host'    => defined('DB_DOCS_HOST') ? DB_DOCS_HOST : (defined('DB_HOST') ? DB_HOST : '127.0.0.1'),
+            'name'    => defined('DB_DOCS_NAME') ? DB_DOCS_NAME : 'logi_docs',
+            'user'    => defined('DB_DOCS_USER') ? DB_DOCS_USER : (defined('DB_USER') ? DB_USER : 'root'),
+            'pass'    => defined('DB_DOCS_PASS') ? DB_DOCS_PASS : (defined('DB_PASS') ? DB_PASS : ''),
             'charset' => defined('DB_CHARSET')   ? DB_CHARSET   : 'utf8mb4',
         ],
     ];

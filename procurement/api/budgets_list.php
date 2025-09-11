@@ -65,7 +65,7 @@ $sqlWhere = $where ? "WHERE " . implode(" AND ", $where) : "";
 
 $total = (int) qcol(
     $pdo,
-    "SELECT COUNT(*) FROM budgets b LEFT JOIN inventory_categories c ON c.id=b.category_id $sqlWhere",
+    "SELECT COUNT(*) FROM budgets b LEFT JOIN logi_wms.inventory_categories c ON c.id=b.category_id $sqlWhere",
     $p
 );
 
@@ -81,7 +81,7 @@ $sql =
     END AS month_name
   FROM budgets b
   LEFT JOIN departments d ON d.id = b.department_id
-  LEFT JOIN inventory_categories c ON c.id = b.category_id
+  LEFT JOIN logi_wms.inventory_categories c ON c.id = b.category_id
   $sqlWhere
   ORDER BY b.fiscal_year DESC, COALESCE(b.month,0) DESC, b.id DESC
   LIMIT $per OFFSET " .

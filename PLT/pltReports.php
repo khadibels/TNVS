@@ -1,27 +1,40 @@
 <?php
-require_once __DIR__ . "/../includes/config.php";
-require_once __DIR__ . "/../includes/auth.php";
+declare(strict_types=1);
+
+$inc = __DIR__ . "/../includes";
+if (file_exists($inc . "/config.php")) require_once $inc . "/config.php";
+if (file_exists($inc . "/auth.php"))   require_once $inc . "/auth.php";
+if (file_exists($inc . "/db.php"))     require_once $inc . "/db.php";
+
 require_login();
-require_role(['admin', 'project_lead']);
+require_role(['admin','project_lead']);
 
-function table_exists(PDO $pdo, string $name): bool
-{
-    $s = $pdo->prepare("SHOW TABLES LIKE ?");
-    $s->execute([$name]);
-    return (bool) $s->fetchColumn();
-}
-function role()
-{
-    return $_SESSION["user"]["role"] ?? "Viewer";
+$pdo = db('plt');
+if (!$pdo) {
+  die("<div class='alert alert-danger'>Cannot connect to PLT database</div>");
 }
 
-$userName = $_SESSION["user"]["name"] ?? "Admin";
-$userRole = $_SESSION["user"]["role"] ?? "System Admin";
+function table_exists(PDO $pdo, string $name): bool {
+  $sql = "SELECT 1
+            FROM information_schema.tables
+           WHERE table_schema = DATABASE()
+             AND table_name = :t
+           LIMIT 1";
+  $s = $pdo->prepare($sql);
+  $s->execute([':t' => $name]);
+  return (bool)$s->fetchColumn();
+}
 
-$hasShip = table_exists($pdo, "plt_shipments");
-$hasProj = table_exists($pdo, "plt_projects");
-$ready = $hasShip;
+function role() { return $_SESSION['user']['role'] ?? 'Viewer'; }
+
+$userName = $_SESSION['user']['name'] ?? 'Admin';
+$userRole = $_SESSION['user']['role'] ?? 'System Admin';
+
+$hasShip = table_exists($pdo, 'plt_shipments');
+$hasProj = table_exists($pdo, 'plt_projects');
+$ready   = $hasShip;
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>

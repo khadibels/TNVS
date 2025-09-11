@@ -1,10 +1,11 @@
 <?php
 require_once __DIR__ . '/../includes/config.php';
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/db.php';
 require_login();
-require_role(['admin', 'proc_officer']);
+require_role(['admin', 'procurement_officer']);
 
-
+$pdo = db('wms');
 $catNames = $pdo->query("SELECT name FROM inventory_categories WHERE active=1 ORDER BY name")
                ->fetchAll(PDO::FETCH_COLUMN);
 
@@ -167,9 +168,10 @@ if (function_exists('current_user')) {
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script>
   // reuse the warehousing list endpoint (read-only)
-  const api = {
-    list: '../warehousing/inventory/list_items.php'
-  };
+ const api = {
+  list: '<?= rtrim(defined("BASE_URL") ? BASE_URL : "", "/") ?>/warehousing/inventory/list_items.php'
+};
+
 
   const $ = (s, r=document)=>r.querySelector(s);
   let state = { page:1, search:'', category:'', sort:'latest' };
