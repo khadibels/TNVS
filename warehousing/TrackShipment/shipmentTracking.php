@@ -1,17 +1,28 @@
 <?php
 require_once __DIR__ . "/../../includes/config.php";
 require_once __DIR__ . "/../../includes/auth.php";
+require_once __DIR__ . "/../../includes/db.php";
 require_login();
+
+
+$wms  = db('wms');
+$pdo  = $wms;
 
 $section = 'warehousing';
 $active = 'shipments';
+
 /* ---- DB guards ---- */
 function table_exists(PDO $pdo, string $name): bool
 {
-    $stmt = $pdo->prepare("SHOW TABLES LIKE ?");
-    $stmt->execute([$name]);
-    return (bool) $stmt->fetchColumn();
+    $sql = "SELECT 1
+              FROM information_schema.TABLES
+             WHERE TABLE_SCHEMA = DATABASE()
+               AND TABLE_NAME   = ?";
+    $st = $pdo->prepare($sql);
+    $st->execute([$name]);
+    return (bool)$st->fetchColumn();
 }
+
 $hasLoc = table_exists($pdo, "warehouse_locations");
 $hasShip = table_exists($pdo, "shipments");
 $dbReady = $hasLoc && $hasShip;

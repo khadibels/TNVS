@@ -1,18 +1,22 @@
 <?php
 require_once __DIR__ . "/../../includes/config.php";
 require_once __DIR__ . "/../../includes/auth.php";
+require_once __DIR__ . "/../../includes/db.php";
 require_login();
+require_role(['admin', 'manager']);
 
 $section = "warehousing";
 $active = "stock";
 
+$wms  = db('wms');
+$pdo  = $wms;
+
 /* ---- DB guards ---- */
-function table_exists(PDO $pdo, string $name): bool
-{
-    $stmt = $pdo->prepare("SHOW TABLES LIKE ?");
-    $stmt->execute([$name]);
-    return (bool) $stmt->fetchColumn();
+function table_exists(PDO $pdo, string $name): bool {
+    $st = $pdo->query("SHOW TABLES LIKE " . $pdo->quote($name));
+    return (bool)$st->fetchColumn();
 }
+
 $hasLoc = table_exists($pdo, "warehouse_locations");
 $hasLvl = table_exists($pdo, "stock_levels");
 $hasTx = table_exists($pdo, "stock_transactions");

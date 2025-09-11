@@ -1,16 +1,19 @@
 <?php
-declare(strict_types=1);
 require_once __DIR__ . "/../../includes/config.php";
 require_once __DIR__ . "/../../includes/auth.php";
-require_login();
-header("Content-Type: application/json; charset=utf-8");
+require_once __DIR__ . "/../../includes/db.php";
 
-function bad($m, $c = 400)
-{
-    http_response_code($c);
-    echo json_encode(["error" => $m]);
-    exit();
+require_role(['admin','procurement_officer'], 'json');
+
+header('Content-Type: application/json; charset=utf-8');
+
+$pdo = db('proc') ?: db('wms');
+if (!$pdo instanceof PDO) {
+  http_response_code(500);
+  echo json_encode(['ok'=>false,'err'=>'DB not available']);
+  exit;
 }
+
 
 $id = (int) ($_POST["id"] ?? 0);
 $status = strtolower(trim($_POST["status"] ?? ""));

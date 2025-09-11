@@ -1,9 +1,25 @@
 <?php
 require_once __DIR__ . "/../includes/config.php";
 require_once __DIR__ . "/../includes/auth.php";
-require_login();
+require_once __DIR__ . "/../includes/db.php";
 
-require_role(['admin', 'proc_officer']);
+require_login();
+require_role(['admin','procurement_officer']);
+
+$pdo = db('proc') ?: db('wms');
+if (!$pdo instanceof PDO) {
+  http_response_code(500);
+  if (defined('APP_DEBUG') && APP_DEBUG) {
+    die('DB connection for "proc" (or fallback) is not available. Check includes/config.php credentials.');
+  }
+  die('Internal error');
+}
+
+$user     = current_user();
+$userName = $user['name'] ?? 'Guest';
+$userRole = $user['role'] ?? 'Unknown';
+
+
 
 /* -------------------- helpers -------------------- */
 function table_exists(PDO $pdo = null, string $name = ""): bool

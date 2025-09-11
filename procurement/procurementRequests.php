@@ -1,19 +1,23 @@
 <?php
-$inc = __DIR__ . "/../includes";
-if (file_exists($inc . "/config.php")) {
-    require_once $inc . "/config.php";
-}
-if (file_exists($inc . "/auth.php")) {
-    require_once $inc . "/auth.php";
-}
-if (function_exists("require_login")) {
-    require_login();
+require_once __DIR__ . "/../includes/config.php";
+require_once __DIR__ . "/../includes/auth.php";
+require_once __DIR__ . "/../includes/db.php";
+
+require_login();
+require_role(['admin','procurement_officer']);
+
+$pdo = db('proc') ?: db('wms');
+if (!$pdo instanceof PDO) {
+  http_response_code(500);
+  if (defined('APP_DEBUG') && APP_DEBUG) {
+    die('DB connection for "proc" (or fallback) is not available. Check includes/config.php credentials.');
+  }
+  die('Internal error');
 }
 
-require_role(['admin', 'proc_officer']);
-
-$userName = "Procurement User";
-$userRole = "Procurement";
+$user     = current_user();
+$userName = $user['name'] ?? 'Guest';
+$userRole = $user['role'] ?? 'Unknown';
 
 $section = "procurement";
 $active = "reqs";

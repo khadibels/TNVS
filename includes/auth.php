@@ -42,10 +42,25 @@ function require_login(string $mode = "auto")
 
 function require_role($roles, string $mode = "auto")
 {
-    $roles = is_array($roles) ? $roles : [$roles];
+    if (session_status() === PHP_SESSION_NONE) session_start();
+
+    $norm = function($v){
+        $v = strtolower(trim((string)$v));
+        $aliases = [
+            'proc_officer'        => 'procurement_officer',
+            'warehouse_mgr'       => 'manager',
+            'warehouse_manager'   => 'manager',
+        ];
+        return $aliases[$v] ?? $v;
+    };
+
     require_login($mode);
-    $role = user_role();
-    if (!in_array($role, $roles, true)) {
+
+    $allowed = is_array($roles) ? $roles : [$roles];
+    $allowed = array_map($norm, $allowed);
+    $userRole = $norm($_SESSION['user']['role'] ?? '');
+
+    if (!in_array($userRole, $allowed, true)) {
         if ($mode === "json" || ($mode === "auto" && is_json_request())) {
             http_response_code(403);
             header("Content-Type: application/json");
@@ -56,3 +71,4 @@ function require_role($roles, string $mode = "auto")
         exit();
     }
 }
+

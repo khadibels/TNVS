@@ -1,41 +1,28 @@
 <?php
-// procurement/budgetReports.php
+declare(strict_types=1);
+
 $inc = __DIR__ . "/../includes";
-if (file_exists($inc . "/config.php")) {
-    require_once $inc . "/config.php";
-}
-if (file_exists($inc . "/auth.php")) {
-    require_once $inc . "/auth.php";
-}
-if (function_exists("require_login")) {
-    require_login();
-}
+require_once $inc . "/config.php";
+require_once $inc . "/auth.php";
+require_once $inc . "/db.php";
 
-require_role(['admin', 'proc_officer']);
+require_login();
+require_role(['admin','proc_officer']);
 
-$userName = $_SESSION["user"]["name"] ?? "Procurement User";
-$userRole = $_SESSION["user"]["role"] ?? "Procurement";
+// always connect to Warehousing DB (since reports pull from inventory/PO)
+$pdo = db('wms');
 
-// dropdown data
-$depts = $pdo
-    ->query("SELECT id, name FROM departments ORDER BY name")
-    ->fetchAll(PDO::FETCH_ASSOC);
-$cats = $pdo
-    ->query(
-        "SELECT DISTINCT category FROM inventory_items WHERE category IS NOT NULL AND category<>'' ORDER BY category"
-    )
-    ->fetchAll(PDO::FETCH_COLUMN);
-$years = $pdo
-    ->query(
-        "SELECT DISTINCT fiscal_year FROM budgets ORDER BY fiscal_year DESC"
-    )
-    ->fetchAll(PDO::FETCH_COLUMN);
-$catMap = $pdo
-    ->query("SELECT id, name FROM inventory_categories ORDER BY name")
-    ->fetchAll(PDO::FETCH_KEY_PAIR);
+$user = current_user();
+$userName = $user['name'] ?? 'Procurement User';
+$userRole = $user['role'] ?? 'Procurement';
 
-// for modal options
+// pull filter options from warehousing tables
+$depts  = $pdo->query("SELECT id, name FROM departments ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+$cats   = $pdo->query("SELECT DISTINCT category FROM inventory_items WHERE category IS NOT NULL AND category<>'' ORDER BY category")->fetchAll(PDO::FETCH_COLUMN);
+$years  = $pdo->query("SELECT DISTINCT fiscal_year FROM budgets ORDER BY fiscal_year DESC")->fetchAll(PDO::FETCH_COLUMN);
+$catMap = $pdo->query("SELECT id, name FROM inventory_categories ORDER BY name")->fetchAll(PDO::FETCH_KEY_PAIR);
 ?>
+
 <!DOCTYPE html>
 <html lang="en">
 <head>

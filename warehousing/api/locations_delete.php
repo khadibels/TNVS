@@ -1,42 +1,32 @@
 <?php
-require_once __DIR__ . "/../../includes/config.php";
-require_once __DIR__ . "/../../includes/auth.php";
-require_role(["admin", "manager"], "json");
+require_once __DIR__."/../../includes/config.php";
+require_once __DIR__."/../../includes/auth.php";
+require_once __DIR__."/../../includes/db.php";
 
-header("Content-Type: application/json");
+require_login("json");
+require_role(["admin"], "json");
+header("Content-Type: application/json; charset=utf-8");
 
-$id = (int) ($_POST["id"] ?? 0);
-if ($id <= 0) {
-    http_response_code(422);
-    echo json_encode(["ok" => false, "error" => "INVALID_ID"]);
-    exit();
-}
+$pdo = db('wms');
+$id  = (int)($_POST['id'] ?? 0);
+if (!$id) { http_response_code(400); echo json_encode(["ok"=>false,"err"=>"Missing id"]); exit; }
 
 try {
-    $inLevels = $pdo->prepare(
-        "SELECT 1 FROM stock_levels WHERE location_id = ? LIMIT 1"
-    );
-    $inLevels->execute([$id]);
-    if ($inLevels->fetch()) {
-        http_response_code(409);
-        echo json_encode(["ok" => false, "error" => "IN_USE_STOCK_LEVELS"]);
-        exit();
-    }
-    $inTx = $pdo->prepare(
-        "SELECT 1 FROM stock_transactions WHERE from_location_id = ? OR to_location_id = ? LIMIT 1"
-    );
-    $inTx->execute([$id, $id]);
-    if ($inTx->fetch()) {
-        http_response_code(409);
-        echo json_encode(["ok" => false, "error" => "IN_USE_TRANSACTIONS"]);
-        exit();
-    }
+  // Optional guard: prevent delete if referenced by shipments or items
+  $ref = $pdo->prepare("SELECT 
+      (SELECT COUNT(*) FROM shipments WHERE origin_id=? OR destination_id=?) +
+      (SELECT COUNT(*) FROM inventory_items WHERE default_location_id=?) AS cnt");
+  $ref->execute([$id,$id,$id]);
+  if ((int)$ref->fetchColumn() > 0) {
+    http_response_code(409);
+    echo json_encode(["ok"=>false,"err"=>"Location is in use"]);
+    exit;
+  }
 
-    $st = $pdo->prepare("DELETE FROM warehouse_locations WHERE id = ?");
-    $st->execute([$id]);
-
-    echo json_encode(["ok" => true]);
+  $st = $pdo->prepare("DELETE FROM warehouse_locations WHERE id=?");
+  $st->execute([$id]);
+  echo json_encode(["ok"=>true]);
 } catch (Throwable $e) {
-    http_response_code(500);
-    echo json_encode(["ok" => false, "error" => "SERVER_ERROR"]);
+  http_response_code(500);
+  echo json_encode(["ok"=>false,"err"=>"Delete failed"]);
 }

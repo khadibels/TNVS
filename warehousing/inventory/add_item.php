@@ -1,10 +1,14 @@
 <?php
 require_once __DIR__ . "/../../includes/config.php";
 require_once __DIR__ . "/../../includes/auth.php";
+require_once __DIR__ . "/../../includes/db.php";
+
 
 require_login("json");
 header("Content-Type: application/json; charset=utf-8");
 require_role(['admin', 'manager']);
+
+$pdo = db('wms');
 
 function jerr($msg, $code=400){
   http_response_code($code);

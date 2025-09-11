@@ -1,10 +1,13 @@
 <?php
 require_once __DIR__ . "/../../includes/config.php";
 require_once __DIR__ . "/../../includes/auth.php";
+require_once __DIR__ . "/../../includes/db.php";
 
 require_login("json");
 require_role(['admin', 'manager']);
 header("Content-Type: application/json");
+
+$pdo = db('wms');
 
 $id = (int) ($_POST["id"] ?? 0);
 $name = trim($_POST["name"] ?? "");

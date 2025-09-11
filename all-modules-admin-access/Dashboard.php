@@ -1,11 +1,17 @@
   <?php
   require_once __DIR__ . '/../includes/config.php';
   require_once __DIR__ . '/../includes/auth.php';
+  require_once __DIR__ . '/../includes/db.php';
 
   require_login();
   require_role(['admin']);
 
   $active = 'dashboard';
+
+  /* -------------------- open the right DBs per module -------------------- */
+$wms  = db('wms');         
+$proc = db('procurement');  
+$plt  = db('plt');    
 
   /* -------------------- Helpers (shared) -------------------- */
   function table_exists(PDO $pdo, string $name): bool

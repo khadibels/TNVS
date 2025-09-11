@@ -4,11 +4,11 @@ require_once __DIR__ . '/../includes/auth.php';
 require_login();
 require_role(['admin', 'proc_officer']);
 
-// pull category names for the filter
+
 $catNames = $pdo->query("SELECT name FROM inventory_categories WHERE active=1 ORDER BY name")
                ->fetchAll(PDO::FETCH_COLUMN);
 
-// who’s logged in
+
 $userName = "Procurement User";
 $userRole = "Procurement";
 if (function_exists('current_user')) {

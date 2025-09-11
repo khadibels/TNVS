@@ -1,8 +1,14 @@
 <?php
 require_once __DIR__ . "/../includes/config.php";
 require_once __DIR__ . "/../includes/auth.php";
-require_role(["admin", "manager"]);
+require_once __DIR__ . "/../includes/db.php";
 
+require_login();       
+require_role(["admin", "manager"]);  
+
+
+$wms  = db('wms');
+$pdo  = $wms;
 
 $user = current_user();
 $userName = $user["name"] ?? "Guest";

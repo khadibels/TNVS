@@ -1,8 +1,13 @@
 <?php
-require_once __DIR__ . "/../../../includes/config.php";
-require_once __DIR__ . "/../../../includes/auth.php";
-require_login();
-header("Content-Type: application/json");
+require_once __DIR__."/../../../includes/config.php";
+require_once __DIR__."/../../../includes/auth.php";
+require_once __DIR__."/../../../includes/db.php";
+
+require_login("json");
+header("Content-Type: application/json; charset=utf-8");
+
+$pdo = db('wms');
+if (!$pdo instanceof PDO) { http_response_code(500); echo json_encode(["ok"=>false,"err"=>"DB not available"]); exit; }
 
 $fromIn = $_GET["from"] ?? "";
 $toIn = $_GET["to"] ?? "";
