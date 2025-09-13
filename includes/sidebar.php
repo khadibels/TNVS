@@ -253,6 +253,7 @@ if ($role === 'admin') {
 
 <?php if ($section === 'alms') { ?>
   <div class="sidebar d-flex flex-column">
+
     <div class="d-flex justify-content-center align-items-center mb-4 mt-3">
       <img src="<?= u('img/logo.png') ?>" id="logo" class="img-fluid me-2" style="height:55px" alt="Logo">
     </div>
@@ -272,9 +273,6 @@ if ($role === 'admin') {
       </a>
       <a class="nav-link<?= a('reports') ?>" href="<?= u('assetlifecycle/reports.php') ?>">
         <ion-icon name="file-tray-stacked-outline"></ion-icon><span>Reports</span>
-      </a>
-      <a class="nav-link<?= a('settings') ?>" href="<?= u('assetlifecycle/settings.php') ?>">
-        <ion-icon name="settings-outline"></ion-icon><span>Settings</span>
       </a>
     </nav>
     <div class="logout-section">
