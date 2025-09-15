@@ -6,13 +6,12 @@ require_once __DIR__ . "/../includes/db.php";
 require_login();
 require_role(['admin','procurement_officer']);
 
-$pdo = db('proc') ?: db('wms');
-if (!$pdo instanceof PDO) {
+$pdoProc = db('proc'); 
+$pdoWms  = db('wms');   
+
+if (!$pdoProc instanceof PDO || !$pdoWms instanceof PDO) {
   http_response_code(500);
-  if (defined('APP_DEBUG') && APP_DEBUG) {
-    die('DB connection for "proc" (or fallback) is not available. Check includes/config.php credentials.');
-  }
-  die('Internal error');
+  die(defined('APP_DEBUG') && APP_DEBUG ? 'DB connection error (proc or wms).' : 'Internal error');
 }
 
 $user     = current_user();
@@ -22,12 +21,21 @@ $userRole = $user['role'] ?? 'Unknown';
 $section = 'procurement';
 $active  = 'budgets';
 
+// Departments come from procurement
+$depts  = $pdoProc->query("SELECT id, name FROM departments ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
 
-$depts  = $pdo->query("SELECT id, name FROM departments ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
-$cats   = $pdo->query("SELECT DISTINCT category FROM logi_wms.inventory_items WHERE category IS NOT NULL AND category<>'' ORDER BY category")->fetchAll(PDO::FETCH_COLUMN);
-$years  = $pdo->query("SELECT DISTINCT fiscal_year FROM budgets ORDER BY fiscal_year DESC")->fetchAll(PDO::FETCH_COLUMN);
-$catMap = $pdo->query("SELECT id, name FROM inventory_categories ORDER BY name")->fetchAll(PDO::FETCH_KEY_PAIR);
+// Categories come from warehousing
+$cats   = $pdoWms->query("SELECT name FROM inventory_categories ORDER BY name")->fetchAll(PDO::FETCH_COLUMN);
+
+// Years come from procurement
+$years  = $pdoProc->query("SELECT DISTINCT fiscal_year FROM budgets ORDER BY fiscal_year DESC")->fetchAll(PDO::FETCH_COLUMN);
+
+// Category ID → Name map from warehousing
+$catMap = $pdoWms->query("SELECT id, name FROM inventory_categories ORDER BY name")->fetchAll(PDO::FETCH_KEY_PAIR);
 ?>
+
+
+
 <!DOCTYPE html>
 <html lang="en">
 <head>

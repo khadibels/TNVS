@@ -10,16 +10,13 @@ require_once __DIR__ . "/../includes/auth.php";
 require_login();
 require_role(['admin', 'asset_manager']);
 
-if (function_exists('db')) {
-    $pdo = db('alms');  
-} else {
-    $dsn = "mysql:host=localhost;dbname=logi_alms;charset=utf8mb4";
-    $pdo = new PDO($dsn, DB_USER, DB_PASS, [
-        PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-        PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-    ]);
-}
+require_once __DIR__ . "/../includes/db.php";
 
+$pdo = db('alms');
+if (!$pdo) {
+  http_response_code(500);
+  exit('Database connect failed for ALMS. Check DB name/user/pass in config.php and CyberPanel privileges.');
+}
 
 $section = 'alms';
 $active  = 'assettracker';
