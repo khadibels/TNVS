@@ -9,6 +9,9 @@ require_once $inc . "/db.php";
 require_login();
 require_role(['admin','procurement_officer']);
 
+$section = "procurement";
+$active = "dashboard";
+
 /* ---------- DB ---------- */
 $pdoProc = db('proc') ?: db('wms');
 if (!$pdoProc instanceof PDO) {
@@ -61,9 +64,6 @@ $totalRFQs    = $hasRFQ  ? scalar($pdoProc, "SELECT COUNT(*) FROM rfqs") : 0;
 $totalSuppliers = $hasSupp ? scalar($pdoProc, "SELECT COUNT(*) FROM suppliers WHERE is_active=1") : 0;
 $totalBudgets   = $hasBudg ? scalar($pdoProc, "SELECT COUNT(*) FROM budgets") : 0;
 
-/* ---------- sidebar state ---------- */
-$section = "procurement";
-$active  = "dashboard";
 ?>
 <!DOCTYPE html>
 <html lang="en">
