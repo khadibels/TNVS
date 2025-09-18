@@ -1,0 +1,46 @@
+name: Deploy to logistics1 via SFTP
+
+on:
+  push:
+    branches: [ "main" ]   # change if you deploy from another branch
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Optional PHP/composer step — safe to keep if you use composer
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          tools: composer
+
+      - name: Install composer deps (prod)
+        run: |
+          if [ -f composer.json ]; then
+            composer install --no-dev --no-interaction --no-progress --prefer-dist
+          else
+            echo "No composer.json, skipping composer install."
+          fi
+
+      - name: Deploy via SFTP
+        uses: SamKirkland/FTP-Deploy-Action@v4
+        with:
+          server:   ${{ secrets.FTP_SERVER }}       # sftp.logistics1.viahale.com
+          username: ${{ secrets.FTP_USERNAME }}     # Logis798gx_nicole (from CyberPanel)
+          password: ${{ secrets.FTP_PASSWORD }}
+          port:     ${{ secrets.FTP_PORT }}         # 22
+          protocol: sftp
+          local-dir: ./
+          server-dir: /home/Logis798gx/logistics1.viahale.com/   # or .../public_html/ if your host uses it
+          dangerous-clean-slate: false
+          exclude: |
+            **/.git**
+            **/.github/**
+            **/node_modules/**
+            **/tests/**
+            .env
+            README.md
