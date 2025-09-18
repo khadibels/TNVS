@@ -9,12 +9,21 @@ $wms  = db('wms');
 $pdo  = $wms;
 
 /* ---- helpers ---- */
-function table_exists(PDO $pdo, string $name): bool
-{
-    $stmt = $pdo->prepare("SHOW TABLES LIKE ?");
-    $stmt->execute([$name]);
-    return (bool) $stmt->fetchColumn();
+function table_exists(PDO $pdo, string $name): bool {
+    try {
+        $stmt = $pdo->prepare("
+            SELECT 1
+            FROM information_schema.TABLES
+            WHERE TABLE_SCHEMA = DATABASE()
+              AND TABLE_NAME = ?
+        ");
+        $stmt->execute([$name]);
+        return (bool)$stmt->fetchColumn();
+    } catch (Throwable $e) {
+        return false;
+    }
 }
+
 function qs(array $overrides = []): string
 {
     $qs = $_GET;

@@ -1,0 +1,109 @@
+name: TNVS CI/CD
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build & Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          tools: composer
+          coverage: none
+
+      - name: Cache Composer
+        id: composer-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.composer/cache
+            vendor
+          key: ${{ runner.os }}-composer-${{ hashFiles('**/composer.lock') }}
+          restore-keys: ${{ runner.os }}-composer-
+
+      - name: Install Composer deps (if composer.json exists)
+        run: |
+          if [ -f composer.json ]; then
+            composer install --no-interaction --no-progress --prefer-dist
+          else
+            echo "No composer.json found, skipping composer install."
+          fi
+
+      - name: PHP syntax check (lint)
+        run: |
+          set -e
+          # find all PHP files and lint them
+          find . -type f -name "*.php" -print0 | xargs -0 -n1 -P4 php -l
+
+      # Uncomment if you add PHPUnit later
+      # - name: Run tests
+      #   run: vendor/bin/phpunit --colors=always
+
+      - name: Upload artifact (build output)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: site
+          path: |
+            .
+          retention-days: 7
+
+  deploy:
+    name: Deploy to Production
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Optional: if your host requires a "build" or vendor folder, re-run composer
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.1'
+          tools: composer
+
+      - name: Install Composer deps (production)
+        run: |
+          if [ -f composer.json ]; then
+            composer install --no-dev --no-interaction --no-progress --prefer-dist
+          else
+            echo "No composer.json found, skipping composer install."
+          fi
+
+      # Deploy via FTP/SFTP
+      - name: FTP Deploy
+        uses: SamKirkland/FTP-Deploy-Action@v4
+        with:
+          server: ${{ secrets.FTP_SERVER }}        # e.g. sftp.your-host.com or ftp.your-host.com
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}    # or use 'server: sftp://...' + 'sshPrivateKey'
+          protocol: ${{ secrets.FTP_PROTOCOL }}    # 'ftp' or 'sftp' (recommend sftp)
+          local-dir: ./                             # what to upload (root of repo)
+          server-dir: ${{ secrets.FTP_SERVER_DIR }} # e.g. /public_html/yourapp/
+          dangerous-clean-slate: false              # set true only if you want to wipe remote first
+          exclude: |
+            **/.git*
+            **/.github/**
+            **/node_modules/**
+            **/tests/**
+            **/.env
+            **/README.md
+            **/composer.lock
+            **/package*.json

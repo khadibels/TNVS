@@ -4,6 +4,9 @@ require_once __DIR__ . "/../includes/auth.php";
 require_login();
 require_role(['admin', 'asset_manager']);
 
+$section = 'alms';
+$active = 'reports';
+
 if (function_exists('db')) {
     $pdo = db('alms');  
 } else {
@@ -19,7 +22,6 @@ if (session_status() !== PHP_SESSION_ACTIVE) session_start();
 $UPLOAD_DIR = __DIR__ . '/uploads/';
 $UPLOAD_URL = 'uploads/';
 
-// Ensure assets table exists (id, name, status, installed_on, disposed_on) and add audit columns
 $pdo->exec("CREATE TABLE IF NOT EXISTS assets (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(255) NOT NULL,
@@ -28,7 +30,6 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS assets (
   disposed_on DATE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-// Try to add created_at / updated_at columns when missing (ignore if already exist)
 try { $pdo->exec("ALTER TABLE assets ADD COLUMN IF NOT EXISTS created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP"); } catch (Throwable $e) {}
 try { $pdo->exec("ALTER TABLE assets ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"); } catch (Throwable $e) {}
 
@@ -153,7 +154,6 @@ if (isset($_GET['action'])) {
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 
 <style>
-  /* Keep typography identical to Repair Logs (Bootstrap defaults) */
   body { background: #f7f9fc; }
 
   /* KPI cards match Repair Logs */
@@ -178,29 +178,7 @@ if (isset($_GET['action'])) {
 <div class="container-fluid p-0">
   <div class="row g-0">
 
-    <!-- Sidebar (identical shell) -->
-    <div class="sidebar d-flex flex-column">
-      <div class="d-flex justify-content-center align-items-center mb-4 mt-3">
-        <img src="../img/logo.png" id="logo" class="img-fluid me-2" style="height:55px" alt="Logo">
-      </div>
-
-      <h6 class="text-uppercase mb-2">Asset Lifecycle &amp; Maintenance</h6>
-
-      <nav class="nav flex-column px-2 mb-4">
-        <a class="nav-link" href="ALMS.php"><ion-icon name="home-outline"></ion-icon><span>Dashboard</span></a>
-        <a class="nav-link" href="./assetTracker.php"><ion-icon name="cube-outline"></ion-icon><span>Asset Tracking</span></a>
-        <a class="nav-link" href="./mainReq.php"><ion-icon name="layers-outline"></ion-icon><span>Maintenance Requests</span></a>
-        <a class="nav-link" href="./repair.php"><ion-icon name="hammer-outline"></ion-icon><span>Repair Logs</span></a>
-        <a class="nav-link active" href="./reports.php"><ion-icon name="file-tray-stacked-outline"></ion-icon><span>Reports</span></a>
-        <a class="nav-link" href="./settings.php"><ion-icon name="settings-outline"></ion-icon><span>Settings</span></a>
-      </nav>
-
-      <div class="logout-section mt-auto">
-        <a class="nav-link text-danger" href="<?= BASE_URL ?>/auth/logout.php">
-          <ion-icon name="log-out-outline"></ion-icon> Logout
-        </a>
-      </div>
-    </div>
+    <?php include __DIR__ . '/../includes/sidebar.php' ?>
 
     <!-- Main -->
     <div class="col main-content p-3 p-lg-4">
