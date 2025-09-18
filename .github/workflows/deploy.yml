@@ -2,16 +2,22 @@ name: Deploy to logistics1 via SFTP
 
 on:
   push:
-    branches: [ "main" ]   # change if you deploy from another branch
+    branches: [ "main" ]        # change if you deploy from another branch
+  workflow_dispatch: {}          # allow manual runs from Actions tab
+
+concurrency:
+  group: deploy-logistics1
+  cancel-in-progress: true
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Optional PHP/composer step — safe to keep if you use composer
+      # Optional: install composer deps for production (safe to keep; skipped if no composer.json)
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
@@ -29,13 +35,14 @@ jobs:
       - name: Deploy via SFTP
         uses: SamKirkland/FTP-Deploy-Action@v4
         with:
-          server:   ${{ secrets.FTP_SERVER }}       # sftp.logistics1.viahale.com
-          username: ${{ secrets.FTP_USERNAME }}     # Logis798gx_nicole (from CyberPanel)
+          server:   ${{ secrets.FTP_SERVER }}        # e.g. sftp.logistics1.viahale.com
+          username: ${{ secrets.FTP_USERNAME }}      # e.g. Logis798gx_nicole
           password: ${{ secrets.FTP_PASSWORD }}
-          port:     ${{ secrets.FTP_PORT }}         # 22
+          port:     ${{ secrets.FTP_PORT }}          # 22
           protocol: sftp
-          local-dir: ./
-          server-dir: /home/Logis798gx/logistics1.viahale.com/   # or .../public_html/ if your host uses it
+          local-dir: ./                              # upload repo root
+          # If your site uses public_html, change path to .../public_html/
+          server-dir: /home/Logis798gx/logistics1.viahale.com/
           dangerous-clean-slate: false
           exclude: |
             **/.git**
@@ -44,3 +51,5 @@ jobs:
             **/tests/**
             .env
             README.md
+            composer.lock
+            package*.json
