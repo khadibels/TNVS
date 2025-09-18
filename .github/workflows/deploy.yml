@@ -1,9 +1,13 @@
-name: Deploy to logistics1 via SFTP
+name: Deploy to logistics1 via FTPS (origin IP)
 
 on:
   push:
     branches: [ "main" ]
   workflow_dispatch: {}
+
+concurrency:
+  group: deploy-logistics1
+  cancel-in-progress: true
 
 jobs:
   deploy:
@@ -27,26 +31,26 @@ jobs:
             echo "No composer.json, skipping composer install."
           fi
 
-      - name: Deploy via SFTP
-        uses: appleboy/scp-action@v0.1.7
+      - name: Deploy via FTPS (to origin IP)
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          host:     ${{ secrets.FTP_SERVER }}       # 23.94.230.146
+          server:   ${{ secrets.FTP_SERVER }}   # 23.94.230.146 (origin IP)
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          port:     ${{ secrets.FTP_PORT }}         # 22
-          source:   "./"
-          target:   "/home/Logis798gx/logistics1.viahale.com/"   # adjust if your root is /public_html/
-          overwrite: true
-          rm: false
-          strip_components: 0
-
-      - name: Verify files on server
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host:     ${{ secrets.FTP_SERVER }}       # 23.94.230.146
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          port:     ${{ secrets.FTP_PORT }}
-          script: |
-            echo "Deployed files:"
-            ls -la "/home/Logis798gx/logistics1.viahale.com/" | head -n 20
+          port:     21
+          protocol: ftps
+          security: loose          # shared hosts often need this
+          timeout: 60000           # ms
+          local-dir: ./
+          # change to .../public_html/ if your doc root is there
+          server-dir: /home/Logis798gx/logistics1.viahale.com/
+          dangerous-clean-slate: false
+          exclude: |
+            **/.git**
+            **/.github/**
+            **/node_modules/**
+            **/tests/**
+            .env
+            README.md
+            composer.lock
+            package*.json
