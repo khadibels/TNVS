@@ -33,7 +33,7 @@ jobs:
           fi
 
       - name: Deploy via SFTP
-        uses: SamKirkland/FTP-Deploy-Action@v4
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server:   ${{ secrets.FTP_SERVER }}        # e.g. sftp.logistics1.viahale.com
           username: ${{ secrets.FTP_USERNAME }}      # e.g. Logis798gx_nicole
