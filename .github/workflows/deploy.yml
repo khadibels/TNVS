@@ -2,8 +2,8 @@ name: Deploy to logistics1 via SFTP
 
 on:
   push:
-    branches: [ "main" ]      # deploy when pushing to main
-  workflow_dispatch: {}        # allow manual runs from Actions tab
+    branches: [ "main" ]
+  workflow_dispatch: {}
 
 jobs:
   deploy:
@@ -30,24 +30,23 @@ jobs:
       - name: Deploy via SFTP
         uses: appleboy/scp-action@v0.1.7
         with:
-          host:     ${{ secrets.FTP_SERVER }}      # sftp.logistics1.viahale.com
-          username: ${{ secrets.FTP_USERNAME }}    # your CyberPanel FTP user
+          host:     ${{ secrets.FTP_SERVER }}       # 23.94.230.146
+          username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          port:     22
+          port:     ${{ secrets.FTP_PORT }}         # 22
           source:   "./"
-          target:   "/home/Logis798gx/logistics1.viahale.com/"   # or /public_html if that's your doc root
+          target:   "/home/Logis798gx/logistics1.viahale.com/"   # adjust if your root is /public_html/
           overwrite: true
           rm: false
           strip_components: 0
 
-      # Optional: confirm deployment
-      - name: List deployed files
+      - name: Verify files on server
         uses: appleboy/ssh-action@v1.0.3
         with:
-          host:     ${{ secrets.FTP_SERVER }}
+          host:     ${{ secrets.FTP_SERVER }}       # 23.94.230.146
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
-          port:     22
+          port:     ${{ secrets.FTP_PORT }}
           script: |
-            echo "Deployment completed. Showing top files:"
+            echo "Deployed files:"
             ls -la "/home/Logis798gx/logistics1.viahale.com/" | head -n 20
