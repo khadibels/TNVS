@@ -27,7 +27,6 @@ jobs:
           fi
 
       - name: Deploy via FTPS
-      - name: Deploy via SFTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server:   ${{ secrets.FTP_SERVER }}
