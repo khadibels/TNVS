@@ -2,17 +2,23 @@ name: Deploy to logistics1 via FTPS
 
 on:
   push:
-    branches: [ "main" ]
-  workflow_dispatch: {}
+    branches: [ "main" ]        # change if you deploy from another branch
+  workflow_dispatch: {}          # allow manual runs
+
+concurrency:
+  group: deploy-logistics1
+  cancel-in-progress: true
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup PHP (optional)
+      # Optional PHP/composer (safe to keep; skipped if no composer.json)
+      - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.1'
@@ -29,13 +35,16 @@ jobs:
       - name: Deploy via FTPS
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          server:   ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
+          server:   ${{ secrets.FTP_SERVER }}   # logistics1.viahale.com
+          username: ${{ secrets.FTP_USERNAME }} # e.g., Logis798gx_nicole
           password: ${{ secrets.FTP_PASSWORD }}
           port:     21
           protocol: ftps
+          security: loose          # helps on many shared hosts/CyberPanel
+          timeout: 60000           # ms; avoid early TLS/handshake timeouts
           local-dir: ./
-          server-dir: /home/Logis798gx/logistics1.viahale.com/   # or .../public_html/
+          # If your host uses public_html, change to .../public_html/
+          server-dir: /home/Logis798gx/logistics1.viahale.com/
           dangerous-clean-slate: false
           exclude: |
             **/.git**
