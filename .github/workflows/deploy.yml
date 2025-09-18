@@ -1,13 +1,9 @@
-name: Deploy to logistics1 via FTPS
+name: Deploy to logistics1 via SFTP
 
 on:
   push:
-    branches: [ "main" ]        # change if you deploy from another branch
-  workflow_dispatch: {}          # allow manual runs
-
-concurrency:
-  group: deploy-logistics1
-  cancel-in-progress: true
+    branches: [ "main" ]      # deploy when pushing to main
+  workflow_dispatch: {}        # allow manual runs from Actions tab
 
 jobs:
   deploy:
@@ -17,8 +13,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Optional PHP/composer (safe to keep; skipped if no composer.json)
-      - name: Setup PHP
+      - name: Setup PHP (optional)
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.1'
@@ -32,26 +27,27 @@ jobs:
             echo "No composer.json, skipping composer install."
           fi
 
-      - name: Deploy via FTPS
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+      - name: Deploy via SFTP
+        uses: appleboy/scp-action@v0.1.7
         with:
-          server:   ${{ secrets.FTP_SERVER }}   # logistics1.viahale.com
-          username: ${{ secrets.FTP_USERNAME }} # e.g., Logis798gx_nicole
+          host:     ${{ secrets.FTP_SERVER }}      # sftp.logistics1.viahale.com
+          username: ${{ secrets.FTP_USERNAME }}    # your CyberPanel FTP user
           password: ${{ secrets.FTP_PASSWORD }}
-          port:     21
-          protocol: ftps
-          security: loose          # helps on many shared hosts/CyberPanel
-          timeout: 60000           # ms; avoid early TLS/handshake timeouts
-          local-dir: ./
-          # If your host uses public_html, change to .../public_html/
-          server-dir: /home/Logis798gx/logistics1.viahale.com/
-          dangerous-clean-slate: false
-          exclude: |
-            **/.git**
-            **/.github/**
-            **/node_modules/**
-            **/tests/**
-            .env
-            README.md
-            composer.lock
-            package*.json
+          port:     22
+          source:   "./"
+          target:   "/home/Logis798gx/logistics1.viahale.com/"   # or /public_html if that's your doc root
+          overwrite: true
+          rm: false
+          strip_components: 0
+
+      # Optional: confirm deployment
+      - name: List deployed files
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host:     ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          port:     22
+          script: |
+            echo "Deployment completed. Showing top files:"
+            ls -la "/home/Logis798gx/logistics1.viahale.com/" | head -n 20
