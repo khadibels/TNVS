@@ -1,7 +1,5 @@
 <?php
-
-if (!defined('BASE_URL')) { define('BASE_URL', ''); }
-$BASE    = rtrim(BASE_URL, '/');
+$BASE    = defined('BASE_URL') ? rtrim(BASE_URL, '/') : '';
 $role    = strtolower($_SESSION['user']['role'] ?? '');
 $active  = $active  ?? '';
 $section = $section ?? '';
@@ -115,9 +113,8 @@ if ($role === 'admin') {
   <ion-icon name="<?= $isSettingsOpen ? 'chevron-down-outline' : 'chevron-forward-outline' ?>"></ion-icon>
 </a>
 
-
 <div class="collapse<?= $isSettingsOpen ? ' show' : '' ?>" id="adminSettings">
-  <div class="nav flex-column mt-1"><!-- removed ms-3 to make children full width -->
+  <div class="nav flex-column mt-1">
     <a class="nav-link sub-link<?= a('settings_access') ?>" href="<?= u('all-modules-admin-access/accessControl.php') ?>">
       <ion-icon name="lock-closed-outline"></ion-icon><span>Access Control</span>
     </a>
@@ -252,7 +249,6 @@ if ($role === 'admin') {
 
 <?php if ($section === 'alms') { ?>
   <div class="sidebar d-flex flex-column">
-
     <div class="d-flex justify-content-center align-items-center mb-4 mt-3">
       <img src="<?= u('img/logo.png') ?>" id="logo" class="img-fluid me-2" style="height:55px" alt="Logo">
     </div>
@@ -309,6 +305,145 @@ if ($role === 'admin') {
     </div>
   </div>
 <?php return; } ?>
+
+<?php if ($role === 'vendor_manager') { ?>
+  <div class="sidebar d-flex flex-column">
+    <div class="d-flex justify-content-center align-items-center mb-4 mt-3">
+      <img src="<?= u('img/logo.png') ?>" id="logo" class="img-fluid me-2" style="height:55px" alt="Logo">
+    </div>
+
+    <h6 class="text-uppercase mb-2">Vendor Portal</h6>
+    <nav class="nav flex-column px-2 mb-4">
+      <a class="nav-link<?= a('dashboard') ?>" href="<?= u('vendor_portal/manager/dashboard.php') ?>">
+        <ion-icon name="home-outline"></ion-icon><span>Dashboard</span>
+      </a>
+
+      <div class="text-uppercase text-muted small px-2 mt-3 mb-1">Procurement Intake</div>
+      <a class="nav-link<?= a('pr_inbox') ?>" href="<?= u('vendor_portal/manager/pr_inbox.php') ?>">
+        <ion-icon name="mail-unread-outline"></ion-icon><span>PR Inbox</span>
+      </a>
+      <a class="nav-link<?= a('pr_manage') ?>" href="<?= u('vendor_portal/manager/pr_manage.php') ?>">
+        <ion-icon name="file-tray-full-outline"></ion-icon><span>Manage PRs</span>
+      </a>
+
+      <div class="text-uppercase text-muted small px-2 mt-3 mb-1">Sourcing & Listings</div>
+      <a class="nav-link<?= a('listings') ?>" href="<?= u('vendor_portal/manager/listings.php') ?>">
+        <ion-icon name="list-outline"></ion-icon><span>Product Listings</span>
+      </a>
+      <a class="nav-link<?= a('create_listing') ?>" href="<?= u('vendor_portal/manager/create_listing.php') ?>">
+        <ion-icon name="add-circle-outline"></ion-icon><span>Create Listing</span>
+      </a>
+
+      <div class="text-uppercase text-muted small px-2 mt-3 mb-1">Bidding</div>
+      <a class="nav-link<?= a('bids_live') ?>" href="<?= u('vendor_portal/manager/bids_live.php') ?>">
+        <ion-icon name="cash-outline"></ion-icon><span>Live Bids</span>
+      </a>
+      <a class="nav-link<?= a('ranking') ?>" href="<?= u('vendor_portal/manager/ranking.php') ?>">
+        <ion-icon name="trophy-outline"></ion-icon><span>Rank Bidders</span>
+      </a>
+      <a class="nav-link<?= a('award') ?>" href="<?= u('vendor_portal/manager/award.php') ?>">
+        <ion-icon name="ribbon-outline"></ion-icon><span>Award / Nominate</span>
+      </a>
+
+      <div class="text-uppercase text-muted small px-2 mt-3 mb-1">Collaboration</div>
+      <a class="nav-link<?= a('chat') ?>" href="<?= u('vendor_portal/manager/chat.php') ?>">
+        <ion-icon name="chatbubbles-outline"></ion-icon><span>Chat</span>
+      </a>
+
+      <div class="text-uppercase text-muted small px-2 mt-3 mb-1">Contracts & Vendors</div>
+      <a class="nav-link<?= a('contracts') ?>" href="<?= u('vendor_portal/manager/contracts.php') ?>">
+        <ion-icon name="document-text-outline"></ion-icon><span>Contracts</span>
+      </a>
+      <a class="nav-link<?= a('vendors') ?>" href="<?= u('vendor_portal/manager/vendors.php') ?>">
+        <ion-icon name="business-outline"></ion-icon><span>Vendor Accounts</span>
+      </a>
+      <a class="nav-link<?= a('compliance') ?>" href="<?= u('vendor_portal/manager/compliance.php') ?>">
+        <ion-icon name="shield-checkmark-outline"></ion-icon><span>Compliance / Verification</span>
+      </a>
+
+      <a class="nav-link<?= a('settings') ?>" href="<?= u('vendor_portal/manager/settings.php') ?>">
+        <ion-icon name="settings-outline"></ion-icon><span>Settings</span>
+      </a>
+
+      <hr class="my-3">
+      <a class="nav-link" href="<?= u('all-modules-admin-access/Dashboard.php') ?>">
+        <ion-icon name="home-outline"></ion-icon><span>Back to TNVS</span>
+      </a>
+      <a class="nav-link text-danger" href="<?= u('auth/logout.php') ?>">
+        <ion-icon name="log-out-outline"></ion-icon><span>Logout</span>
+      </a>
+    </nav>
+  </div>
+<?php return; } ?>
+
+<?php
+if ($role === 'vendor') {
+    $vendorStatus = strtolower($_SESSION['user']['vendor_status'] ?? 'pending');
+
+    if ($vendorStatus !== 'approved') {
+        ?>
+        <div class="sidebar d-flex flex-column p-3">
+          <div class="alert alert-warning small mb-0">
+            <ion-icon name="hourglass-outline"></ion-icon>
+            Your account is <strong><?= ucfirst($vendorStatus ?: 'Pending') ?></strong>.
+            Once approved, the full Vendor Portal menu will appear here.
+          </div>
+        </div>
+        <?php
+        return;
+    }
+    ?>
+
+    <div class="sidebar d-flex flex-column">
+      <div class="d-flex justify-content-center align-items-center mb-4 mt-3">
+        <img src="<?= u('img/logo.png') ?>" id="logo" class="img-fluid me-2" style="height:55px" alt="Logo">
+      </div>
+
+      <h6 class="text-uppercase mb-2">Vendor Portal</h6>
+      <nav class="nav flex-column px-2 mb-4">
+        <a class="nav-link<?= a('dashboard') ?>" href="<?= u('vendor_portal/vendor/dashboard.php') ?>">
+          <ion-icon name="home-outline"></ion-icon><span>Dashboard</span>
+        </a>
+
+        <div class="text-uppercase text-muted small px-2 mt-3 mb-1">Account</div>
+        <a class="nav-link<?= a('account') ?>" href="<?= u('vendor_portal/vendor/account.php') ?>">
+          <ion-icon name="person-circle-outline"></ion-icon><span>My Account</span>
+        </a>
+        <a class="nav-link<?= a('compliance') ?>" href="<?= u('vendor_portal/vendor/compliance.php') ?>">
+          <ion-icon name="shield-checkmark-outline"></ion-icon><span>Compliance / KYC</span>
+        </a>
+
+        <div class="text-uppercase text-muted small px-2 mt-3 mb-1">Marketplace</div>
+        <a class="nav-link<?= a('market_listings') ?>" href="<?= u('vendor_portal/vendor/market_listings.php') ?>">
+          <ion-icon name="list-outline"></ion-icon><span>Browse Listings</span>
+        </a>
+        <a class="nav-link<?= a('my_bids') ?>" href="<?= u('vendor_portal/vendor/my_bids.php') ?>">
+          <ion-icon name="pricetag-outline"></ion-icon><span>My Quotes / Bids</span>
+        </a>
+        <a class="nav-link<?= a('messages') ?>" href="<?= u('vendor_portal/vendor/messages.php') ?>">
+          <ion-icon name="chatbubbles-outline"></ion-icon><span>Messages</span>
+        </a>
+        <a class="nav-link<?= a('notifications') ?>" href="<?= u('vendor_portal/vendor/notifications.php') ?>">
+          <ion-icon name="notifications-outline"></ion-icon><span>Notifications</span>
+        </a>
+
+        <a class="nav-link<?= a('settings') ?>" href="<?= u('vendor_portal/vendor/settings.php') ?>">
+          <ion-icon name="settings-outline"></ion-icon><span>Settings</span>
+        </a>
+
+        <hr class="my-3">
+        <a class="nav-link" href="<?= u('all-modules-admin-access/Dashboard.php') ?>">
+          <ion-icon name="home-outline"></ion-icon><span>Back to TNVS</span>
+        </a>
+        <a class="nav-link text-danger" href="<?= u('auth/logout.php') ?>">
+          <ion-icon name="log-out-outline"></ion-icon><span>Logout</span>
+        </a>
+      </nav>
+    </div>
+    <?php
+    return;
+}
+?>
 
 <div class="sidebar d-flex flex-column p-3">
   <div class="text-muted small">No sidebar configured.</div>

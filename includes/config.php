@@ -1,6 +1,25 @@
 <?php
-// ---------- App ----------
-if (!defined('BASE_URL')) define('BASE_URL', 'http://localhost/TNVS_2.0_final');
+
+if (!defined('BASE_URL')) {
+    $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
+    $host   = $_SERVER['HTTP_HOST'] ?? 'localhost';
+
+
+    $scriptDir = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/')), '/');
+    $rootName  = 'TNVS_2.0_final'; // change only if your folder name changes locally
+
+    $parts     = explode('/', trim($scriptDir, '/'));
+    $idx       = array_search($rootName, $parts, true);
+
+    if ($idx !== false) {
+
+        $basePath = '/' . implode('/', array_slice($parts, 0, $idx + 1)) . '/';
+    } else {
+        $basePath = '/';
+    }
+
+    define('BASE_URL', $scheme . '://' . $host . $basePath);
+}
 
 if (!defined('APP_DEBUG')) define('APP_DEBUG', true);
 if (APP_DEBUG) {

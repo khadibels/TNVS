@@ -2,18 +2,30 @@
 require_once __DIR__ . "/includes/config.php";
 require_once __DIR__ . "/includes/auth.php";
 
-if (!empty($_SESSION["user"])) {
-    $role = strtolower($_SESSION['user']['role'] ?? '');
+if (!empty($_SESSION["user"]) && empty($_GET['err'])) {
+    $role   = strtolower($_SESSION['user']['role'] ?? '');
+    $vendSt = strtolower($_SESSION['user']['vendor_status'] ?? '');
 
     switch ($role) {
         case 'admin':
-            $dest = BASE_URL . '/all-modules-admin-access/Dashboard.php';
+            $dest = rtrim(BASE_URL, '/') . '/all-modules-admin-access/Dashboard.php';
             break;
         case 'manager':
-            $dest = BASE_URL . '/warehousing/warehouseDashboard.php';
+        case 'warehouse_staff':
+            $dest = rtrim(BASE_URL, '/') . '/warehousing/warehouseDashboard.php';
+            break;
+        case 'procurement_officer':
+            $dest = rtrim(BASE_URL, '/') . '/procurement/procurementDashboard.php';
+            break;
+        case 'vendor':
+            $dest = rtrim(BASE_URL, '/') . (
+                $vendSt === 'approved'
+                  ? '/vendor_portal/vendor/dashboard.php'
+                  : '/vendor_portal/vendor/pending.php'
+            );
             break;
         default:
-            $dest = BASE_URL . '/all-modules-admin-access/Dashboard.php';
+            $dest = rtrim(BASE_URL, '/') . '/all-modules-admin-access/Dashboard.php';
             break;
     }
     header('Location: ' . $dest);

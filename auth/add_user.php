@@ -22,7 +22,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       'asset_manager',
       'document_controller',
       'project_lead',
-      'viewer'
+      'viewer',
+      'vendor',
+      'vendor manager'
 ];
 
   if ($name === '' || $email === '' || $pass === '' || !in_array($role, $allowed, true)) {
@@ -68,6 +70,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <option value="asset_manager">Asset Manager</option>
         <option value="document_controller">Document Controller</option>
         <option value="project_lead">Project Lead</option>
+        <option value="vendor">Vendor</option>
+        <option value="vendor_manager">Vendor Manager</option>
       </select>
     </div>
     <div class="col-12">
