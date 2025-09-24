@@ -16,7 +16,7 @@ $userRole = $user['role'] ?? 'Unknown';
 $section = 'procurement';
 $active  = 'suppliers';
 
-// for placeholders/links in JS
+
 $BASE = rtrim(defined('BASE_URL') ? BASE_URL : '', '/');
 ?>
 <!DOCTYPE html>
@@ -26,21 +26,13 @@ $BASE = rtrim(defined('BASE_URL') ? BASE_URL : '', '/');
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Supplier Management | TNVS</title>
 
-  <!-- Bootstrap CSS -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-
-  <!-- Inter font -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-
-  <!-- Ionicons -->
-  <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
-  <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
-
-  <!-- (Optional) your global styles -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="../css/style.css" rel="stylesheet" />
   <link href="../css/modules.css" rel="stylesheet" />
+  <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
+  <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
+  <script src="../js/sidebar-toggle.js"></script>
+
 
   <style>
     :root {
@@ -57,7 +49,6 @@ $BASE = rtrim(defined('BASE_URL') ? BASE_URL : '', '/');
     }
     body { 
       font-family: 'Inter', sans-serif; 
-      background-color: var(--bg-light); 
       color: var(--text-body); 
     }
 
@@ -187,12 +178,21 @@ $BASE = rtrim(defined('BASE_URL') ? BASE_URL : '', '/');
 
     <div class="col main-content">
 
-      <!-- Header -->
-      <div class="page-header d-flex flex-wrap justify-content-between align-items-center gap-2">
-        <h1 class="h3 mb-0">
-          <ion-icon name="people-circle-outline"></ion-icon>
-          Supplier Management
-        </h1>
+      <!-- Topbar -->
+      <div class="d-flex justify-content-between align-items-center mb-3">
+        <div class="d-flex align-items-center gap-3">
+          <button class="sidebar-toggle d-lg-none btn btn-outline-secondary btn-sm" id="sidebarToggle2" aria-label="Toggle sidebar">
+            <ion-icon name="menu-outline"></ion-icon>
+          </button>
+          <h2 class="m-0">Supplier Management</h2>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+          <img src="../img/profile.jpg" class="rounded-circle" width="36" height="36" alt="">
+          <div class="small">
+            <strong><?= htmlspecialchars($userName) ?></strong><br/>
+            <span class="text-muted"><?= htmlspecialchars($userRole) ?></span>
+          </div>
+        </div>
       </div>
 
       <!-- Pending Approvals -->

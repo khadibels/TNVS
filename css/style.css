@@ -1,4 +1,21 @@
 /* ========================= GLOBAL LAYOUT (sidebar/topbar) ========================= */
+:root {
+  --brand-primary: #6532C9;
+  --brand-primary-rgb: 101, 50, 201;
+  --brand-deep: #4311A5;
+  --text-dark: #2b2349;
+  --text-body: #494562;
+  --text-muted: #6f6c80;
+  --bg-light: #f9f8fe;
+  --border-color: #e8e4f5;
+  --shadow-color: rgba(67, 17, 165, 0.05);
+  --shadow-color-hover: rgba(67, 17, 165, 0.12);
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  color: var(--text-body);
+}
 
 /* Sidebar */
 .sidebar {
