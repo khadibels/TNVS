@@ -41,7 +41,7 @@
   </a>
 
   <a class="nav-link<?= a('po_rfq') ?>" href="<?= u('procurement/rfqApprovals.php') ?>">
-    <ion-icon name="paper-plane-outline"></ion-icon><span>RFQ Approvals & Publishing</span>
+    <ion-icon name="paper-plane-outline"></ion-icon><span>RFQ Approvals</span>
   </a>
 
   <a class="nav-link<?= a('po_pos') ?>" href="<?= u('procurement/purchaseOrders.php') ?>">
