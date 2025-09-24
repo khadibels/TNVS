@@ -1,0 +1,9 @@
+# Ignore local/server-only config
+includes/config.local.php
+includes/config.php   # if you want to keep server secrets only
+
+# Ignore logs
+*.log
+
+# Ignore vendor (if you ever use Composer)
+vendor/
