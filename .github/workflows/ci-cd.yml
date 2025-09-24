@@ -16,7 +16,7 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
- 
+
       # ---------- PHP setup + Composer ----------
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
@@ -70,17 +70,16 @@ jobs:
       - name: Build front-end
         if: ${{ hashFiles('package.json') != '' }}
         run: |
-          # try common build scripts; no-op if none exist
           if npm run | grep -q " build"; then
             npm run build
           else
             echo "No npm build script, skipping."
           fi
 
-      # ---------- Package artifact (optional) ----------
+      # ---------- Package artifact (fixed) ----------
       - name: Archive build artifact
         run: |
-          tar -czf site.tar.gz \
+          tar --warning=no-file-changed --ignore-failed-read -czf site.tar.gz \
             --exclude='./.git' \
             --exclude='./.github' \
             --exclude='./node_modules' \
@@ -88,17 +87,20 @@ jobs:
             --exclude='./README.md' \
             --exclude='./composer.lock' \
             --exclude='./package*.json' \
+            --exclude='./site.tar.gz' \
             .
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: site
           path: site.tar.gz
+          retention-days: 7
 
   deploy:
     runs-on: ubuntu-latest
     needs: build_and_test
-    if: ${{ success() }}    # only deploy if build_and_test passed
+    if: ${{ success() }}
 
     steps:
       - name: Download artifact
@@ -116,22 +118,21 @@ jobs:
           if [ "${{ github.ref_name }}" = "main" ]; then
             echo "dir=/home/Logis798gx/logistics1.viahale.com/" >> $GITHUB_OUTPUT
           else
-            # deploy staging to a subfolder (create once in File Manager)
             echo "dir=/home/Logis798gx/logistics1.viahale.com/staging/" >> $GITHUB_OUTPUT
           fi
 
       - name: Deploy via FTPS
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          server:   ${{ secrets.FTP_SERVER }}            # 23.94.230.146
+          server:   ${{ secrets.FTP_SERVER }}          # origin IP 23.94.230.146
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           port:     21
           protocol: ftps
           security: loose
           timeout: 60000
-          local-dir: ./                                  # the extracted archive
-          server-dir: ${{ steps.paths.outputs.dir }}     # live or staging
+          local-dir: ./                                # extracted archive
+          server-dir: ${{ steps.paths.outputs.dir }}   # live or staging
           dangerous-clean-slate: false
           exclude: |
             **/.git**
