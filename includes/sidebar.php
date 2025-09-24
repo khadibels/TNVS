@@ -191,7 +191,7 @@
       <a class="nav-link<?= a('dashboard') ?>" href="<?= u('procurement/procurementDashboard.php') ?>">
         <ion-icon name="home-outline"></ion-icon><span>Dashboard</span>
       </a>
-      <a class="nav-link<?= a('suppliers') ?>" href="<?= u('procurement/supplierManagement.php') ?>">
+      <a class="nav-link<?= a('po_suppliers') ?>" href="<?= u('procurement/supplierManagement.php') ?>">
         <ion-icon name="people-outline"></ion-icon><span>Supplier Management</span>
       </a>
 
