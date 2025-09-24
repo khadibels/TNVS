@@ -14,7 +14,7 @@ $userName = $user['name'] ?? 'Guest';
 $userRole = $user['role'] ?? 'Unknown';
 
 $section = 'procurement';
-$active  = 'suppliers';
+$active  = 'po_suppliers';
 
 
 $BASE = rtrim(defined('BASE_URL') ? BASE_URL : '', '/');
