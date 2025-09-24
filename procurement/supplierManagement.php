@@ -509,5 +509,5 @@ $BASE = rtrim(defined('BASE_URL') ? BASE_URL : '', '/');
   // init
   (async ()=> { await Promise.all([loadPending(true), loadApproved(true)]); })();
 </script>
-</body>
+</body> 
 </html>
