@@ -1,80 +1,66 @@
 <?php
+declare(strict_types=1);
+
 require_once __DIR__ . '/../includes/config.php';
+require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/db.php';
-require_once __DIR__ . '/../includes/redirect.php';
+require_once __DIR__ . '/../includes/rate_limit.php';
 
-if (session_status() === PHP_SESSION_NONE) session_start();
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    header('Location: ' . rtrim(BASE_URL,'/') . '/login.php');
+    exit;
+}
 
-$auth = db('auth');
-$proc = db('proc');
-
+$pdo   = db('auth');
 $email = trim($_POST['email'] ?? '');
 $pass  = $_POST['password'] ?? '';
+$ip    = $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
 
-$fail = function(string $msg){
-  redirect_to('login.php?err=' . urlencode($msg));
-};
-
-if ($email === '' || $pass === '') $fail('Email and password are required');
-
-$stmt = $auth->prepare("SELECT id, name, email, password_hash, role FROM users WHERE email = ?");
-$stmt->execute([$email]);
-$u = $stmt->fetch(PDO::FETCH_ASSOC);
-
-if ($u && password_verify($pass, $u['password_hash'])) {
-    $role = strtolower(trim($u['role'] ?? ''));
-    $aliases = [
-        'proc_officer'      => 'procurement_officer',
-        'warehouse_mgr'     => 'manager',
-        'warehouse_manager' => 'manager',
-    ];
-    $role = $aliases[$role] ?? $role;
-
-    $_SESSION['user'] = [
-        'id'            => (int)$u['id'],
-        'name'          => $u['name'],
-        'email'         => $u['email'],
-        'role'          => $role,
-        'vendor_id'     => null,
-        'vendor_status' => null,
-        'company_name'  => null,
-    ];
-
-    $map = [
-        'admin'               => 'all-modules-admin-access/Dashboard.php',
-        'manager'             => 'warehousing/warehouseDashboard.php',
-        'warehouse_staff'     => 'warehousing/warehouseDashboard.php',
-        'procurement_officer' => 'procurement/procurementDashboard.php',
-        'asset_manager'       => 'assetlifecycle/ALMS.php',
-        'document_controller' => 'documentTracking/dashboard.php',
-        'project_lead'        => 'PLT/pltDashboard.php',
-    ];
-    $dest = $map[$role] ?? 'login.php?err=' . urlencode('Unauthorized role');
-    redirect_to($dest);
+if ($email === '' || $pass === '') {
+    header('Location: ' . rtrim(BASE_URL,'/') . '/login.php?err=' . urlencode('Please enter your email and password.'));
+    exit;
 }
 
-$v = $proc->prepare("SELECT id, company_name, contact_person, email, password, status FROM vendors WHERE email = ? LIMIT 1");
-$v->execute([$email]);
-$vend = $v->fetch(PDO::FETCH_ASSOC);
-
-if (!$vend || !password_verify($pass, $vend['password'])) {
-    $fail('Invalid credentials');
+[$blocked, $minsLeft, $fails] = login_blocked($pdo, $email, $ip, 5, 15*60);
+if ($blocked) {
+    $msg = "Too many attempts. Try again in about {$minsLeft} minutes.";
+    header('Location: ' . rtrim(BASE_URL,'/') . '/login.php?err=' . urlencode($msg));
+    exit;
 }
 
-$status = strtolower(trim($vend['status'] ?? 'pending'));
+$st = $pdo->prepare("
+    SELECT id, name, email, role, vendor_id, vendor_status, password_hash
+    FROM users
+    WHERE email = ?
+");
+$st->execute([$email]);
+$user = $st->fetch(PDO::FETCH_ASSOC);
 
+$ok = $user && password_verify($pass, (string)($user['password_hash'] ?? ''));
+
+record_login_attempt($pdo, $email, $ip, $ok);
+
+if (!$ok) {
+    [, , $nowFails] = login_blocked($pdo, $email, $ip, 5, 15*60);
+    $remaining = max(0, 5 - $nowFails);
+    $msg = $remaining > 0
+        ? "Incorrect email or password. Attempts left: {$remaining}."
+        : "Too many attempts. Your account is locked for 15 minutes.";
+    header('Location: ' . rtrim(BASE_URL,'/') . '/login.php?err=' . urlencode($msg));
+    exit;
+}
+
+clear_attempts($pdo, $email, $ip);
+
+if (session_status() === PHP_SESSION_NONE) session_start();
 $_SESSION['user'] = [
-    'id'            => null,
-    'name'          => $vend['contact_person'] ?: ($vend['company_name'] ?: $vend['email']),
-    'email'         => $vend['email'],
-    'role'          => 'vendor',
-    'vendor_id'     => (int)$vend['id'],
-    'vendor_status' => $status,
-    'company_name'  => $vend['company_name'] ?? null,
+    'id'            => (int)$user['id'],
+    'name'          => (string)($user['name'] ?? ''),
+    'email'         => (string)($user['email'] ?? ''),
+    'role'          => (string)($user['role'] ?? ''),
+    'vendor_id'     => isset($user['vendor_id']) ? (int)$user['vendor_id'] : null,
+    'vendor_status' => (string)($user['vendor_status'] ?? ''),
 ];
 
-$dest = $status === 'approved'
-    ? 'vendor_portal/vendor/dashboard.php'
-    : 'vendor_portal/vendor/pending.php';
-
-redirect_to($dest);
+header('Location: ' . rtrim(BASE_URL,'/') . '/login.php');
+exit;
