@@ -36,7 +36,7 @@ jobs:
             echo "No composer.json, skipping composer."
           fi
 
-      # ---------- PHP lint (basic test) ----------
+      # ---------- PHP lint ----------
       - name: PHP syntax check
         run: |
           mapfile -t FILES < <(find . -type f -name "*.php")
@@ -46,7 +46,7 @@ jobs:
             echo "No PHP files found to lint."
           fi
 
-      # ---------- PHPUnit (if configured) ----------
+      # ---------- PHPUnit (only if configured) ----------
       - name: Run PHPUnit (if phpunit.xml exists)
         run: |
           if [ -f phpunit.xml ] || [ -f phpunit.xml.dist ]; then
@@ -64,8 +64,7 @@ jobs:
 
       - name: Install Node deps
         if: ${{ hashFiles('package.json') != '' }}
-        run: |
-          npm ci || npm install
+        run: npm ci || npm install
 
       - name: Build front-end
         if: ${{ hashFiles('package.json') != '' }}
@@ -76,10 +75,10 @@ jobs:
             echo "No npm build script, skipping."
           fi
 
-      # ---------- Package artifact ----------
+      # ---------- Package artifact (robust tar; keeps vendor/ & built assets) ----------
       - name: Archive build artifact
         run: |
-          tar -czf site.tar.gz \
+          tar --warning=no-file-changed --ignore-failed-read -czf site.tar.gz \
             --exclude='./.git' \
             --exclude='./.github' \
             --exclude='./node_modules' \
@@ -87,12 +86,15 @@ jobs:
             --exclude='./README.md' \
             --exclude='./composer.lock' \
             --exclude='./package*.json' \
+            --exclude='./site.tar.gz' \
             .
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: site
           path: site.tar.gz
+          retention-days: 7
 
   deploy:
     runs-on: ubuntu-latest
@@ -108,7 +110,8 @@ jobs:
       - name: Extract
         run: tar -xzf site.tar.gz
 
-      # ---- choose server-dir by branch: staging vs main ----
+      # IMPORTANT: your FTP user is chrooted at /home/logistics1.viahale.com
+      # so use RELATIVE paths here.
       - name: Set target directory
         id: paths
         run: |
@@ -117,6 +120,7 @@ jobs:
           else
             echo "dir=/staging/" >> $GITHUB_OUTPUT
           fi
+          echo "server-dir=$(cat $GITHUB_OUTPUT)"
 
       - name: Deploy via FTPS
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
@@ -128,9 +132,9 @@ jobs:
           protocol: ftps
           security: loose
           timeout: 60000
-          local-dir: ./ 
-          server-dir: ${{ steps.paths.outputs.dir }} 
-          dangerous-clean-slate: false
+          local-dir: ./                              # extracted archive contents
+          server-dir: ${{ steps.paths.outputs.dir }} # main → /public_html/, staging → /staging/
+          dangerous-clean-slate: false               # set to true once if you need a full wipe
           exclude: |
             **/.git**
             **/.github/**
