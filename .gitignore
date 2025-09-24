@@ -1,0 +1,6 @@
+# Ignore local/server-only config
+includes/config.local.php
+
+# Ignore logs
+*.log
+
