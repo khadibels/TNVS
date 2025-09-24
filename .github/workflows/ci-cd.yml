@@ -1,4 +1,4 @@
-name: CI → Test → Build → Deploy
+name: CI → Test → Build → Deploy (diagnostic)
 
 on:
   push:
@@ -16,7 +16,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # ---------- PHP setup + Composer ----------
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
@@ -35,7 +34,6 @@ jobs:
             echo "No composer.json, skipping composer."
           fi
 
-      # ---------- PHP lint (basic test) ----------
       - name: PHP syntax check
         run: |
           mapfile -t FILES < <(find . -type f -name "*.php")
@@ -45,7 +43,6 @@ jobs:
             echo "No PHP files found to lint."
           fi
 
-      # ---------- PHPUnit (if configured) ----------
       - name: Run PHPUnit (if phpunit.xml exists)
         run: |
           if [ -f phpunit.xml ] || [ -f phpunit.xml.dist ]; then
@@ -54,27 +51,13 @@ jobs:
             echo "No phpunit config, skipping tests."
           fi
 
-      # ---------- Node build (optional) ----------
-      - name: Setup Node (only if package.json exists)
-        if: ${{ hashFiles('package.json') != '' }}
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
+      # Optional Node build steps omitted here… (keep yours if needed)
 
-      - name: Install Node deps
-        if: ${{ hashFiles('package.json') != '' }}
-        run: npm ci || npm install
+      # ---- Marker so we can see it on the server ----
+      - name: Add deploy marker
+        run: echo "Deployed $(date -u +'%Y-%m-%d %H:%M:%S UTC') @ $GITHUB_SHA" > __DEPLOYED__.txt
 
-      - name: Build front-end
-        if: ${{ hashFiles('package.json') != '' }}
-        run: |
-          if npm run | grep -q " build"; then
-            npm run build
-          else
-            echo "No npm build script, skipping."
-          fi
-
-      # ---------- Package artifact (robust tar) ----------
+      # ---- Package artifact (robust tar) ----
       - name: Archive build artifact
         run: |
           tar --warning=no-file-changed --ignore-failed-read -czf site.tar.gz \
@@ -93,7 +76,7 @@ jobs:
         with:
           name: site
           path: site.tar.gz
-          retention-days: 7
+          retention-days: 3
 
   deploy:
     runs-on: ubuntu-latest
@@ -108,7 +91,6 @@ jobs:
       - name: Extract
         run: tar -xzf site.tar.gz
 
-      # choose target dir by branch
       - name: Set target directory
         id: paths
         run: |
@@ -117,20 +99,21 @@ jobs:
           else
             echo "dir=/home/logistics1.viahale.com/staging/" >> $GITHUB_OUTPUT
           fi
+          echo "Using server-dir: $(cat $GITHUB_OUTPUT)"
 
-      - name: Deploy via FTPS (origin IP)
+      - name: Deploy via FTPS (force clean ONCE)
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          server:   ${{ secrets.FTP_SERVER }}          # set to 23.94.230.146
+          server:   ${{ secrets.FTP_SERVER }}      # 23.94.230.146
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           port:     21
           protocol: ftps
           security: loose
           timeout: 60000
-          local-dir: ./                                # extracted archive
-          server-dir: ${{ steps.paths.outputs.dir }}   # public_html for main
-          dangerous-clean-slate: false
+          local-dir: ./ 
+          server-dir: ${{ steps.paths.outputs.dir }}
+          dangerous-clean-slate: true              # <— ONE RUN ONLY
           exclude: |
             **/.git**
             **/.github/**
