@@ -1,4 +1,4 @@
-name: CI → Test → Build → Deploy (diagnostic)
+name: CI → Test → Build → Deploy
 
 on:
   push:
@@ -12,10 +12,12 @@ concurrency:
 jobs:
   build_and_test:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      # ---------- PHP setup + Composer ----------
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
@@ -34,6 +36,7 @@ jobs:
             echo "No composer.json, skipping composer."
           fi
 
+      # ---------- PHP lint (basic test) ----------
       - name: PHP syntax check
         run: |
           mapfile -t FILES < <(find . -type f -name "*.php")
@@ -43,6 +46,7 @@ jobs:
             echo "No PHP files found to lint."
           fi
 
+      # ---------- PHPUnit (if configured) ----------
       - name: Run PHPUnit (if phpunit.xml exists)
         run: |
           if [ -f phpunit.xml ] || [ -f phpunit.xml.dist ]; then
@@ -51,16 +55,31 @@ jobs:
             echo "No phpunit config, skipping tests."
           fi
 
-      # Optional Node build steps omitted here… (keep yours if needed)
+      # ---------- Node build (optional) ----------
+      - name: Setup Node (only if package.json exists)
+        if: ${{ hashFiles('package.json') != '' }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
-      # ---- Marker so we can see it on the server ----
-      - name: Add deploy marker
-        run: echo "Deployed $(date -u +'%Y-%m-%d %H:%M:%S UTC') @ $GITHUB_SHA" > __DEPLOYED__.txt
+      - name: Install Node deps
+        if: ${{ hashFiles('package.json') != '' }}
+        run: |
+          npm ci || npm install
 
-      # ---- Package artifact (robust tar) ----
+      - name: Build front-end
+        if: ${{ hashFiles('package.json') != '' }}
+        run: |
+          if npm run | grep -q " build"; then
+            npm run build
+          else
+            echo "No npm build script, skipping."
+          fi
+
+      # ---------- Package artifact ----------
       - name: Archive build artifact
         run: |
-          tar --warning=no-file-changed --ignore-failed-read -czf site.tar.gz \
+          tar -czf site.tar.gz \
             --exclude='./.git' \
             --exclude='./.github' \
             --exclude='./node_modules' \
@@ -68,20 +87,18 @@ jobs:
             --exclude='./README.md' \
             --exclude='./composer.lock' \
             --exclude='./package*.json' \
-            --exclude='./site.tar.gz' \
             .
-
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
           name: site
           path: site.tar.gz
-          retention-days: 3
 
   deploy:
     runs-on: ubuntu-latest
     needs: build_and_test
     if: ${{ success() }}
+
     steps:
       - name: Download artifact
         uses: actions/download-artifact@v4
@@ -91,20 +108,20 @@ jobs:
       - name: Extract
         run: tar -xzf site.tar.gz
 
+      # ---- choose server-dir by branch: staging vs main ----
       - name: Set target directory
         id: paths
         run: |
           if [ "${{ github.ref_name }}" = "main" ]; then
-            echo "dir=/home/logistics1.viahale.com/public_html/" >> $GITHUB_OUTPUT
+            echo "dir=/public_html/" >> $GITHUB_OUTPUT
           else
-            echo "dir=/home/logistics1.viahale.com/staging/" >> $GITHUB_OUTPUT
+            echo "dir=/staging/" >> $GITHUB_OUTPUT
           fi
-          echo "Using server-dir: $(cat $GITHUB_OUTPUT)"
 
-      - name: Deploy via FTPS (force clean ONCE)
+      - name: Deploy via FTPS
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
-          server:   ${{ secrets.FTP_SERVER }}      # 23.94.230.146
+          server:   ${{ secrets.FTP_SERVER }}        # e.g. 23.94.230.146
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           port:     21
@@ -112,8 +129,8 @@ jobs:
           security: loose
           timeout: 60000
           local-dir: ./ 
-          server-dir: ${{ steps.paths.outputs.dir }}
-          dangerous-clean-slate: true              # <— ONE RUN ONLY
+          server-dir: ${{ steps.paths.outputs.dir }} 
+          dangerous-clean-slate: false
           exclude: |
             **/.git**
             **/.github/**
