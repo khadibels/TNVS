@@ -17,6 +17,15 @@ if (!empty($_SESSION["user"]) && empty($_GET['err'])) {
         case 'procurement_officer':
             $dest = rtrim(BASE_URL, '/') . '/procurement/procurementDashboard.php';
             break;
+        case 'project_lead';
+            $dest = rtrim(BASE_URL, '/') . '/PLT/pltDashboard.php';
+            break;
+        case 'asset_manager';
+            $dest = rtrim(BASE_URL, '/') . '/assetlifecycle/ALMS.php';
+            break;
+        case 'document_controller';
+            $dest = rtrim(BASE_URL, '/') . '/documentTracking/dashboard.php';
+            break;
         case 'vendor':
             $dest = rtrim(BASE_URL, '/') . (
                 $vendSt === 'approved'
