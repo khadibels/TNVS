@@ -7,36 +7,37 @@ if (!empty($_SESSION["user"]) && empty($_GET['err'])) {
     $vendSt = strtolower($_SESSION['user']['vendor_status'] ?? '');
 
     switch ($role) {
-        case 'admin':
-            $dest = rtrim(BASE_URL, '/') . '/all-modules-admin-access/Dashboard.php';
-            break;
-        case 'manager':
-        case 'warehouse_staff':
-            $dest = rtrim(BASE_URL, '/') . '/warehousing/warehouseDashboard.php';
-            break;
-        case 'procurement_officer':
-            $dest = rtrim(BASE_URL, '/') . '/procurement/procurementDashboard.php';
-            break;
-        case 'project_lead';
-            $dest = rtrim(BASE_URL, '/') . '/PLT/pltDashboard.php';
-            break;
-        case 'asset_manager';
-            $dest = rtrim(BASE_URL, '/') . '/assetlifecycle/ALMS.php';
-            break;
-        case 'document_controller';
-            $dest = rtrim(BASE_URL, '/') . '/documentTracking/dashboard.php';
-            break;
-        case 'vendor':
-            $dest = rtrim(BASE_URL, '/') . (
-                $vendSt === 'approved'
-                  ? '/vendor_portal/vendor/dashboard.php'
-                  : '/vendor_portal/vendor/pending.php'
-            );
-            break;
-        default:
-            $dest = rtrim(BASE_URL, '/') . '/all-modules-admin-access/Dashboard.php';
-            break;
-    }
+      case 'admin':
+        $dest = rtrim(BASE_URL, '/') . '/all-modules-admin-access/Dashboard.php';
+          break;
+      case 'manager':
+      case 'warehouse_staff':
+          $dest = rtrim(BASE_URL, '/') . '/warehousing/warehouseDashboard.php';
+          break;
+      case 'procurement_officer':
+          $dest = rtrim(BASE_URL, '/') . '/procurement/procurementDashboard.php';
+          break;
+      case 'project_lead':
+          $dest = rtrim(BASE_URL, '/') . '/PLT/pltDashboard.php';
+          break;
+      case 'asset_manager':
+          $dest = rtrim(BASE_URL, '/') . '/assetlifecycle/ALMS.php';
+          break;
+      case 'document_controller':
+          $dest = rtrim(BASE_URL, '/') . '/documentTracking/dashboard.php';
+          break;
+      case 'vendor':
+        $dest = rtrim(BASE_URL, '/') . (
+            $vendSt === 'approved'
+              ? '/vendor_portal/vendor/dashboard.php'
+              : '/vendor_portal/vendor/pending.php'
+        );
+          break;
+      default:
+          $dest = rtrim(BASE_URL, '/') . '/login.php';
+          break;
+}
+
     header('Location: ' . $dest);
     exit();
 }

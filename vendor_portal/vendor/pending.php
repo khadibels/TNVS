@@ -3,22 +3,23 @@ require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../includes/db.php';
 
-require_role(['vendor']);
+vendor_require_login();
 
 $pdo = db('proc');
 $vid = (int)($_SESSION['user']['vendor_id'] ?? 0);
 
-$stmt = $pdo->prepare("SELECT company_name, email, status, review_note FROM vendors WHERE id = :id LIMIT 1");
-$stmt->execute([':id'=>$vid]);
+$stmt = $pdo->prepare("SELECT company_name, email, status, review_note FROM vendors WHERE id = ? LIMIT 1");
+$stmt->execute([$vid]);
 $row = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$row) {
     $_SESSION = [];
-    header('Location: ' . BASE_URL . '/login.php');
+    header('Location: ' . rtrim(BASE_URL,'/') . '/login.php');
     exit;
 }
 
-$_SESSION['user']['vendor_status'] = $row['status'] ?? 'Pending';
+$_SESSION['user']['vendor_status'] = strtolower($row['status'] ?? 'pending');
+
 
 $status = strtolower($row['status'] ?? 'pending');
 if ($status === 'approved') {

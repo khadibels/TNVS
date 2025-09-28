@@ -3,7 +3,8 @@ require_once __DIR__ . "/../../includes/config.php";
 require_once __DIR__ . "/../../includes/db.php";
 if (session_status() !== PHP_SESSION_ACTIVE) session_start();
 
-$pdo = db('proc');
+$proc = db('proc');  
+$auth = db('auth');
 
 if (empty($_SESSION['csrf'])) {
   $_SESSION['csrf'] = bin2hex(random_bytes(16));
@@ -32,88 +33,74 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $phone   = $vals['phone'];
         $address = $vals['address'];
 
-        $photoPlan = null;
-        if (isset($_FILES['profile_photo']) && $_FILES['profile_photo']['error'] !== UPLOAD_ERR_NO_FILE) {
-            $f = $_FILES['profile_photo'];
-            if ($f['error'] === UPLOAD_ERR_OK && $f['size'] <= 2 * 1024 * 1024) {
-                $ext = strtolower(pathinfo($f['name'], PATHINFO_EXTENSION));
-                $allowedExt  = ['jpg','jpeg','png','gif'];
-                $allowedMime = ['image/jpeg','image/png','image/gif'];
-                $mime = mime_content_type($f['tmp_name']);
-                if (in_array($ext, $allowedExt, true) && in_array($mime, $allowedMime, true)) {
-                    $photoPlan = ['tmp' => $f['tmp_name'], 'ext' => ($ext === 'jpeg' ? 'jpg' : $ext)];
-                } else {
-                    $err = "Only JPG, PNG, or GIF images are allowed.";
-                }
-            } else if ($f['error'] !== UPLOAD_ERR_NO_FILE) {
-                $err = "Profile photo is too large or invalid.";
-            }
-        }
-
         if (!$err && $company && $person && $email && $pass) {
             try {
-                $dup = $pdo->prepare("SELECT 1 FROM vendors WHERE email = ? LIMIT 1");
+                // --- check duplicates in vendors
+                $dup = $proc->prepare("SELECT 1 FROM vendors WHERE email = ? LIMIT 1");
                 $dup->execute([$email]);
                 if ($dup->fetchColumn()) {
                     throw new RuntimeException("That email is already registered. Try signing in or use a different email.");
                 }
 
-                $pdo->beginTransaction();
+                $proc->beginTransaction();
 
                 $hash = password_hash($pass, PASSWORD_DEFAULT);
-                $stmt = $pdo->prepare("
+                $stmt = $proc->prepare("
                     INSERT INTO vendors (company_name, contact_person, email, password, phone, address, status)
                     VALUES (?,?,?,?,?,?,'Pending')
                 ");
                 $stmt->execute([$company, $person, $email, $hash, $phone, $address]);
+                $vendorId = (int)$proc->lastInsertId();
 
-                $vendorId = (int)$pdo->lastInsertId();
+                $proc->commit();
 
-                if ($photoPlan) {
-                    $targetDir = __DIR__ . "/uploads/";
-                    if (!is_dir($targetDir)) {
-                        mkdir($targetDir, 0777, true);
-                    }
-                    $photoFile  = "vendor_{$vendorId}_" . bin2hex(random_bytes(4)) . "." . $photoPlan['ext'];
-                    $targetFile = $targetDir . $photoFile;
-                    if (move_uploaded_file($photoPlan['tmp'], $targetFile)) {
-                        $up = $pdo->prepare("UPDATE vendors SET profile_photo = ? WHERE id = ?");
-                        $up->execute([$photoFile, $vendorId]);
-                    }
+                // --- ensure an entry in auth.users
+                $dup = $auth->prepare("SELECT id FROM users WHERE email = ? LIMIT 1");
+                $dup->execute([$email]);
+                $u = $dup->fetch(PDO::FETCH_ASSOC);
+
+                if ($u) {
+                    $upd = $auth->prepare("UPDATE users SET role='vendor', vendor_id=? WHERE id=?");
+                    $upd->execute([$vendorId, $u['id']]);
+                    $userId = (int)$u['id'];
+                } else {
+                    $ins = $auth->prepare("
+                        INSERT INTO users (name, email, password_hash, role, vendor_id)
+                        VALUES (?,?,?,?,?)
+                    ");
+                    $ins->execute([
+                        $person ?: $company,
+                        $email,
+                        $hash,
+                        'vendor',
+                        $vendorId
+                    ]);
+                    $userId = (int)$auth->lastInsertId();
                 }
 
-                $pdo->commit();
-
-                // >>> AUTO-LOGIN + REDIRECT TO GATE (do not change your UI below)
-                $_SESSION['vendor'] = [
-                    'id'           => $vendorId,
-                    'email'        => $email,
-                    'company_name' => $company,
-                    'status'       => 'Pending',
+                // --- auto-login unified session
+                $_SESSION['user'] = [
+                    'id'            => $userId,
+                    'email'         => $email,
+                    'name'          => $person ?: $company,
+                    'role'          => 'vendor',
+                    'vendor_id'     => $vendorId,
+                    'vendor_status' => 'pending'
                 ];
-                header('Location: ' . BASE_URL . 'vendor_portal/vendor/gate.php');
+
+                header('Location: ' . rtrim(BASE_URL,'/') . '/vendor_portal/vendor/gate.php');
                 exit;
 
             } catch (Throwable $e) {
-                if ($pdo->inTransaction()) { $pdo->rollBack(); }
-                $msg = $e->getMessage();
-                if ($e instanceof PDOException) {
-                    $code = $e->errorInfo[1] ?? null;
-                    if ((int)$code === 1062) {
-                        $msg = "That email is already registered. Try signing in or use a different email.";
-                    } else {
-                        $msg = "Database error ($code). Please try again.";
-                    }
-                }
-                $err = $msg ?: "Unexpected error. Please try again.";
+                if ($proc->inTransaction()) $proc->rollBack();
+                $err = "Registration failed: " . $e->getMessage();
             }
-        } elseif (!$err) {
+        } else {
             $err = "Please fill out all required fields.";
         }
     }
 }
 ?>
-
 
 ?>
 <!DOCTYPE html>
@@ -174,7 +161,6 @@ body {
 
 .brand-pane {
   background-color: #f7f5ff;
-  /* Subtle SVG background pattern for texture */
   background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23e9e3ff' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
 }
 
@@ -194,7 +180,7 @@ body {
 
 .display-brand {
   font-family: 'Bricolage Grotesque', sans-serif;
-  font-size: clamp(1.5rem, 4vw, 1.8rem); /* Responsive font size */
+  font-size: clamp(1.5rem, 4vw, 1.8rem);
   font-weight: 700;
   color: var(--brand-primary);
 }
@@ -215,7 +201,7 @@ body {
   border: 1px solid #ddd;
   transition: all 0.2s ease;
   padding: 0.75rem 1rem;
-  height: calc(1.5em + 1.5rem + 2px); /* Consistent height */
+  height: calc(1.5em + 1.5rem + 2px);
 }
 .form-control:focus {
   border-color: var(--brand-accent);
