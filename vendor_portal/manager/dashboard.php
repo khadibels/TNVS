@@ -1,51 +1,40 @@
 <?php
 require_once __DIR__ . "/../../includes/config.php";
 require_once __DIR__ . "/../../includes/auth.php";
+require_once __DIR__ . "/../../includes/db.php";
 require_login();
-require_role(['vendor_manager', 'admin']);  // lock this page to VM
+require_role(['vendor_manager']);
 
-$section = 'vp_manager';
-$active  = 'listings';
-?>
+
+$section = 'vendor_manager';
+$active = 'vm_dash';
+?>  
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <title>Vendor Portal — Manager Dashboard</title>
-  <link rel="stylesheet" href="<?= BASE_URL ?>css/style.css">
-  <link rel="stylesheet" href="<?= BASE_URL ?>css/modules.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
-</head>
-<body class="bg-light">
-  <div class="d-flex">
-    <?php include __DIR__ . "/../../includes/vp_sidebar.php"; ?>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>SW Dashboard | TNVS</title>
 
-    <main class="flex-grow-1">
-      <div class="container-fluid p-4">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <h1 class="h4 mb-0">Manager Dashboard</h1>
-          <span class="badge bg-secondary">Vendor Manager</span>
-        </div>
-
-        <div class="row g-3">
-          <div class="col-12 col-md-6 col-xl-3">
-            <div class="card shadow-sm h-100">
-              <div class="card-body">
-                <div class="d-flex align-items-center gap-2">
-                  <ion-icon name="mail-unread-outline"></ion-icon>
-                  <div class="fw-semibold">New PRs</div>
-                </div>
-                <div class="display-6 mt-2">0</div>
-                <a href="<?= BASE_URL ?>vendor_portal/manager/pr_inbox.php" class="stretched-link">View PR Inbox</a>
-              </div>
-            </div>
-          </div>
-          <!-- Add more summary cards as you wire data -->
-        </div>
-      </div>
-    </main>
-  </div>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="../../css/style.css" rel="stylesheet" />
+  <link href="../../css/modules.css" rel="stylesheet" />
   <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
   <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
-</body>
-</html>
+  <script src="../js/sidebar-toggle.js"></script>
+  <!-- Charts -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <style>
+    .kpi-card .icon-wrap { width:42px; height:42px; display:flex; align-items:center; justify-content:center; border-radius:12px; }
+    .chart-card canvas { width:100% !important; height:320px !important; }
+  </style>
+</head>
+<body>
+  <div class="container-fluid p-0">
+    <div class="row g-0">
+
+    <?php include __DIR__ . '/../../includes/sidebar.php' ?>
+    
+
+      

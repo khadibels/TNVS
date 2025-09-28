@@ -3,104 +3,77 @@ require_once __DIR__ . "/../../includes/config.php";
 require_once __DIR__ . "/../../includes/db.php";
 if (session_status() !== PHP_SESSION_ACTIVE) session_start();
 
-$proc = db('proc');  
+$proc = db('proc');
 $auth = db('auth');
 
-if (empty($_SESSION['csrf'])) {
-  $_SESSION['csrf'] = bin2hex(random_bytes(16));
-}
+if (empty($_SESSION['csrf'])) $_SESSION['csrf'] = bin2hex(random_bytes(16));
 
-$err = "";
-$ok  = "";
-$vals = [
-  'company_name'   => '',
-  'contact_person' => '',
-  'email'          => '',
-  'phone'          => '',
-  'address'        => '',
-];
+$err=""; $ok=""; $vals=['company_name'=>'','contact_person'=>'','email'=>'','phone'=>'','address'=>''];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    foreach ($vals as $k => $_) { $vals[$k] = trim($_POST[$k] ?? ''); }
+  foreach ($vals as $k => $_) { $vals[$k] = trim($_POST[$k] ?? ''); }
 
-    if (!isset($_POST['csrf']) || !hash_equals($_SESSION['csrf'], $_POST['csrf'])) {
-        $err = "Invalid form token. Please try again.";
-    } else {
-        $company = $vals['company_name'];
-        $person  = $vals['contact_person'];
-        $email   = $vals['email'];
-        $pass    = $_POST['password'] ?? '';
-        $phone   = $vals['phone'];
-        $address = $vals['address'];
+  if (!isset($_POST['csrf']) || !hash_equals($_SESSION['csrf'], $_POST['csrf'])) {
+    $err = "Invalid form token.";
+  } else {
+    $company=$vals['company_name']; $person=$vals['contact_person']; $email=$vals['email'];
+    $pass=$_POST['password'] ?? ''; $phone=$vals['phone']; $address=$vals['address'];
 
-        if (!$err && $company && $person && $email && $pass) {
-            try {
-                // --- check duplicates in vendors
-                $dup = $proc->prepare("SELECT 1 FROM vendors WHERE email = ? LIMIT 1");
-                $dup->execute([$email]);
-                if ($dup->fetchColumn()) {
-                    throw new RuntimeException("That email is already registered. Try signing in or use a different email.");
-                }
+    if ($company && $person && $email && $pass) {
+      try {
+        $dup=$proc->prepare("SELECT 1 FROM vendors WHERE email=? LIMIT 1"); $dup->execute([$email]);
+        if ($dup->fetchColumn()) throw new RuntimeException("That email is already registered.");
 
-                $proc->beginTransaction();
+        $proc->beginTransaction();
 
-                $hash = password_hash($pass, PASSWORD_DEFAULT);
-                $stmt = $proc->prepare("
-                    INSERT INTO vendors (company_name, contact_person, email, password, phone, address, status)
-                    VALUES (?,?,?,?,?,?,'Pending')
-                ");
-                $stmt->execute([$company, $person, $email, $hash, $phone, $address]);
-                $vendorId = (int)$proc->lastInsertId();
+        $hash=password_hash($pass, PASSWORD_DEFAULT);
+        $ins=$proc->prepare("INSERT INTO vendors (company_name,contact_person,email,password,phone,address,status) VALUES (?,?,?,?,?,?,'Pending')");
+        $ins->execute([$company,$person,$email,$hash,$phone,$address]);
+        $vendorId=(int)$proc->lastInsertId();
 
-                $proc->commit();
-
-                // --- ensure an entry in auth.users
-                $dup = $auth->prepare("SELECT id FROM users WHERE email = ? LIMIT 1");
-                $dup->execute([$email]);
-                $u = $dup->fetch(PDO::FETCH_ASSOC);
-
-                if ($u) {
-                    $upd = $auth->prepare("UPDATE users SET role='vendor', vendor_id=? WHERE id=?");
-                    $upd->execute([$vendorId, $u['id']]);
-                    $userId = (int)$u['id'];
-                } else {
-                    $ins = $auth->prepare("
-                        INSERT INTO users (name, email, password_hash, role, vendor_id)
-                        VALUES (?,?,?,?,?)
-                    ");
-                    $ins->execute([
-                        $person ?: $company,
-                        $email,
-                        $hash,
-                        'vendor',
-                        $vendorId
-                    ]);
-                    $userId = (int)$auth->lastInsertId();
-                }
-
-                // --- auto-login unified session
-                $_SESSION['user'] = [
-                    'id'            => $userId,
-                    'email'         => $email,
-                    'name'          => $person ?: $company,
-                    'role'          => 'vendor',
-                    'vendor_id'     => $vendorId,
-                    'vendor_status' => 'pending'
-                ];
-
-                header('Location: ' . rtrim(BASE_URL,'/') . '/vendor_portal/vendor/gate.php');
-                exit;
-
-            } catch (Throwable $e) {
-                if ($proc->inTransaction()) $proc->rollBack();
-                $err = "Registration failed: " . $e->getMessage();
-            }
-        } else {
-            $err = "Please fill out all required fields.";
+        $filename=null;
+        if (isset($_FILES['profile_photo']) && $_FILES['profile_photo']['error']===UPLOAD_ERR_OK) {
+          $tmp=$_FILES['profile_photo']['tmp_name']; $orig=$_FILES['profile_photo']['name'];
+          $ext=strtolower(pathinfo($orig, PATHINFO_EXTENSION)); if ($ext==='jpeg') $ext='jpg';
+          if (in_array($ext,['jpg','png','gif','webp'],true)) {
+            $dir = realpath(__DIR__ . '/../../') . '/vendor_portal/vendor/uploads';
+            if (!is_dir($dir)) mkdir($dir,0775,true);
+            $filename='vendor_'.$vendorId.'_'.bin2hex(random_bytes(4)).'.'.$ext;
+            $abs=$dir.'/'.$filename;
+            if (move_uploaded_file($tmp,$abs)) @chmod($abs,0644); else $filename=null;
+          }
         }
+        if ($filename) {
+          $up=$proc->prepare("UPDATE vendors SET profile_photo=? WHERE id=?");
+          $up->execute([$filename,$vendorId]);
+        }
+
+        $proc->commit();
+
+        $dup=$auth->prepare("SELECT id FROM users WHERE email=? LIMIT 1"); $dup->execute([$email]);
+        if ($u=$dup->fetch(PDO::FETCH_ASSOC)) {
+          $upd=$auth->prepare("UPDATE users SET role='vendor', vendor_id=?, vendor_status='pending' WHERE id=?");
+          $upd->execute([$vendorId,$u['id']]); $userId=(int)$u['id'];
+        } else {
+          $insU=$auth->prepare("INSERT INTO users (name,email,password_hash,role,vendor_id,vendor_status) VALUES (?,?,?,?,?, 'pending')");
+          $insU->execute([$person?:$company,$email,$hash,'vendor',$vendorId]); $userId=(int)$auth->lastInsertId();
+        }
+
+        $_SESSION['user']=[
+          'id'=>$userId,'email'=>$email,'name'=>$person?:$company,'role'=>'vendor',
+          'vendor_id'=>$vendorId,'vendor_status'=>'pending'
+        ];
+        header('Location: ' . rtrim(BASE_URL,'/') . '/vendor_portal/vendor/gate.php'); exit;
+      } catch (Throwable $e) {
+        if ($proc->inTransaction()) $proc->rollBack();
+        $err="Registration failed: ".$e->getMessage();
+      }
+    } else {
+      $err="Please fill out all required fields.";
     }
+  }
 }
-?>
+
 
 ?>
 <!DOCTYPE html>
@@ -456,7 +429,7 @@ body {
                   <button type="submit" class="btn btn-brand">
                     <ion-icon name="person-add-outline"></ion-icon> Submit Registration
                   </button>
-                  <a href="login.php" class="btn btn-outline-dark text-center">
+                  <a href="../../login.php" class="btn btn-outline-dark text-center">
                     Already have an account? Login
                   </a>
                 </div>

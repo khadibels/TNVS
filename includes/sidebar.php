@@ -191,30 +191,20 @@
       <a class="nav-link<?= a('dashboard') ?>" href="<?= u('procurement/procurementDashboard.php') ?>">
         <ion-icon name="home-outline"></ion-icon><span>Dashboard</span>
       </a>
-      <a class="nav-link<?= a('po_suppliers') ?>" href="<?= u('procurement/supplierManagement.php') ?>">
-        <ion-icon name="people-outline"></ion-icon><span>Supplier Management</span>
-      </a>
 
+      <!-- no Supplier Management here -->
       <a class="nav-link<?= a('po_rfq') ?>" href="<?= u('procurement/rfqApprovals.php') ?>">
         <ion-icon name="paper-plane-outline"></ion-icon><span>RFQ Approvals</span>
       </a>
-
-      <!-- Quote evaluation & awarding -->
       <a class="nav-link<?= a('po_quotes') ?>" href="<?= u('procurement/quoteEvaluation.php') ?>">
         <ion-icon name="pricetags-outline"></ion-icon><span>Quote Evaluation & Award</span>
       </a>
-
-      <!-- PO issuance -->
       <a class="nav-link<?= a('po_pos') ?>" href="<?= u('procurement/purchaseOrders.php') ?>">
         <ion-icon name="file-tray-full-outline"></ion-icon><span>PO Issuance</span>
       </a>
-
-      <!-- Optional: Inventory snapshot (read-only) -->
       <a class="nav-link<?= a('po_inventory') ?>" href="<?= u('procurement/inventoryView.php') ?>">
         <ion-icon name="archive-outline"></ion-icon><span>Inventory Snapshot</span>
       </a>
-
-      <!-- Reports -->
       <a class="nav-link<?= a('po_reports') ?>" href="<?= u('procurement/budgetReports.php') ?>">
         <ion-icon name="stats-chart-outline"></ion-icon><span>Reports</span>
       </a>
@@ -227,6 +217,7 @@
     </div>
   </div>
 <?php return; } ?>
+
 
 
 
@@ -331,9 +322,11 @@
       <a class="nav-link<?= a('vm_dash') ?>" href="<?= u('vendor_portal/manager/dashboard.php') ?>">
         <ion-icon name="home-outline"></ion-icon><span>Dashboard</span>
       </a>
-      <a class="nav-link<?= a('vm_vendors') ?>" href="<?= u('vendor_portal/manager/vendors.php') ?>">
-        <ion-icon name="people-outline"></ion-icon><span>Vendors</span>
+
+      <a class="nav-link<?= a('vm_suppliers') ?>" href="<?= u('vendor_portal/manager/supplierManagement.php') ?>">
+        <ion-icon name="people-outline"></ion-icon><span>Supplier Management</span>
       </a>
+
       <a class="nav-link<?= a('vm_perf') ?>" href="<?= u('vendor_portal/manager/vendorPerformance.php') ?>">
         <ion-icon name="speedometer-outline"></ion-icon><span>Performance</span>
       </a>
@@ -347,19 +340,18 @@
         <ion-icon name="settings-outline"></ion-icon><span>Settings</span>
       </a>
 
-      <hr class="my-3">
-      <a class="nav-link" href="<?= u('all-modules-admin-access/Dashboard.php') ?>">
-        <ion-icon name="home-outline"></ion-icon><span>Back to TNVS</span>
-      </a>
-      <a class="nav-link text-danger" href="<?= u('auth/logout.php') ?>">
+      <div class="logout-section mt-auto">
+      <a class="nav-link text-danger d-flex align-items-center gap-2" href="<?= u('auth/logout.php') ?>">
         <ion-icon name="log-out-outline"></ion-icon><span>Logout</span>
       </a>
-    </nav>
+    </div>
   </div>
+      
 <?php return; } ?>
 
 
-  <?php
+
+ <?php
 if ($role === 'vendor') {
   $vendorStatus = strtolower($_SESSION['user']['vendor_status'] ?? 'pending');
 
@@ -376,7 +368,6 @@ if ($role === 'vendor') {
     return;
   }
   ?>
-
   <div class="sidebar d-flex flex-column">
     <div class="d-flex justify-content-center align-items-center mb-4 mt-3">
       <img src="<?= u('img/logo.png') ?>" id="logo" class="img-fluid me-2" style="height:55px" alt="Logo">
@@ -426,10 +417,8 @@ if ($role === 'vendor') {
       </a>
     </nav>
   </div>
-  <?php
-  return;
-}
-?>
+<?php return; } ?>
+
 
 
   <div class="sidebar d-flex flex-column p-3">

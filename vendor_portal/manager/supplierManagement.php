@@ -1,10 +1,10 @@
 <?php
-require_once __DIR__ . "/../includes/config.php";
-require_once __DIR__ . "/../includes/auth.php";
-require_once __DIR__ . "/../includes/db.php";
+require_once __DIR__ . "/../../includes/config.php";
+require_once __DIR__ . "/../../includes/auth.php";
+require_once __DIR__ . "/../../includes/db.php";
 
 require_login();
-require_role(['admin','procurement_officer']);
+require_role(['admin','vendor_manager']);
 
 $pdo = db('proc');
 if (!$pdo instanceof PDO) { http_response_code(500); die("DB error"); }
@@ -13,8 +13,8 @@ $user     = current_user();
 $userName = $user['name'] ?? 'Guest';
 $userRole = $user['role'] ?? 'Unknown';
 
-$section = 'procurement';
-$active  = 'po_suppliers';
+$section = 'vendor_manager';
+$active  = 'vm_suppliers';
 
 
 $BASE = rtrim(defined('BASE_URL') ? BASE_URL : '', '/');
@@ -27,11 +27,11 @@ $BASE = rtrim(defined('BASE_URL') ? BASE_URL : '', '/');
   <title>Supplier Management | TNVS</title>
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
-  <link href="../css/style.css" rel="stylesheet" />
-  <link href="../css/modules.css" rel="stylesheet" />
+  <link href="../../css/style.css" rel="stylesheet" />
+  <link href="../../css/modules.css" rel="stylesheet" />
   <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
   <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
-  <script src="../js/sidebar-toggle.js"></script>
+  <script src="../../js/sidebar-toggle.js"></script>
 
 
   <style>
@@ -174,7 +174,7 @@ $BASE = rtrim(defined('BASE_URL') ? BASE_URL : '', '/');
 <div class="container-fluid p-0">
   <div class="row g-0">
 
-    <?php include __DIR__ . '/../includes/sidebar.php' ?>
+    <?php include __DIR__ . '/../../includes/sidebar.php' ?>
 
     <div class="col main-content">
 
@@ -187,7 +187,7 @@ $BASE = rtrim(defined('BASE_URL') ? BASE_URL : '', '/');
           <h2 class="m-0">Supplier Management</h2>
         </div>
         <div class="d-flex align-items-center gap-2">
-          <img src="../img/profile.jpg" class="rounded-circle" width="36" height="36" alt="">
+          <img src="../../img/profile.jpg" class="rounded-circle" width="36" height="36" alt="">
           <div class="small">
             <strong><?= htmlspecialchars($userName) ?></strong><br/>
             <span class="text-muted"><?= htmlspecialchars($userRole) ?></span>

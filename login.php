@@ -26,6 +26,9 @@ if (!empty($_SESSION["user"]) && empty($_GET['err'])) {
       case 'document_controller':
           $dest = rtrim(BASE_URL, '/') . '/documentTracking/dashboard.php';
           break;
+      case 'vendor_manager':
+          $dest = rtrim(BASE_URL, '/') . '/vendor_portal/manager/dashboard.php';
+          break;
       case 'vendor':
         $dest = rtrim(BASE_URL, '/') . (
             $vendSt === 'approved'
@@ -202,7 +205,7 @@ if ($errRaw !== '') {
       <form method="post" action="auth/login_process.php">
         <div class="mb-3">
           <label class="form-label">Email</label>
-          <input type="email" id="email" name="email" class="form-control" placeholder="Email" required>
+          <input type="email" id="email" name="email" class="form-control" placeholder="Enter your email" required>
         </div>
 
         <div class="mb-3 input-icon">
@@ -214,6 +217,13 @@ if ($errRaw !== '') {
         </div>
 
         <button class="btn-login" type="submit">LOGIN <span class="ms-1">►</span></button>
+        <a
+  class="btn btn-outline-light w-100 mt-2"
+  href="<?= rtrim(BASE_URL,'/') ?>/vendor_portal/vendor/register.php">
+  <ion-icon name="person-add-outline"></ion-icon>
+  REGISTER AS VENDOR
+</a>
+
       </form>
     </div>
   </div>

@@ -24,7 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       'project_lead',
       'viewer',
       'vendor',
-      'vendor manager'
+      'vendor_manager'
 ];
 
   if ($name === '' || $email === '' || $pass === '' || !in_array($role, $allowed, true)) {
