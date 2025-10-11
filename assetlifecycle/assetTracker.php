@@ -528,7 +528,7 @@ $userRole = $_SESSION["user"]["role"] ?? "Warehouse Manager";
                       <div><?= h($a['driver'] ?: 'Unassigned') ?></div>
                       <div class="text-muted small"><?= h($a['route'] ?: '—') ?> · <?= h($a['depot'] ?: '—') ?></div>
                       <div class="mt-1">
-                        <a class="btn btn-sm btn-outline-secondary" href="repair.php?q=<?= urlencode($a['name']) ?>">
+                        <a class="btn btn-sm btn-outline-secondary" href="repair.php">
                           <ion-icon name="construct-outline"></ion-icon> Repairs
                         </a>
                       </div>
