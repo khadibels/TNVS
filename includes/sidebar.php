@@ -36,15 +36,15 @@
 
       <h6 class="text-uppercase mb-2">Procurement and Sourcing Management</h6>
 <nav class="nav flex-column px-2 mb-4">
-  <a class="nav-link<?= a('po_suppliers') ?>" href="<?= u('procurement/supplierManagement.php') ?>">
+  <a class="nav-link<?= a('vm_suppliers') ?>" href="<?= u('vendor_portal/manager/supplierManagement.php') ?>">
     <ion-icon name="people-outline"></ion-icon><span>Supplier Management</span>
   </a>
 
-  <a class="nav-link<?= a('po_rfq') ?>" href="<?= u('procurement/rfqApprovals.php') ?>">
-    <ion-icon name="paper-plane-outline"></ion-icon><span>RFQ Approvals</span>
+  <a class="nav-link<?= a('po_rfq') ?>" href="<?= u('procurement/rfqManagement.php') ?>">
+    <ion-icon name="document-text-outline"></ion-icon><span>RFQ Management</span>
   </a>
 
-  <a class="nav-link<?= a('po_pos') ?>" href="<?= u('procurement/purchaseOrders.php') ?>">
+  <a class="nav-link<?= a('po_pos') ?>" href="<?= u('procurement/po_issuance.php') ?>">
     <ion-icon name="document-text-outline"></ion-icon><span>PO Issuance</span>
   </a>
 
@@ -192,19 +192,22 @@
         <ion-icon name="home-outline"></ion-icon><span>Dashboard</span>
       </a>
 
-      <!-- no Supplier Management here -->
-      <a class="nav-link<?= a('po_rfq') ?>" href="<?= u('procurement/rfqApprovals.php') ?>">
-        <ion-icon name="paper-plane-outline"></ion-icon><span>RFQ Approvals</span>
+      <a class="nav-link<?= a('po_rfq') ?>" href="<?= u('procurement/rfqManagement.php') ?>">
+        <ion-icon name="document-text-outline"></ion-icon><span>RFQ Management</span>
       </a>
+
       <a class="nav-link<?= a('po_quotes') ?>" href="<?= u('procurement/quoteEvaluation.php') ?>">
         <ion-icon name="pricetags-outline"></ion-icon><span>Quote Evaluation & Award</span>
       </a>
-      <a class="nav-link<?= a('po_pos') ?>" href="<?= u('procurement/purchaseOrders.php') ?>">
+
+      <a class="nav-link<?= a('po_pos') ?>" href="<?= u('procurement/po_issuance.php') ?>">
         <ion-icon name="file-tray-full-outline"></ion-icon><span>PO Issuance</span>
       </a>
+
       <a class="nav-link<?= a('po_inventory') ?>" href="<?= u('procurement/inventoryView.php') ?>">
         <ion-icon name="archive-outline"></ion-icon><span>Inventory Snapshot</span>
       </a>
+
       <a class="nav-link<?= a('po_reports') ?>" href="<?= u('procurement/budgetReports.php') ?>">
         <ion-icon name="stats-chart-outline"></ion-icon><span>Reports</span>
       </a>
@@ -330,24 +333,28 @@
       <a class="nav-link<?= a('vm_perf') ?>" href="<?= u('vendor_portal/manager/vendorPerformance.php') ?>">
         <ion-icon name="speedometer-outline"></ion-icon><span>Performance</span>
       </a>
+
       <a class="nav-link<?= a('vm_comms') ?>" href="<?= u('vendor_portal/manager/vendorComms.php') ?>">
         <ion-icon name="chatbubbles-outline"></ion-icon><span>Communication</span>
       </a>
-      <a class="nav-link<?= a('vm_reports') ?>" href="<?= u('vendor_portal/manager/vmReports.php') ?>">
+
+      <a class="nav-link<?= a('vm_reports') ?>" href <?= u('vendor_portal/manager/vmReports.php') ?>>
         <ion-icon name="stats-chart-outline"></ion-icon><span>Reports</span>
       </a>
+
       <a class="nav-link<?= a('vm_settings') ?>" href="<?= u('vendor_portal/manager/settings.php') ?>">
         <ion-icon name="settings-outline"></ion-icon><span>Settings</span>
       </a>
+    </nav>
 
-      <div class="logout-section mt-auto">
+    <div class="logout-section mt-auto">
       <a class="nav-link text-danger d-flex align-items-center gap-2" href="<?= u('auth/logout.php') ?>">
         <ion-icon name="log-out-outline"></ion-icon><span>Logout</span>
       </a>
     </div>
   </div>
-      
 <?php return; } ?>
+
 
 
 
@@ -355,18 +362,31 @@
 if ($role === 'vendor') {
   $vendorStatus = strtolower($_SESSION['user']['vendor_status'] ?? 'pending');
 
+  // Limited sidebar while waiting for approval
   if ($vendorStatus !== 'approved') {
     ?>
     <div class="sidebar d-flex flex-column p-3">
-      <div class="alert alert-warning small mb-0">
+      <div class="d-flex justify-content-center align-items-center mb-3">
+        <img src="<?= u('img/logo.png') ?>" id="logo" class="img-fluid me-2" style="height:55px" alt="Logo">
+      </div>
+      <div class="alert alert-warning small mb-3">
         <ion-icon name="hourglass-outline"></ion-icon>
         Your account is <strong><?= ucfirst($vendorStatus ?: 'Pending') ?></strong>.
         Once approved, the full Vendor Portal menu will appear here.
       </div>
+      <nav class="nav flex-column px-1">
+        <a class="nav-link<?= a('compliance') ?>" href="<?= u('vendor_portal/vendor/compliance.php') ?>">
+          <ion-icon name="shield-checkmark-outline"></ion-icon><span>Compliance / KYC</span>
+        </a>
+        <a class="nav-link text-danger mt-2" href="<?= u('auth/logout.php') ?>">
+          <ion-icon name="log-out-outline"></ion-icon><span>Logout</span>
+        </a>
+      </nav>
     </div>
     <?php
     return;
   }
+  // Full vendor sidebar when approved
   ?>
   <div class="sidebar d-flex flex-column">
     <div class="d-flex justify-content-center align-items-center mb-4 mt-3">
@@ -391,7 +411,7 @@ if ($role === 'vendor') {
       <a class="nav-link<?= a('rfqs') ?>" href="<?= u('vendor_portal/vendor/rfqs.php') ?>">
         <ion-icon name="mail-open-outline"></ion-icon><span>RFQs</span>
       </a>
-      <a class="nav-link<?= a('quotes') ?>" href="<?= u('vendor_portal/vendor/my_bids.php') ?>">
+      <a class="nav-link<?= a('quotes') ?>" href="<?= u('vendor_portal/vendor/my_quotes.php') ?>">
         <ion-icon name="pricetag-outline"></ion-icon><span>My Quotes / Bids</span>
       </a>
       <a class="nav-link<?= a('pos') ?>" href="<?= u('vendor_portal/vendor/pos.php') ?>">
@@ -408,16 +428,14 @@ if ($role === 'vendor') {
         <ion-icon name="settings-outline"></ion-icon><span>Settings</span>
       </a>
 
-      <hr class="my-3">
-      <a class="nav-link" href="<?= u('all-modules-admin-access/Dashboard.php') ?>">
-        <ion-icon name="home-outline"></ion-icon><span>Back to TNVS</span>
-      </a>
-      <a class="nav-link text-danger" href="<?= u('auth/logout.php') ?>">
+      <div class="logout-section mt-auto">
+      <a class="nav-link text-danger d-flex align-items-center gap-2" href="<?= u('auth/logout.php') ?>">
         <ion-icon name="log-out-outline"></ion-icon><span>Logout</span>
       </a>
-    </nav>
+    </div>
   </div>
 <?php return; } ?>
+
 
 
 

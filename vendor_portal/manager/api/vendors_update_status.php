@@ -19,7 +19,7 @@ if ($id <= 0 || !in_array($action, ['approve','reject'], true)) {
   http_response_code(400); echo json_encode(['error'=>'Invalid request']); exit;
 }
 
-$newStatus = ($action === 'approve') ? 'Approved' : 'Rejected';
+$newStatus = ($action === 'approve') ? 'approved' : 'rejected'; // <-- lowercase
 
 $proc->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
@@ -46,8 +46,9 @@ try {
   $sql = "UPDATE vendors SET ".implode(', ',$set)." WHERE id = :id";
   $u = $proc->prepare($sql); $u->execute($params);
 
+  // users.vendor_status stays lowercase too
   $ua = $auth->prepare("UPDATE users SET vendor_status = :vs WHERE vendor_id = :vid OR email = :em");
-  $ua->execute([':vs'=>strtolower($newStatus), ':vid'=>$id, ':em'=>$email]);
+  $ua->execute([':vs'=>$newStatus, ':vid'=>$id, ':em'=>$email]);
 
   $proc->commit();
   echo json_encode(['ok'=>true,'message'=>"Vendor status set to {$newStatus}."]);

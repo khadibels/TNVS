@@ -27,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $proc->beginTransaction();
 
         $hash=password_hash($pass, PASSWORD_DEFAULT);
-        $ins=$proc->prepare("INSERT INTO vendors (company_name,contact_person,email,password,phone,address,status) VALUES (?,?,?,?,?,?,'Pending')");
+        $ins=$proc->prepare("INSERT INTO vendors (company_name,contact_person,email,password,phone,address,status) VALUES (?,?,?,?,?,?,'draft')");
         $ins->execute([$company,$person,$email,$hash,$phone,$address]);
         $vendorId=(int)$proc->lastInsertId();
 
@@ -52,17 +52,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $dup=$auth->prepare("SELECT id FROM users WHERE email=? LIMIT 1"); $dup->execute([$email]);
         if ($u=$dup->fetch(PDO::FETCH_ASSOC)) {
-          $upd=$auth->prepare("UPDATE users SET role='vendor', vendor_id=?, vendor_status='pending' WHERE id=?");
+         $upd=$auth->prepare("UPDATE users SET role='vendor', vendor_id=?, vendor_status='draft' WHERE id=?");
           $upd->execute([$vendorId,$u['id']]); $userId=(int)$u['id'];
         } else {
-          $insU=$auth->prepare("INSERT INTO users (name,email,password_hash,role,vendor_id,vendor_status) VALUES (?,?,?,?,?, 'pending')");
+          $insU=$auth->prepare("INSERT INTO users (name,email,password_hash,role,vendor_id,vendor_status) VALUES (?,?,?,?,?, 'draft')");
           $insU->execute([$person?:$company,$email,$hash,'vendor',$vendorId]); $userId=(int)$auth->lastInsertId();
         }
 
         $_SESSION['user']=[
-          'id'=>$userId,'email'=>$email,'name'=>$person?:$company,'role'=>'vendor',
-          'vendor_id'=>$vendorId,'vendor_status'=>'pending'
+        'id'=>$userId,'email'=>$email,'name'=>$person?:$company,'role'=>'vendor',
+        'vendor_id'=>$vendorId,'vendor_status'=>'draft'
         ];
+
         header('Location: ' . rtrim(BASE_URL,'/') . '/vendor_portal/vendor/gate.php'); exit;
       } catch (Throwable $e) {
         if ($proc->inTransaction()) $proc->rollBack();

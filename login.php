@@ -9,37 +9,37 @@ if (!empty($_SESSION["user"]) && empty($_GET['err'])) {
     switch ($role) {
       case 'admin':
         $dest = rtrim(BASE_URL, '/') . '/all-modules-admin-access/Dashboard.php';
-          break;
+        break;
       case 'manager':
       case 'warehouse_staff':
-          $dest = rtrim(BASE_URL, '/') . '/warehousing/warehouseDashboard.php';
-          break;
+        $dest = rtrim(BASE_URL, '/') . '/warehousing/warehouseDashboard.php';
+        break;
       case 'procurement_officer':
-          $dest = rtrim(BASE_URL, '/') . '/procurement/procurementDashboard.php';
-          break;
+        $dest = rtrim(BASE_URL, '/') . '/procurement/procurementDashboard.php';
+        break;
       case 'project_lead':
-          $dest = rtrim(BASE_URL, '/') . '/PLT/pltDashboard.php';
-          break;
+        $dest = rtrim(BASE_URL, '/') . '/PLT/pltDashboard.php';
+        break;
       case 'asset_manager':
-          $dest = rtrim(BASE_URL, '/') . '/assetlifecycle/ALMS.php';
-          break;
+        $dest = rtrim(BASE_URL, '/') . '/assetlifecycle/ALMS.php';
+        break;
       case 'document_controller':
-          $dest = rtrim(BASE_URL, '/') . '/documentTracking/dashboard.php';
-          break;
+        $dest = rtrim(BASE_URL, '/') . '/documentTracking/dashboard.php';
+        break;
       case 'vendor_manager':
-          $dest = rtrim(BASE_URL, '/') . '/vendor_portal/manager/dashboard.php';
-          break;
+        $dest = rtrim(BASE_URL, '/') . '/vendor_portal/manager/dashboard.php';
+        break;
       case 'vendor':
         $dest = rtrim(BASE_URL, '/') . (
             $vendSt === 'approved'
               ? '/vendor_portal/vendor/dashboard.php'
               : '/vendor_portal/vendor/pending.php'
         );
-          break;
+        break;
       default:
-          $dest = rtrim(BASE_URL, '/') . '/login.php';
-          break;
-}
+        $dest = rtrim(BASE_URL, '/') . '/login.php';
+        break;
+    }
 
     header('Location: ' . $dest);
     exit();
@@ -217,21 +217,29 @@ if ($errRaw !== '') {
         </div>
 
         <button class="btn-login" type="submit">LOGIN <span class="ms-1">►</span></button>
-        <a
-  class="btn btn-outline-light w-100 mt-2"
-  href="<?= rtrim(BASE_URL,'/') ?>/vendor_portal/vendor/register.php">
-  <ion-icon name="person-add-outline"></ion-icon>
-  REGISTER AS VENDOR
-</a>
 
+        <a class="btn btn-outline-light w-100 mt-2"
+           href="<?= rtrim(BASE_URL,'/') ?>/vendor_portal/vendor/register.php">
+          <ion-icon name="person-add-outline"></ion-icon>
+          REGISTER AS VENDOR
+        </a>
+
+        <p class="mt-3 mb-0" style="font-size:.8rem;opacity:.9">
+          By continuing, you agree to our
+          <a href="#" class="text-white text-decoration-underline" data-bs-toggle="modal" data-bs-target="#legalModal">Privacy Policy & Terms</a>.
+        </p>
       </form>
     </div>
   </div>
 
-  <div class="footer-bar">
-    <div>BCP Capstone &nbsp; | &nbsp; <a href="#">Privacy Policy</a></div>
-    <div><a href="#">Need Help?</a></div>
-  </div>
+  <!-- Replace your old footer with the shared legal footer -->
+  <?php include __DIR__ . '/includes/legal_footer.php'; ?>
+
+  <!-- Bootstrap JS (required for modal) -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+  <!-- Drop-in modal with tabs (Overview + all 5 modules + Terms) -->
+  <?php include __DIR__ . '/includes/policy_modal.php'; ?>
 
   <script>
     const btn = document.getElementById('togglePass');
