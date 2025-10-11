@@ -9,7 +9,7 @@ $effective = date('F j, Y');
 </head><body class="bg-light">
 <div class="container my-4">
   <h1>Privacy Policy</h1>
-  <p class="text-muted">Effective date: <?= htmlspecialchars($effective) ?></p>
+  <p class="text-muted">Effective date: October 1, 2025 </p>
   <p>This Privacy Policy applies to the ViaHale platform and the following modules: Procurement, Warehousing, Project/PLT, Asset Lifecycle, and Document Tracking.</p>
 
   <h5>Information We Collect</h5>
