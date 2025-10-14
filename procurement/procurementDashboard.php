@@ -4,7 +4,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/db.php';
 
 require_login();
-require_role(['admin','procurement_officer');
+require_role(['admin','procurement_officer']);
 
 $section = 'procurement';
 $active  = 'dashboard';
