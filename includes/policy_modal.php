@@ -151,14 +151,14 @@ $effective = date('F 1, Y');
               By using the system, you consent to this Policy and our Terms of Use.
             </p>
 
-            <h6>1) Information We Collect</h6>
+            <h6>1. Information We Collect</h6>
             <ul>
               <li><strong>Account & Identity:</strong> name, email, role, company, vendor details, profile data.</li>
               <li><strong>Operational Data:</strong> RFQs, quotes, POs, inventory, project assignments, asset logs, document metadata and audit trails.</li>
               <li><strong>Technical:</strong> device/browser data, IP, logs, timestamps, and usage analytics for security and performance.</li>
             </ul>
 
-            <h6>2) How We Use Information</h6>
+            <h6>2. How We Use Information</h6>
             <ul>
               <li>Authenticate users and authorize access per role/module.</li>
               <li>Operate each module’s workflows (e.g., RFQs/quotes, inventory updates, project tasks, asset registries, document routing).</li>
@@ -166,7 +166,7 @@ $effective = date('F 1, Y');
               <li>Improve features, troubleshoot issues, and support operations.</li>
             </ul>
 
-            <h6>3) Sharing</h6>
+            <h6>3. Sharing</h6>
             <ul>
               <li>With authorized internal users and stakeholders (need-to-know basis).</li>
               <li>With vendors in the context of RFQs, awards, or performance updates.</li>
@@ -174,14 +174,14 @@ $effective = date('F 1, Y');
               <li>When legally required (court order, compliance, safety).</li>
             </ul>
 
-            <h6>4) Retention</h6>
+            <h6>4. Retention</h6>
             <p>We retain records as needed for business, audit, and compliance. Data may be archived or anonymized after operational need ends.</p>
 
-            <h6>5) Your Rights</h6>
+            <h6>5. Your Rights</h6>
             <p>Subject to applicable laws/contracts, you may request access, correction, or deletion of your personal data. Some records must be retained for legal or audit reasons.</p>
 
-            <h6>6) Security</h6>
-            <p>We employ reasonable administrative, technical, and physical safeguards. No system is 100% secure; users must follow company security policies.</p>
+            <h6>6. Security</h6>
+            <p>We employ reasonable administrative, technical, and physical safeguards. Users must follow company security policies.</p>
             
             <h6>Contact</h6>
             <p>Email: example@viahale.com</p>

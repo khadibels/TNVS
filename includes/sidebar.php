@@ -414,7 +414,7 @@ if ($role === 'vendor') {
       <a class="nav-link<?= a('quotes') ?>" href="<?= u('vendor_portal/vendor/my_quotes.php') ?>">
         <ion-icon name="pricetag-outline"></ion-icon><span>My Quotes / Bids</span>
       </a>
-      <a class="nav-link<?= a('pos') ?>" href="<?= u('vendor_portal/vendor/pos.php') ?>">
+      <a class="nav-link<?= a('po_list') ?>" href="<?= u('vendor_portal/vendor/po_list.php') ?>">
         <ion-icon name="document-text-outline"></ion-icon><span>Purchase Orders</span>
       </a>
 
