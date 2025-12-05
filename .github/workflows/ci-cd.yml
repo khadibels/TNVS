@@ -110,6 +110,22 @@ jobs:
       - name: Extract
         run: tar -xzf site.tar.gz
 
+      # ---------- Generate mail_config.php from GitHub Secrets ----------
+      - name: Generate mail_config.php
+        run: |
+          mkdir -p includes
+          cat > includes/mail_config.php << 'EOF'
+          <?php
+          define('SMTP_HOST', '${{ secrets.SMTP_HOST }}');
+          define('SMTP_USER', '${{ secrets.SMTP_USER }}');
+          define('SMTP_PASS', '${{ secrets.SMTP_PASS }}');
+          define('SMTP_PORT', 587);
+          define('SMTP_SECURE', 'tls');
+          
+          define('MAIL_FROM', '${{ secrets.MAIL_FROM }}');
+          define('MAIL_FROM_NAME', '${{ secrets.MAIL_FROM_NAME }}');
+          EOF
+
       # IMPORTANT: your FTP user is chrooted at /home/logistics1.viahale.com
       # so use RELATIVE paths here.
       - name: Set target directory
