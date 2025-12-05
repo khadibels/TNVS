@@ -1,5 +1,4 @@
 <?php
-// vendor_portal/vendor/compliance_view.php
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../includes/db.php';
@@ -7,15 +6,12 @@ require_once __DIR__ . '/../../includes/db.php';
 vendor_require_login();
 
 $proc = db('proc');
-if (!$proc instanceof PDO) { http_response_code(500); die('DB error'); }
 $proc->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
-// who is the vendor?
 $authUser = $_SESSION['user'] ?? [];
 $vendorId = (int)($authUser['vendor_id'] ?? 0);
 if ($vendorId <= 0) { die('Invalid vendor session.'); }
 
-// fetch vendor row
 $st = $proc->prepare("SELECT * FROM vendors WHERE id = ? LIMIT 1");
 $st->execute([$vendorId]);
 $vendor = $st->fetch(PDO::FETCH_ASSOC);
@@ -23,11 +19,9 @@ if (!$vendor) { die('Vendor not found.'); }
 
 function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 
-// web path to uploaded files (same folder your compliance.php saves into)
 $base = rtrim(defined('BASE_URL') ? BASE_URL : '', '/');
 $uploadWebPath = $base . '/vendor_portal/vendor/uploads/';
 
-// little helpers
 $status = strtolower($vendor['status'] ?? 'draft');
 $badgeClass = [
   'approved' => 'success',
@@ -74,7 +68,7 @@ $files = [
 
       <?php if ($status === 'draft'): ?>
         <div class="alert alert-info">
-          You haven’t submitted your compliance yet. Fill out the form on the previous page and click <strong>Submit for Review</strong>.
+          You haven’t submitted your compliance yet. Fill out the form and click <strong>Submit for Review</strong>.
         </div>
       <?php endif; ?>
 
