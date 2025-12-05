@@ -4,3 +4,4 @@ includes/config.local.php
 # Ignore logs
 *.log
 
+includes/mail_config.php
