@@ -196,6 +196,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'vendor_status' => $status
                 ];
 
+                require_once __DIR__ . "/../../includes/vendor_notifications.php";
+
+                sendVendorPendingEmail([
+                    'email'          => $email,
+                    'contact_person' => $person,
+                    'company_name'   => $company
+                ]);
+
+
                 header('Location: ' . rtrim(BASE_URL, '/') . '/vendor_portal/vendor/gate.php');
                 exit;
             } catch (Throwable $e) {

@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../../../includes/config.php';
 require_once __DIR__ . '/../../../includes/auth.php';
 require_once __DIR__ . '/../../../includes/db.php';
+require_once __DIR__ . '/../../../includes/vendor_notifications.php';
 
 header('Content-Type: application/json');
 
@@ -19,10 +20,11 @@ if ($id <= 0 || !in_array($action, ['approve','reject'], true)) {
   http_response_code(400); echo json_encode(['error'=>'Invalid request']); exit;
 }
 
-$newStatus = ($action === 'approve') ? 'approved' : 'rejected'; // <-- lowercase
+$newStatus = ($action === 'approve') ? 'approved' : 'rejected';
 
 $proc->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
+// helper
 $colExists = function(PDO $pdo,string $table,string $col): bool {
   $q=$pdo->query("SHOW COLUMNS FROM `$table` LIKE ".$pdo->quote($col));
   return (bool)$q->fetch(PDO::FETCH_ASSOC);
@@ -31,28 +33,51 @@ $colExists = function(PDO $pdo,string $table,string $col): bool {
 try {
   $proc->beginTransaction();
 
-  $st = $proc->prepare("SELECT email FROM vendors WHERE id = ? FOR UPDATE");
+  // Fetch full vendor info for email
+  $st = $proc->prepare("SELECT * FROM vendors WHERE id = ? FOR UPDATE");
   $st->execute([$id]);
-  $row = $st->fetch(PDO::FETCH_ASSOC);
-  if (!$row) { $proc->rollBack(); http_response_code(404); echo json_encode(['error'=>'Not found']); exit; }
-  $email = $row['email'];
+  $vendor = $st->fetch(PDO::FETCH_ASSOC);
 
+  if (!$vendor) {
+    $proc->rollBack();
+    http_response_code(404);
+    echo json_encode(['error'=>'Not found']);
+    exit;
+  }
+
+  // Build update query
   $set = ["status = :s"];
   $params = [':s'=>$newStatus, ':id'=>$id];
 
-  if ($colExists($proc,'vendors','review_note')) { $set[] = "review_note = :n"; $params[':n'] = ($reason !== '' ? $reason : null); }
-  if ($colExists($proc,'vendors','reviewed_at')) { $set[] = "reviewed_at = CURRENT_TIMESTAMP"; }
+  if ($colExists($proc,'vendors','review_note')) {
+    $set[] = "review_note = :n";
+    $params[':n'] = ($reason !== '' ? $reason : null);
+    $vendor['review_note'] = $params[':n']; // reflect change for email
+  }
+  if ($colExists($proc,'vendors','reviewed_at')) {
+    $set[] = "reviewed_at = CURRENT_TIMESTAMP";
+  }
 
   $sql = "UPDATE vendors SET ".implode(', ',$set)." WHERE id = :id";
-  $u = $proc->prepare($sql); $u->execute($params);
+  $u = $proc->prepare($sql);
+  $u->execute($params);
 
-  // users.vendor_status stays lowercase too
+  // Update users table
   $ua = $auth->prepare("UPDATE users SET vendor_status = :vs WHERE vendor_id = :vid OR email = :em");
-  $ua->execute([':vs'=>$newStatus, ':vid'=>$id, ':em'=>$email]);
+  $ua->execute([':vs'=>$newStatus, ':vid'=>$id, ':em'=>$vendor['email']]);
 
   $proc->commit();
-  echo json_encode(['ok'=>true,'message'=>"Vendor status set to {$newStatus}."]);
+
+  // Update vendor array for email
+  $vendor['status'] = $newStatus;
+
+  // ---- SEND EMAIL NOTIFICATION ---- //
+  sendVendorStatusEmail($vendor, $newStatus);
+
+  echo json_encode(['ok'=>true,'message'=>"Vendor {$newStatus}. Email sent."]);
+
 } catch (Throwable $e) {
   if ($proc->inTransaction()) $proc->rollBack();
-  http_response_code(500); echo json_encode(['error'=>$e->getMessage()]);
+  http_response_code(500);
+  echo json_encode(['error'=>$e->getMessage()]);
 }
