@@ -22,6 +22,14 @@ $vals = [
     'categories'     => ''
 ];
 
+$requirementFields = [
+    'req_legal' => 'Our business is legally registered (DTI / SEC / BIR).',
+    'req_permit' => 'We have a valid Mayor’s / Business Permit.',
+    'req_tax' => 'We are compliant with tax obligations and can issue OR/Invoice.',
+    'req_bank' => 'We have an active bank account under the business name.',
+    'req_policy' => 'We agree to follow the TNVS Vendor Code of Conduct.'
+];
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     foreach ($vals as $k => $_) {
         $vals[$k] = trim($_POST[$k] ?? '');
@@ -39,7 +47,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pass       = $_POST['password'] ?? '';
         $action     = $_POST['action'] ?? 'save'; // save | submit
 
-        if ($company && $person && $email && $pass) {
+        $errors = [];
+
+        if (!$company || !$person || !$email || !$pass) {
+            $errors[] = "Please fill out all required fields.";
+        }
+
+        if ($action === 'submit') {
+            foreach ($requirementFields as $key => $label) {
+                if (empty($_POST[$key])) {
+                    $errors[] = "Please confirm: " . $label;
+                }
+            }
+            if (empty($_POST['terms'])) {
+                $errors[] = "You must agree to the TNVS Vendor Contract & Privacy Policy before submitting for review.";
+            }
+        }
+
+        if ($errors) {
+            $err = implode(' ', $errors);
+        } else {
             try {
                 $dup = $proc->prepare("SELECT 1 FROM vendors WHERE email=? LIMIT 1");
                 $dup->execute([$email]);
@@ -52,7 +79,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $hash   = password_hash($pass, PASSWORD_DEFAULT);
                 $status = ($action === 'submit') ? 'pending' : 'draft';
 
-                // Insert base vendor row
                 $ins = $proc->prepare("
                     INSERT INTO vendors
                       (company_name, contact_person, email, password, phone, address, categories, status)
@@ -71,7 +97,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 ]);
                 $vendorId = (int)$proc->lastInsertId();
 
-                // Profile photo upload
                 $filename = null;
                 if (isset($_FILES['profile_photo']) && $_FILES['profile_photo']['error'] === UPLOAD_ERR_OK) {
                     $tmp  = $_FILES['profile_photo']['tmp_name'];
@@ -98,7 +123,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $up->execute([$filename, $vendorId]);
                 }
 
-                // Compliance / KYC docs upload
                 $baseDir = realpath(__DIR__ . '/../../');
                 $docsDir = $baseDir . '/vendor_portal/vendor/uploads';
                 if (!is_dir($docsDir)) mkdir($docsDir, 0775, true);
@@ -144,7 +168,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $proc->commit();
 
-                // Sync with auth.users
                 $dup = $auth->prepare("SELECT id FROM users WHERE email=? LIMIT 1");
                 $dup->execute([$email]);
                 if ($u = $dup->fetch(PDO::FETCH_ASSOC)) {
@@ -179,8 +202,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($proc->inTransaction()) $proc->rollBack();
                 $err = "Registration failed: " . $e->getMessage();
             }
-        } else {
-            $err = "Please fill out all required fields.";
         }
     }
 }
@@ -205,7 +226,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
 
   <style>
-  /* your existing styles here (unchanged) */
+  /* --- UI FIXES START: Refined existing custom styles --- */
   :root {
     --brand-primary: #6532C9;
     --brand-deep: #4311A5;
@@ -234,18 +255,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     width: 100%;
     border-radius: 24px;
     background: #fff;
-    border: 1px solid #fff;
+    /* Removed redundant border */
     box-shadow: 0 4px 12px var(--shadow-color), 0 16px 40px var(--shadow-color);
     overflow: hidden;
   }
   .brand-pane {
     background-color: #f7f5ff;
+    /* Data URL background pattern */
     background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23e9e3ff' fill-opacity='0.4'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
   }
-  .brand-logo {
-    height: 56px;
-    margin-bottom: 1rem;
-  }
+  .brand-logo { height: 56px; margin-bottom: 1rem; }
   .kicker {
     font-size: 0.8rem;
     font-weight: 600;
@@ -275,6 +294,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     transition: all 0.2s ease;
     padding: 0.75rem 1rem;
     height: calc(1.5em + 1.5rem + 2px);
+  }
+  .form-control[rows] {
+      height: auto;
   }
   .form-control:focus {
     border-color: var(--brand-accent);
@@ -340,21 +362,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     cursor: pointer;
     text-decoration: none;
   }
-  .toggle-pass:hover {
-    text-decoration: underline;
-  }
+  .toggle-pass:hover { text-decoration: underline; }
   .file-input-wrapper {
     position: relative;
     overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 1.5rem;
+    padding: 1rem;
     border: 2px dashed var(--border-color);
     border-radius: 8px;
     background-color: #fcfbff;
     transition: background-color 0.2s ease, border-color 0.2s ease;
     cursor: pointer;
+    min-height: 48px;
   }
   .file-input-wrapper:hover {
     border-color: var(--brand-accent);
@@ -373,6 +394,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   .file-input-text {
     color: var(--text-muted);
     font-weight: 500;
+    text-align: center;
+    word-break: break-all;
   }
   .file-input-text ion-icon {
     font-size: 1.5rem;
@@ -394,6 +417,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     border: 0;
     margin: 1.5rem 0;
   }
+  input[type="file"].form-control {
+      padding: 0.4rem 1rem;
+  }
+
+  /* FIX: Style for the requirement card */
+  .requirement-card {
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    background-color: #fcfbff;
+  }
+  .requirement-card .form-check {
+    padding-left: 2em; 
+  }
   </style>
 </head>
 <body>
@@ -401,7 +437,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <div class="card auth-card">
       <div class="row g-0">
         <div class="col-lg-5 d-none d-lg-flex flex-column justify-content-center align-items-center text-center p-4 p-xl-5 brand-pane">
-          <img src="<?= BASE_URL ?>img/logo.png" class="brand-logo mb-4" alt="Logo">
+          <img src="<?= BASE_URL ?>img/logo.png" class="brand-logo mb-4" alt="TNVS Logo">
 
           <div class="kicker text-uppercase fw-semibold mb-1">Vendor Onboarding</div>
           <h1 class="display-brand fw-bold mb-3">Partner with TNVS</h1>
@@ -421,7 +457,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         <div class="col-lg-7 p-4 p-md-5 bg-white">
           <div class="mb-4 text-center d-lg-none">
-            <img src="<?= BASE_URL ?>img/logo.png" height="48" alt="Logo">
+            <img src="<?= BASE_URL ?>img/logo.png" height="48" alt="TNVS Logo">
           </div>
           <h2 class="h4 mb-2 fw-bold d-flex align-items-center gap-2" style="color:var(--brand-deep);">
             <ion-icon name="create-outline"></ion-icon>
@@ -430,8 +466,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           <p class="text-muted mb-4">Create your account and submit your compliance documents in one step.</p>
 
           <?php if ($ok): ?>
-            <div class="alert alert-success d-flex align-items-center gap-2">
-              <ion-icon name="checkmark-circle-outline" class="fs-4"></ion-icon>
+            <div class="alert alert-success d-flex align-items-center gap-2 p-3" role="alert">
+              <ion-icon name="checkmark-circle-outline" class="fs-4 flex-shrink-0"></ion-icon>
               <div>
                 <strong class="d-block">Success!</strong>
                 <?= $ok ?>
@@ -442,16 +478,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             </a>
           <?php else: ?>
             <?php if ($err): ?>
-              <div class="alert alert-danger d-flex align-items-center gap-2">
-                <ion-icon name="alert-circle-outline" class="fs-4"></ion-icon>
-                <?= htmlspecialchars($err) ?>
+              <div class="alert alert-danger d-flex align-items-center gap-2 p-3" role="alert">
+                <ion-icon name="alert-circle-outline" class="fs-4 flex-shrink-0"></ion-icon>
+                <div class="flex-grow-1">
+                  <?= htmlspecialchars($err) ?>
+                </div>
               </div>
             <?php endif; ?>
 
             <form method="post" enctype="multipart/form-data" class="needs-validation" novalidate>
               <input type="hidden" name="csrf" value="<?= htmlspecialchars($_SESSION['csrf']) ?>">
 
-              <!-- Account / Company info -->
               <div class="section-title">Account & Company Details</div>
 
               <div class="row g-3">
@@ -459,7 +496,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                   <label for="company_name" class="form-label">Company Name <span class="text-danger">*</span></label>
                   <div class="input-group">
                     <span class="input-group-text"><ion-icon name="business-outline"></ion-icon></span>
-                    <input type="text" name="company_name" id="company_name" class="form-control" required value="<?= htmlspecialchars($vals['company_name']) ?>">
+                    <input type="text" name="company_name" id="company_name" class="form-control" required value="<?= htmlspecialchars($vals['company_name']) ?>" placeholder="e.g., ABC Trading Corp.">
                     <div class="invalid-feedback">Company name is required.</div>
                   </div>
                 </div>
@@ -468,7 +505,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                   <label for="contact_person" class="form-label">Contact Person <span class="text-danger">*</span></label>
                   <div class="input-group">
                     <span class="input-group-text"><ion-icon name="person-outline"></ion-icon></span>
-                    <input type="text" name="contact_person" id="contact_person" class="form-control" required value="<?= htmlspecialchars($vals['contact_person']) ?>">
+                    <input type="text" name="contact_person" id="contact_person" class="form-control" required value="<?= htmlspecialchars($vals['contact_person']) ?>" placeholder="Full Name">
                     <div class="invalid-feedback">Contact person is required.</div>
                   </div>
                 </div>
@@ -477,7 +514,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                   <label for="phone" class="form-label">Phone</label>
                   <div class="input-group">
                     <span class="input-group-text"><ion-icon name="call-outline"></ion-icon></span>
-                    <input type="tel" name="phone" id="phone" class="form-control" value="<?= htmlspecialchars($vals['phone']) ?>">
+                    <input type="tel" name="phone" id="phone" class="form-control" value="<?= htmlspecialchars($vals['phone']) ?>" placeholder="e.g., +63 9xx xxx xxxx">
                   </div>
                 </div>
 
@@ -485,7 +522,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                   <label for="email" class="form-label">Email <span class="text-danger">*</span></label>
                   <div class="input-group">
                     <span class="input-group-text"><ion-icon name="mail-outline"></ion-icon></span>
-                    <input type="email" name="email" id="email" class="form-control" required value="<?= htmlspecialchars($vals['email']) ?>">
+                    <input type="email" name="email" id="email" class="form-control" required value="<?= htmlspecialchars($vals['email']) ?>" placeholder="business@example.com">
                     <div class="invalid-feedback">A valid email is required.</div>
                   </div>
                 </div>
@@ -497,85 +534,123 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                   </label>
                   <div class="input-group">
                     <span class="input-group-text"><ion-icon name="lock-closed-outline"></ion-icon></span>
-                    <input type="password" name="password" id="password" class="form-control" minlength="8" required autocomplete="new-password">
+                    <input type="password" name="password" id="password" class="form-control" minlength="8" required autocomplete="new-password" placeholder="At least 8 characters">
                     <div class="invalid-feedback">Password must be at least 8 characters.</div>
                   </div>
                 </div>
 
                 <div class="col-12">
                   <label for="address" class="form-label">Address</label>
-                  <textarea name="address" id="address" class="form-control" rows="2"><?= htmlspecialchars($vals['address']) ?></textarea>
+                  <textarea name="address" id="address" class="form-control" rows="2" placeholder="Street, City, Province, Zip Code"><?= htmlspecialchars($vals['address']) ?></textarea>
                 </div>
 
                 <div class="col-12">
                   <label class="form-label">Profile Photo (Optional, max 2MB)</label>
                   <label class="file-input-wrapper">
-                    <input type="file" name="profile_photo" accept="image/png, image/jpeg, image/gif" onchange="document.getElementById('file-name').textContent = this.files[0] ? this.files[0].name : 'Click or drag file to upload';">
+                    <input type="file" name="profile_photo" accept="image/png, image/jpeg, image/gif, image/webp" onchange="document.getElementById('file-name').textContent = this.files[0] ? this.files[0].name : 'Click or drag file to upload';">
                     <span class="file-input-text" id="file-name">
                         <ion-icon name="cloud-upload-outline"></ion-icon>
                         Click or drag file to upload
                     </span>
                   </label>
+                  <small class="form-text text-muted d-block mt-1">Accepted formats: JPG, PNG, GIF, WEBP.</small>
                 </div>
               </div>
 
               <hr class="soft-hr" />
 
-              <!-- Compliance / KYC -->
-              <div class="section-title">Compliance / KYC</div>
+              <div class="section-title">Compliance / KYC Documents</div>
 
               <div class="mb-3">
                 <label class="form-label">Product / Service Categories (comma-separated)</label>
                 <input type="text" name="categories" class="form-control"
-                       value="<?= htmlspecialchars($vals['categories']) ?>">
+                       value="<?= htmlspecialchars($vals['categories']) ?>" placeholder="e.g., IT Services, Office Supplies, Logistics">
+                <small class="form-text text-muted d-block mt-1">List the main categories of goods/services you offer.</small>
               </div>
 
               <div class="row g-3">
                 <div class="col-md-6">
                   <label class="form-label">DTI / SEC Registration (PDF / Image)</label>
                   <input type="file" name="dti" class="form-control" accept=".pdf,.png,.jpg,.jpeg">
+                  <small class="form-text text-muted d-block mt-1">Required for legal verification.</small>
                 </div>
 
                 <div class="col-md-6">
                   <label class="form-label">BIR / TIN Certificate</label>
                   <input type="file" name="bir" class="form-control" accept=".pdf,.png,.jpg,.jpeg">
+                  <small class="form-text text-muted d-block mt-1">Required for tax compliance.</small>
                 </div>
 
                 <div class="col-md-6">
                   <label class="form-label">Business Permit</label>
                   <input type="file" name="permit" class="form-control" accept=".pdf,.png,.jpg,.jpeg">
+                  <small class="form-text text-muted d-block mt-1">Mayor's Permit / Business Permit.</small>
                 </div>
 
                 <div class="col-md-6">
-                  <label class="form-label">Bank Certificate (optional)</label>
+                  <label class="form-label">Bank Certificate (Optional)</label>
                   <input type="file" name="bank" class="form-control" accept=".pdf,.png,.jpg,.jpeg">
+                  <small class="form-text text-muted d-block mt-1">Under business name.</small>
                 </div>
 
                 <div class="col-md-12">
-                  <label class="form-label">Product Catalog (optional)</label>
+                  <label class="form-label">Product Catalog (Optional)</label>
                   <input type="file" name="catalog" class="form-control" accept=".pdf,.png,.jpg,.jpeg">
+                  <small class="form-text text-muted d-block mt-1">Upload your price list or service catalog.</small>
                 </div>
               </div>
 
-              <div class="col-12 mt-4">
-                <div class="form-check">
-                  <input class="form-check-input" type="checkbox" id="agree" required>
-                  <label class="form-check-label" for="agree">
-                    I confirm the information provided is accurate and complete.
-                  </label>
-                  <div class="invalid-feedback">You must agree to continue.</div>
+              <hr class="soft-hr" />
+
+              <div class="section-title">Vendor Requirements & Contract</div>
+              <p class="text-muted small mb-3">
+                Please review and confirm that your company meets the following requirements. Confirmation is **required** to submit your application for review.
+              </p>
+
+              <div class="card requirement-card mb-4">
+                <div class="card-body py-3">
+                  <?php foreach ($requirementFields as $key => $label): ?>
+                    <div class="form-check mb-2">
+                      <input class="form-check-input" type="checkbox"
+                             id="<?= htmlspecialchars($key) ?>"
+                             name="<?= htmlspecialchars($key) ?>"
+                             <?= !empty($_POST[$key]) ? 'checked' : '' ?>>
+                      <label class="form-check-label small" for="<?= htmlspecialchars($key) ?>">
+                        <ion-icon name="checkmark-circle-outline" class="text-success me-1"></ion-icon>
+                        <?= htmlspecialchars($label) ?>
+                      </label>
+                    </div>
+                  <?php endforeach; ?>
                 </div>
+              </div>
+
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" id="terms" name="terms"
+                       <?= !empty($_POST['terms']) ? 'checked' : '' ?> aria-describedby="termsHelp">
+                <label class="form-check-label" for="terms">
+                  I have read and agree to the
+                  <a href="<?= BASE_URL ?>docs/vendor_contract.pdf" target="_blank" class="fw-semibold" style="color: var(--brand-deep);">TNVS Vendor Contract & Privacy Policy</a>.
+                </label>
+                <div class="invalid-feedback">You must agree to the contract and policy before submitting.</div>
+              </div>
+
+              <div class="form-check mt-3">
+                <input class="form-check-input" type="checkbox" id="agree" required>
+                <label class="form-check-label fw-semibold" for="agree">
+                  I confirm the information provided is **accurate and complete**.
+                </label>
+                <div class="invalid-feedback">You must confirm the accuracy of your information to continue.</div>
               </div>
 
               <div class="col-12 d-grid gap-2 mt-4">
-                <button type="submit" name="action" value="submit" class="btn btn-brand">
+                <button type="submit" name="action" value="submit" class="btn btn-brand btn-lg">
                   <ion-icon name="paper-plane-outline"></ion-icon> Submit for Review
                 </button>
                 <button type="submit" name="action" value="save" class="btn btn-outline-dark">
                   <ion-icon name="save-outline"></ion-icon> Save as Draft
                 </button>
-                <a href="../../login.php" class="btn btn-outline-dark text-center">
-                  Already have an account? Login
+                <a href="../../login.php" class="btn btn-link text-center text-muted" style="text-decoration: none;">
+                  Already have an account? Login here.
                 </a>
               </div>
             </form>
@@ -588,17 +663,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <script>
     (function () {
       'use strict';
-      const forms = document.querySelectorAll('.needs-validation');
-      Array.from(forms).forEach(form => {
-        form.addEventListener('submit', event => {
-          if (!form.checkValidity()) {
+    
+      const form = document.querySelector('.needs-validation');
+      const submitBtn = document.querySelector('button[name="action"][value="submit"]');
+
+      Array.from(document.querySelectorAll('.needs-validation')).forEach(f => {
+        f.addEventListener('submit', event => {
+          if (!f.checkValidity()) {
             event.preventDefault();
             event.stopPropagation();
           }
-          form.classList.add('was-validated');
+
+          if (event.submitter && event.submitter.value === 'submit') {
+             let isTermsChecked = document.getElementById('terms').checked;
+             let isAgreeChecked = document.getElementById('agree').checked;
+
+             if (!isTermsChecked || !isAgreeChecked) {
+                 event.preventDefault();
+                 event.stopPropagation();
+                 // This ensures the custom validation messages show up
+                 document.getElementById('terms').classList.toggle('is-invalid', !isTermsChecked);
+                 document.getElementById('agree').classList.toggle('is-invalid', !isAgreeChecked);
+             }
+          }
+
+          f.classList.add('was-validated');
         }, false);
       });
 
+      // Toggle Password Visibility
       const toggle = document.getElementById('togglePass');
       const pw  = document.getElementById('password');
       if (toggle && pw) {
