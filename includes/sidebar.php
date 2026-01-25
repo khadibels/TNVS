@@ -49,19 +49,14 @@
   </a>
 
   <a class="nav-link<?= a('po_pos') ?>" href="<?= u('procurement/po_issuance.php') ?>">
-    <ion-icon name="document-text-outline"></ion-icon><span>PO Issuance</span>
+    <ion-icon name="document-text-outline"></ion-icon><span>Purchase Order Issuance</span>
   </a>
 
-  <a class="nav-link<?= a('reqs') ?>" href="<?= u('procurement/procurementRequests.php') ?>">
-    <ion-icon name="clipboard-outline"></ion-icon><span>Procurement Requests</span>
-  </a>
-  <a class="nav-link<?= a('po_reports') ?>" href="<?= u('procurement/budgets.php') ?>">
-    <ion-icon name="wallet-outline"></ion-icon><span>Budgets</span>
-  </a>
+  <!-- Procurement Requests and Budgets removed by request -->
 </nav>
 
 
-      <h6 class="text-uppercase mb-2">PLT</h6>
+      <h6 class="text-uppercase mb-2">Project Logistics &amp; Tracking</h6>
       <nav class="nav flex-column px-2 mb-4">
         <a class="nav-link<?= a('projects') ?>" href="<?= u('PLT/projectTracking.php') ?>">
           <ion-icon name="briefcase-outline"></ion-icon><span>Project Tracking</span>
@@ -74,7 +69,7 @@
         </a>
       </nav>
 
-      <h6 class="text-uppercase mb-2">ALMS</h6>
+      <h6 class="text-uppercase mb-2">Asset Lifecycle &amp; Maintenance</h6>
       <nav class="nav flex-column px-2 mb-4">
         <a class="nav-link<?= a('assettracker') ?>" href="<?= u('assetlifecycle/assetTracker.php') ?>">
           <ion-icon name="cube-outline"></ion-icon><span>Asset Tracking</span>
@@ -205,7 +200,7 @@
       </a>
 
       <a class="nav-link<?= a('po_pos') ?>" href="<?= u('procurement/po_issuance.php') ?>">
-        <ion-icon name="file-tray-full-outline"></ion-icon><span>PO Issuance</span>
+        <ion-icon name="file-tray-full-outline"></ion-icon><span>Purchase Order Issuance</span>
       </a>
 
       <a class="nav-link<?= a('po_inventory') ?>" href="<?= u('procurement/inventoryView.php') ?>">
@@ -233,7 +228,7 @@
       <div class="d-flex justify-content-center align-items-center mb-4 mt-3">
         <img src="<?= u('img/logo.png') ?>" id="logo" class="img-fluid me-2" style="height:55px" alt="Logo">
       </div>
-      <h6 class="text-uppercase mb-2">PLT</h6>
+      <h6 class="text-uppercase mb-2">Project Logistics &amp; Tracking</h6>
       <nav class="nav flex-column px-2 mb-4">
         <a class="nav-link<?= a('dashboard') ?>" href="<?= u('PLT/pltDashboard.php') ?>">
           <ion-icon name="home-outline"></ion-icon><span>Dashboard</span>
@@ -413,7 +408,7 @@ if ($role === 'vendor') {
 
       <div class="text-uppercase text-muted small px-2 mt-3 mb-1">Sourcing</div>
       <a class="nav-link<?= a('rfqs') ?>" href="<?= u('vendor_portal/vendor/rfqs.php') ?>">
-        <ion-icon name="mail-open-outline"></ion-icon><span>RFQs</span>
+        <ion-icon name="mail-open-outline"></ion-icon><span>Requests for Quotation</span>
       </a>
       <a class="nav-link<?= a('quotes') ?>" href="<?= u('vendor_portal/vendor/my_quotes.php') ?>">
         <ion-icon name="pricetag-outline"></ion-icon><span>My Quotes / Bids</span>
