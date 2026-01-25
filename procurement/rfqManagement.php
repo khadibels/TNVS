@@ -86,19 +86,18 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'create_rfq' && $_SERVER['REQUEST_
     $item_names   = $_POST['item']  ?? [];
     $item_specs   = $_POST['specs'] ?? [];
     $item_qty     = $_POST['qty']   ?? [];
-    $item_uom     = $_POST['uom']   ?? [];
+    $item_uom     = [];
     $supplier_ids = array_map('intval', $_POST['supplier_ids'] ?? []);
 
     $clean_items = [];
-    $count = max(count($item_names), count($item_specs), count($item_qty), count($item_uom));
+    $count = max(count($item_names), count($item_specs), count($item_qty));
     for ($i=0; $i<$count; $i++) {
       $nm = trim($item_names[$i] ?? '');
       if ($nm === '') continue;
       $sp = trim($item_specs[$i] ?? '');
       $qt = (float)($item_qty[$i] ?? 0);
       if ($qt <= 0) $qt = 1;
-      $um = trim($item_uom[$i] ?? 'unit');
-      $clean_items[] = ['item'=>$nm,'specs'=>$sp,'qty'=>$qt,'uom'=>$um];
+      $clean_items[] = ['item'=>$nm,'specs'=>$sp,'qty'=>$qt,'uom'=>'unit'];
     }
 
     if ($title === '') throw new Exception("Title is required.");
@@ -380,7 +379,13 @@ function badge($status){
           <?php if (empty($vendors)): ?>
             <div class="alert alert-warning mb-0">No approved vendors yet. Approve at least one supplier first.</div>
           <?php else: ?>
-            <input type="search" id="vendorSearch" class="form-control mb-2" placeholder="Filter suppliers by name/email...">
+            <div class="d-flex gap-2 align-items-center mb-2 flex-wrap">
+              <input type="search" id="vendorSearch" class="form-control" placeholder="Filter suppliers by name/email...">
+              <div class="d-flex gap-2 ms-auto">
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="btnSelectAll">Select all</button>
+                <button type="button" class="btn btn-outline-secondary btn-sm" id="btnSelectNone">Clear</button>
+              </div>
+            </div>
             <div class="vendor-list" id="vendorList">
               <?php foreach ($vendors as $v): ?>
                 <div class="form-check">
@@ -469,7 +474,7 @@ function badge($status){
   const itemsWrap = $('#itemsWrap');
   const btnAdd = $('#btnAddItem');
 
-  function addItemRow(data={item:'',specs:'',qty:'1',uom:'unit'}){
+  function addItemRow(data={item:'',specs:'',qty:'1'}){
     const row = document.createElement('div');
     row.className = 'row g-2 align-items-end item-row';
     row.innerHTML = `
@@ -481,13 +486,9 @@ function badge($status){
         <label class="form-label small">Specs / Description</label>
         <input class="form-control" name="specs[]" value="${esc(data.specs)}">
       </div>
-      <div class="col-md-1">
+      <div class="col-md-2">
         <label class="form-label small">Qty</label>
         <input class="form-control" name="qty[]" type="number" min="0" step="any" value="${esc(data.qty)}" required>
-      </div>
-      <div class="col-md-1">
-        <label class="form-label small">UOM</label>
-        <input class="form-control" name="uom[]" value="${esc(data.uom)}">
       </div>
       <div class="col-12">
         <button type="button" class="btn btn-link text-danger p-0 small" onclick="this.closest('.item-row').remove()">
@@ -505,6 +506,13 @@ function badge($status){
     $$('#vendorList .form-check').forEach(div=>{
       div.style.display = div.textContent.toLowerCase().includes(q) ? '' : 'none';
     });
+  });
+
+  $('#btnSelectAll')?.addEventListener('click', ()=>{
+    $$('#vendorList input[type="checkbox"]').forEach(cb => { cb.checked = true; });
+  });
+  $('#btnSelectNone')?.addEventListener('click', ()=>{
+    $$('#vendorList input[type="checkbox"]').forEach(cb => { cb.checked = false; });
   });
 
   /* —— Create RFQ submit (AJAX) —— */
@@ -553,8 +561,8 @@ function badge($status){
 
       const itemsHTML = items.length
         ? `<div class="table-responsive"><table class="table table-sm align-middle">
-             <thead><tr><th>#</th><th>Item</th><th>Specs</th><th class="text-end">Qty</th><th>UOM</th></tr></thead>
-             <tbody>${items.map(r=>`<tr><td>${r.line_no}</td><td>${esc(r.item)}</td><td class="text-muted">${esc(r.specs)}</td><td class="text-end">${Number(r.qty).toLocaleString()}</td><td>${esc(r.uom)}</td></tr>`).join('')}</tbody>
+             <thead><tr><th>#</th><th>Item</th><th>Specs</th><th class="text-end">Qty</th></tr></thead>
+             <tbody>${items.map(r=>`<tr><td>${r.line_no}</td><td>${esc(r.item)}</td><td class="text-muted">${esc(r.specs)}</td><td class="text-end">${Number(r.qty).toLocaleString()}</td></tr>`).join('')}</tbody>
            </table></div>`
         : `<div class="text-muted">No items.</div>`;
 

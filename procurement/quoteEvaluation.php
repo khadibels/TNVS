@@ -47,9 +47,6 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
   <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
   <script src="../js/sidebar-toggle.js"></script>
   <style>
-    body{background:#f6f7fb}
-    .main-content{padding:1.25rem} @media(min-width:992px){.main-content{padding:2rem}}
-    .card{border-radius:16px}
     .table thead th{font-size:.82rem;text-transform:uppercase}
     .eval-table input{max-width:110px}
     .sticky-actions{position:sticky;bottom:0;background:#fff;border-top:1px solid var(--bs-border-color);padding:1rem;border-radius:0 0 1rem 1rem}
@@ -58,7 +55,7 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
     .dimmed{opacity:.6}
   </style>
 </head>
-<body>
+<body class="saas-page">
 <div class="container-fluid p-0">
   <div class="row g-0">
 
@@ -72,15 +69,21 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
           <button class="sidebar-toggle d-lg-none btn btn-outline-secondary btn-sm" id="sidebarToggle2" aria-label="Toggle sidebar">
             <ion-icon name="menu-outline"></ion-icon>
           </button>
-          <h2 class="m-0 d-flex align-items-center gap-2">
-            <ion-icon name="pricetags-outline"></ion-icon> Quote Evaluation & Award
+          <h2 class="m-0 d-flex align-items-center gap-2 page-title">
+            <ion-icon name="pricetags-outline"></ion-icon> Quote Evaluation &amp; Award
           </h2>
         </div>
-        <div class="d-flex align-items-center gap-2">
-          <img src="../img/profile.jpg" class="rounded-circle" width="36" height="36" alt="">
-          <div class="small">
-            <strong><?= h($userName) ?></strong><br/>
-            <span class="text-muted"><?= h($userRole) ?></span>
+        <div class="profile-menu" data-profile-menu>
+          <button class="profile-trigger" type="button" data-profile-trigger aria-expanded="false" aria-haspopup="true">
+            <img src="../img/profile.jpg" class="rounded-circle" width="36" height="36" alt="">
+            <div class="profile-text">
+              <div class="profile-name"><?= h($userName) ?></div>
+              <div class="profile-role"><?= h($userRole) ?></div>
+            </div>
+            <ion-icon class="profile-caret" name="chevron-down-outline"></ion-icon>
+          </button>
+          <div class="profile-dropdown" data-profile-dropdown role="menu">
+            <a href="<?= u('auth/logout.php') ?>" role="menuitem">Sign out</a>
           </div>
         </div>
       </div>
@@ -90,11 +93,11 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
         <div class="col-lg-4">
           <section class="card shadow-sm h-100">
             <div class="card-body">
-              <h6 class="fw-semibold mb-3">Select an RFQ</h6>
-              <input class="form-control form-control-sm mb-2" id="rfqSearch" placeholder="Search RFQ no / title…">
+              <h6 class="fw-semibold mb-3">Select a Quotation Request</h6>
+              <input class="form-control form-control-sm mb-2" id="rfqSearch" placeholder="Search quotation no / title…">
               <div class="list-group" id="rfqList" style="max-height: 60vh; overflow:auto">
                 <?php if (!$rfqs): ?>
-                  <div class="text-muted small">No RFQs yet.</div>
+                  <div class="text-muted small">No quotation requests yet.</div>
                 <?php else: foreach ($rfqs as $r): ?>
                   <a href="?rfq_id=<?= (int)$r['id'] ?>"
                      class="list-group-item list-group-item-action d-flex justify-content-between align-items-center<?= $rfq_id===(int)$r['id']?' active':'' ?>">
@@ -152,6 +155,7 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 <div class="toast-container position-fixed top-0 end-0 p-3" id="toasts" style="z-index:1080"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/profile-dropdown.js"></script>
 <script>
 const $ = (s,r=document)=>r.querySelector(s);
 const $$ = (s,r=document)=>Array.from(r.querySelectorAll(s));
