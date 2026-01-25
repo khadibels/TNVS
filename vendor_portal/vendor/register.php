@@ -1,13 +1,24 @@
 <?php
 require_once __DIR__ . "/../../includes/config.php";
 require_once __DIR__ . "/../../includes/db.php";
+require_once __DIR__ . "/../../includes/vendor_capability.php";
 if (session_status() !== PHP_SESSION_ACTIVE) session_start();
 
 $proc = db('proc');
 $auth = db('auth');
+$wms  = db('wms');
 
 $proc->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 $auth->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+ensure_vendor_capability_tables($proc);
+
+$catOptions = [];
+try {
+    if ($wms instanceof PDO) {
+        $catOptions = $wms->query("SELECT name FROM inventory_categories ORDER BY name")->fetchAll(PDO::FETCH_COLUMN);
+    }
+} catch (Throwable $e) { $catOptions = []; }
 
 if (empty($_SESSION['csrf'])) $_SESSION['csrf'] = bin2hex(random_bytes(16));
 
@@ -127,12 +138,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $docsDir = $baseDir . '/vendor_portal/vendor/uploads';
                 if (!is_dir($docsDir)) mkdir($docsDir, 0775, true);
 
+                $catalog_category = trim($_POST['catalog_category'] ?? '');
+                $receipt_category = trim($_POST['receipt_category'] ?? '');
+                $website_link     = trim($_POST['website_link'] ?? '');
+
                 $uploadFields = [
                     'dti'     => 'dti_doc',
                     'bir'     => 'bir_doc',
                     'permit'  => 'permit_doc',
                     'bank'    => 'bank_doc',
-                    'catalog' => 'catalog_doc'
+                    'catalog' => 'catalog_doc',
+                    'receipt' => 'delivery_receipt_doc'
                 ];
 
                 $setParts = [];
@@ -157,6 +173,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         @chmod($abs, 0644);
                         $setParts[]       = "$col = :$col";
                         $params[":$col"]  = $fname;
+
+                        try {
+                            $docType = $field === 'receipt' ? 'delivery_receipt' : $field;
+                            $docCategory = null;
+                            if ($docType === 'catalog') $docCategory = $catalog_category ?: null;
+                            if ($docType === 'delivery_receipt') $docCategory = $receipt_category ?: null;
+                            if ($docType === 'permit') $docCategory = 'ALL';
+                            $ins = $proc->prepare("
+                              INSERT INTO vendor_documents (vendor_id, doc_type, category, file_path, status)
+                              VALUES (?,?,?,?, 'pending')
+                            ");
+                            $ins->execute([$vendorId, $docType, $docCategory, $fname]);
+                        } catch (Throwable $e) { }
                     }
                 }
 
@@ -164,6 +193,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $sql = "UPDATE vendors SET " . implode(', ', $setParts) . " WHERE id = :id";
                     $u   = $proc->prepare($sql);
                     $u->execute($params);
+                }
+
+                if ($website_link !== '') {
+                    try {
+                        $ins = $proc->prepare("
+                          INSERT INTO vendor_documents (vendor_id, doc_type, category, url, status)
+                          VALUES (?,?,?,?, 'pending')
+                        ");
+                        $ins->execute([$vendorId, 'website', null, $website_link]);
+                    } catch (Throwable $e) { }
                 }
 
                 $proc->commit();
@@ -264,9 +303,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     width: 100%;
     border-radius: 24px;
     background: #fff;
-    /* Removed redundant border */
-    box-shadow: 0 4px 12px var(--shadow-color), 0 16px 40px var(--shadow-color);
+    border: 1px solid rgba(101, 50, 201, 0.08);
+    box-shadow: 0 8px 24px rgba(67, 17, 165, 0.08), 0 24px 60px rgba(67, 17, 165, 0.08);
     overflow: hidden;
+  }
+  .auth-card .bg-white {
+    background: linear-gradient(180deg, #ffffff 0%, #fbfaff 100%);
+  }
+  .split-form {
+    position: relative;
+  }
+  .split-form::after {
+    content: "";
+    position: absolute;
+    top: 8px;
+    bottom: 8px;
+    left: 50%;
+    width: 1px;
+    background: linear-gradient(180deg, transparent, var(--border-color), transparent);
+    transform: translateX(-50%);
+    pointer-events: none;
+  }
+  @media (max-width: 991.98px) {
+    .split-form::after { display: none; }
+  }
+  .section-card {
+    background: #ffffff;
+    border: 1px solid rgba(101, 50, 201, 0.08);
+    border-radius: 16px;
+    padding: 1.25rem;
+    box-shadow: 0 10px 26px rgba(67, 17, 165, 0.04);
+  }
+  .page-title {
+    font-family: 'Bricolage Grotesque', sans-serif;
+    letter-spacing: .2px;
   }
   .brand-pane {
     background-color: #f7f5ff;
@@ -302,10 +372,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     border: 1px solid #ddd;
     transition: all 0.2s ease;
     padding: 0.75rem 1rem;
-    height: calc(1.5em + 1.5rem + 2px);
+    height: 48px;
   }
   .form-control[rows] {
       height: auto;
+  }
+  .form-text {
+    margin-top: .35rem;
+  }
+  .form-section .row > [class*="col-"] {
+    display: flex;
+    flex-direction: column;
+  }
+  .form-section .row.g-3 {
+    row-gap: 1rem;
+  }
+  .form-section .form-label {
+    min-height: 22px;
+  }
+  .form-section .form-control,
+  .form-section .form-select {
+    width: 100%;
+  }
+  .form-section .input-group {
+    align-items: stretch;
+  }
+  .form-section .input-group .input-group-text {
+    height: 48px;
+    display: inline-flex;
+    align-items: center;
   }
   .form-control:focus {
     border-color: var(--brand-accent);
@@ -419,6 +514,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     color: var(--text-muted);
     margin-top: 2rem;
     margin-bottom: .75rem;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+  }
+  .section-title::after {
+    content: "";
+    height: 1px;
+    flex: 1;
+    background: linear-gradient(90deg, var(--border-color), transparent);
   }
   .soft-hr {
     height: 1px;
@@ -427,17 +531,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     margin: 1.5rem 0;
   }
   input[type="file"].form-control {
-      padding: 0.4rem 1rem;
+    padding: 0.4rem 1rem;
+    height: 48px;
+  }
+  .form-actions {
+    display: flex;
+    gap: .75rem;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .form-actions .btn {
+    min-width: 200px;
+  }
+  .form-actions .btn-link {
+    padding-left: 0;
   }
 
   /* FIX: Style for the requirement card */
   .requirement-card {
     border: 1px solid var(--border-color);
-    border-radius: 12px;
-    background-color: #fcfbff;
+    border-radius: 16px;
+    background-color: #fbf9ff;
+    box-shadow: 0 10px 30px rgba(67, 17, 165, 0.06);
+  }
+  .requirement-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: .75rem;
   }
   .requirement-card .form-check {
-    padding-left: 2em; 
+    padding: .75rem .75rem .75rem 2.25rem;
+    border-radius: 10px;
+    background: #ffffff;
+    border: 1px solid rgba(101, 50, 201, 0.08);
+  }
+  .requirement-card .form-check + .form-check {
+    margin-top: .65rem;
+  }
+  .requirement-card .form-check-input {
+    margin-left: -1.6rem;
   }
   </style>
 </head>
@@ -445,34 +578,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   <div class="auth-wrapper">
     <div class="card auth-card">
       <div class="row g-0">
-        <div class="col-lg-5 d-none d-lg-flex flex-column justify-content-center align-items-center text-center p-4 p-xl-5 brand-pane">
-          <img src="<?= BASE_URL ?>img/logo.png" class="brand-logo mb-4" alt="TNVS Logo">
-
-          <div class="kicker text-uppercase fw-semibold mb-1">Vendor Onboarding</div>
-          <h1 class="display-brand fw-bold mb-3">Partner with TNVS</h1>
-          <p class="text-muted mb-5 px-3">
-            Join sourcing events, submit quotations, and track awards in real time.
-            Your profile will be reviewed by our Procurement team.
-          </p>
-
-          <div class="steps-wrapper w-100" style="max-width: 300px;">
-            <div class="d-flex flex-column gap-3 text-start">
-              <div class="step active"><span class="dot"></span>Step 1: Registration & KYC</div>
-              <div class="step"><span class="dot"></span>Step 2: Review & Approval</div>
-              <div class="step"><span class="dot"></span>Step 3: Login & Participate</div>
-            </div>
-          </div>
-        </div>
-
-        <div class="col-lg-7 p-4 p-md-5 bg-white">
+        <div class="col-12 p-4 p-md-5 bg-white">
           <div class="mb-4 text-center d-lg-none">
             <img src="<?= BASE_URL ?>img/logo.png" height="48" alt="TNVS Logo">
           </div>
-          <h2 class="h4 mb-2 fw-bold d-flex align-items-center gap-2" style="color:var(--brand-deep);">
+          <h2 class="h4 mb-2 fw-bold d-flex align-items-center gap-2 page-title" style="color:var(--brand-deep);">
             <ion-icon name="create-outline"></ion-icon>
             Vendor Registration & Compliance
           </h2>
-          <p class="text-muted mb-4">Create your account and submit your compliance documents in one step.</p>
+          <p class="text-muted mb-4">Complete the form below.</p>
 
           <?php if ($ok): ?>
             <div class="alert alert-success d-flex align-items-center gap-2 p-3" role="alert">
@@ -498,114 +612,148 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <form method="post" enctype="multipart/form-data" class="needs-validation" novalidate>
               <input type="hidden" name="csrf" value="<?= htmlspecialchars($_SESSION['csrf']) ?>">
 
-              <div class="section-title">Account & Company Details</div>
+              <div class="row g-4 split-form">
+                <div class="col-12 col-lg-6 form-section">
+                  <div class="section-card h-100">
+                    <div class="section-title mt-0">Account & Company Details</div>
 
-              <div class="row g-3">
-                <div class="col-12">
-                  <label for="company_name" class="form-label">Company Name <span class="text-danger">*</span></label>
-                  <div class="input-group">
-                    <span class="input-group-text"><ion-icon name="business-outline"></ion-icon></span>
-                    <input type="text" name="company_name" id="company_name" class="form-control" required value="<?= htmlspecialchars($vals['company_name']) ?>" placeholder="e.g., ABC Trading Corp.">
-                    <div class="invalid-feedback">Company name is required.</div>
+                  <div class="row g-3">
+                    <div class="col-12">
+                      <label for="company_name" class="form-label">Company Name <span class="text-danger">*</span></label>
+                      <div class="input-group">
+                        <span class="input-group-text"><ion-icon name="business-outline"></ion-icon></span>
+                        <input type="text" name="company_name" id="company_name" class="form-control" required value="<?= htmlspecialchars($vals['company_name']) ?>" placeholder="e.g., ABC Trading Corp.">
+                        <div class="invalid-feedback">Company name is required.</div>
+                      </div>
+                    </div>
+
+                    <div class="col-12 col-md-6">
+                      <label for="contact_person" class="form-label">Contact Person <span class="text-danger">*</span></label>
+                      <div class="input-group">
+                        <span class="input-group-text"><ion-icon name="person-outline"></ion-icon></span>
+                        <input type="text" name="contact_person" id="contact_person" class="form-control" required value="<?= htmlspecialchars($vals['contact_person']) ?>" placeholder="Full Name">
+                        <div class="invalid-feedback">Contact person is required.</div>
+                      </div>
+                    </div>
+
+                    <div class="col-12 col-md-6">
+                      <label for="phone" class="form-label">Phone</label>
+                      <div class="input-group">
+                        <span class="input-group-text"><ion-icon name="call-outline"></ion-icon></span>
+                        <input type="tel" name="phone" id="phone" class="form-control" value="<?= htmlspecialchars($vals['phone']) ?>" placeholder="e.g., +63 9xx xxx xxxx">
+                      </div>
+                    </div>
+
+                    <div class="col-12 col-md-6">
+                      <label for="email" class="form-label">Email <span class="text-danger">*</span></label>
+                      <div class="input-group">
+                        <span class="input-group-text"><ion-icon name="mail-outline"></ion-icon></span>
+                        <input type="email" name="email" id="email" class="form-control" required value="<?= htmlspecialchars($vals['email']) ?>" placeholder="business@example.com">
+                        <div class="invalid-feedback">A valid email is required.</div>
+                      </div>
+                    </div>
+
+                    <div class="col-12 col-md-6">
+                      <label for="password" class="form-label d-flex justify-content-between align-items-center">
+                        <span>Password <span class="text-danger">*</span></span>
+                        <a href="#" class="toggle-pass" id="togglePass">Show</a>
+                      </label>
+                      <div class="input-group">
+                        <span class="input-group-text"><ion-icon name="lock-closed-outline"></ion-icon></span>
+                        <input type="password" name="password" id="password" class="form-control" minlength="8" required autocomplete="new-password" placeholder="At least 8 characters">
+                        <div class="invalid-feedback">Password must be at least 8 characters.</div>
+                      </div>
+                    </div>
+
+                    <div class="col-12">
+                      <label for="address" class="form-label">Address</label>
+                      <textarea name="address" id="address" class="form-control" rows="2" placeholder="Street, City, Province, Zip Code"><?= htmlspecialchars($vals['address']) ?></textarea>
+                    </div>
+
+                    <div class="col-12">
+                      <label class="form-label">Profile Photo (Optional, max 2MB)</label>
+                      <label class="file-input-wrapper">
+                        <input type="file" name="profile_photo" accept="image/png, image/jpeg, image/gif, image/webp" onchange="document.getElementById('file-name').textContent = this.files[0] ? this.files[0].name : 'Click or drag file to upload';">
+                        <span class="file-input-text" id="file-name">
+                            <ion-icon name="cloud-upload-outline"></ion-icon>
+                            Click or drag file to upload
+                        </span>
+                      </label>
+                      <small class="form-text text-muted d-block mt-1">Accepted formats: JPG, PNG, GIF, WEBP.</small>
+                    </div>
+                  </div>
                   </div>
                 </div>
 
-                <div class="col-12 col-md-6">
-                  <label for="contact_person" class="form-label">Contact Person <span class="text-danger">*</span></label>
-                  <div class="input-group">
-                    <span class="input-group-text"><ion-icon name="person-outline"></ion-icon></span>
-                    <input type="text" name="contact_person" id="contact_person" class="form-control" required value="<?= htmlspecialchars($vals['contact_person']) ?>" placeholder="Full Name">
-                    <div class="invalid-feedback">Contact person is required.</div>
+                <div class="col-12 col-lg-6 form-section">
+                  <div class="section-card h-100">
+                    <div class="section-title mt-0">Compliance / KYC Documents</div>
+
+                  <div class="mb-3">
+                    <label class="form-label">Product / Service Categories (comma-separated)</label>
+                    <input type="text" name="categories" class="form-control"
+                           value="<?= htmlspecialchars($vals['categories']) ?>" placeholder="e.g., IT Services, Office Supplies, Logistics">
+                    <small class="form-text text-muted d-block mt-1">List the main categories of goods/services you offer.</small>
                   </div>
-                </div>
 
-                <div class="col-12 col-md-6">
-                  <label for="phone" class="form-label">Phone</label>
-                  <div class="input-group">
-                    <span class="input-group-text"><ion-icon name="call-outline"></ion-icon></span>
-                    <input type="tel" name="phone" id="phone" class="form-control" value="<?= htmlspecialchars($vals['phone']) ?>" placeholder="e.g., +63 9xx xxx xxxx">
+                  <div class="row g-3">
+                    <div class="col-md-6">
+                      <label class="form-label">DTI / SEC Registration (PDF / Image)</label>
+                      <input type="file" name="dti" class="form-control" accept=".pdf,.png,.jpg,.jpeg">
+                      <small class="form-text text-muted d-block mt-1">Required for legal verification.</small>
+                    </div>
+
+                    <div class="col-md-6">
+                      <label class="form-label">BIR / TIN Certificate</label>
+                      <input type="file" name="bir" class="form-control" accept=".pdf,.png,.jpg,.jpeg">
+                      <small class="form-text text-muted d-block mt-1">Required for tax compliance.</small>
+                    </div>
+
+                    <div class="col-md-6">
+                      <label class="form-label">Business Permit</label>
+                      <input type="file" name="permit" class="form-control" accept=".pdf,.png,.jpg,.jpeg">
+                      <small class="form-text text-muted d-block mt-1">Mayor's Permit / Business Permit.</small>
+                    </div>
+
+                    <div class="col-md-6">
+                      <label class="form-label">Bank Certificate (Optional)</label>
+                      <input type="file" name="bank" class="form-control" accept=".pdf,.png,.jpg,.jpeg">
+                      <small class="form-text text-muted d-block mt-1">Under business name.</small>
+                    </div>
+
+                    <div class="col-md-12">
+                      <label class="form-label">Product Catalog (Optional)</label>
+                      <input type="file" name="catalog" class="form-control" accept=".pdf,.png,.jpg,.jpeg">
+                      <small class="form-text text-muted d-block mt-1">Upload your price list or service catalog.</small>
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label">Catalog Category</label>
+                      <select name="catalog_category" class="form-select">
+                        <option value="">Select category</option>
+                        <?php foreach ($catOptions as $c): ?>
+                          <option value="<?= htmlspecialchars($c) ?>"><?= htmlspecialchars($c) ?></option>
+                        <?php endforeach; ?>
+                      </select>
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label">Website / Online Store Link</label>
+                      <input type="url" name="website_link" class="form-control" placeholder="https://">
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label">Delivery Receipt / Invoice (Optional)</label>
+                      <input type="file" name="receipt" class="form-control" accept=".pdf,.png,.jpg,.jpeg">
+                    </div>
+                    <div class="col-md-6">
+                      <label class="form-label">Receipt Category</label>
+                      <select name="receipt_category" class="form-select">
+                        <option value="">Select category</option>
+                        <?php foreach ($catOptions as $c): ?>
+                          <option value="<?= htmlspecialchars($c) ?>"><?= htmlspecialchars($c) ?></option>
+                        <?php endforeach; ?>
+                      </select>
+                    </div>
                   </div>
-                </div>
-
-                <div class="col-12 col-md-6">
-                  <label for="email" class="form-label">Email <span class="text-danger">*</span></label>
-                  <div class="input-group">
-                    <span class="input-group-text"><ion-icon name="mail-outline"></ion-icon></span>
-                    <input type="email" name="email" id="email" class="form-control" required value="<?= htmlspecialchars($vals['email']) ?>" placeholder="business@example.com">
-                    <div class="invalid-feedback">A valid email is required.</div>
                   </div>
-                </div>
-
-                <div class="col-12 col-md-6">
-                  <label for="password" class="form-label d-flex justify-content-between align-items-center">
-                    <span>Password <span class="text-danger">*</span></span>
-                    <a href="#" class="toggle-pass" id="togglePass">Show</a>
-                  </label>
-                  <div class="input-group">
-                    <span class="input-group-text"><ion-icon name="lock-closed-outline"></ion-icon></span>
-                    <input type="password" name="password" id="password" class="form-control" minlength="8" required autocomplete="new-password" placeholder="At least 8 characters">
-                    <div class="invalid-feedback">Password must be at least 8 characters.</div>
-                  </div>
-                </div>
-
-                <div class="col-12">
-                  <label for="address" class="form-label">Address</label>
-                  <textarea name="address" id="address" class="form-control" rows="2" placeholder="Street, City, Province, Zip Code"><?= htmlspecialchars($vals['address']) ?></textarea>
-                </div>
-
-                <div class="col-12">
-                  <label class="form-label">Profile Photo (Optional, max 2MB)</label>
-                  <label class="file-input-wrapper">
-                    <input type="file" name="profile_photo" accept="image/png, image/jpeg, image/gif, image/webp" onchange="document.getElementById('file-name').textContent = this.files[0] ? this.files[0].name : 'Click or drag file to upload';">
-                    <span class="file-input-text" id="file-name">
-                        <ion-icon name="cloud-upload-outline"></ion-icon>
-                        Click or drag file to upload
-                    </span>
-                  </label>
-                  <small class="form-text text-muted d-block mt-1">Accepted formats: JPG, PNG, GIF, WEBP.</small>
-                </div>
-              </div>
-
-              <hr class="soft-hr" />
-
-              <div class="section-title">Compliance / KYC Documents</div>
-
-              <div class="mb-3">
-                <label class="form-label">Product / Service Categories (comma-separated)</label>
-                <input type="text" name="categories" class="form-control"
-                       value="<?= htmlspecialchars($vals['categories']) ?>" placeholder="e.g., IT Services, Office Supplies, Logistics">
-                <small class="form-text text-muted d-block mt-1">List the main categories of goods/services you offer.</small>
-              </div>
-
-              <div class="row g-3">
-                <div class="col-md-6">
-                  <label class="form-label">DTI / SEC Registration (PDF / Image)</label>
-                  <input type="file" name="dti" class="form-control" accept=".pdf,.png,.jpg,.jpeg">
-                  <small class="form-text text-muted d-block mt-1">Required for legal verification.</small>
-                </div>
-
-                <div class="col-md-6">
-                  <label class="form-label">BIR / TIN Certificate</label>
-                  <input type="file" name="bir" class="form-control" accept=".pdf,.png,.jpg,.jpeg">
-                  <small class="form-text text-muted d-block mt-1">Required for tax compliance.</small>
-                </div>
-
-                <div class="col-md-6">
-                  <label class="form-label">Business Permit</label>
-                  <input type="file" name="permit" class="form-control" accept=".pdf,.png,.jpg,.jpeg">
-                  <small class="form-text text-muted d-block mt-1">Mayor's Permit / Business Permit.</small>
-                </div>
-
-                <div class="col-md-6">
-                  <label class="form-label">Bank Certificate (Optional)</label>
-                  <input type="file" name="bank" class="form-control" accept=".pdf,.png,.jpg,.jpeg">
-                  <small class="form-text text-muted d-block mt-1">Under business name.</small>
-                </div>
-
-                <div class="col-md-12">
-                  <label class="form-label">Product Catalog (Optional)</label>
-                  <input type="file" name="catalog" class="form-control" accept=".pdf,.png,.jpg,.jpeg">
-                  <small class="form-text text-muted d-block mt-1">Upload your price list or service catalog.</small>
                 </div>
               </div>
 
@@ -618,6 +766,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
               <div class="card requirement-card mb-4">
                 <div class="card-body py-3">
+                  <div class="requirement-header">
+                    <div class="fw-semibold">Checklist</div>
+                    <div class="form-check m-0">
+                      <input class="form-check-input" type="checkbox" id="selectAllRequirements">
+                      <label class="form-check-label small" for="selectAllRequirements">Select all</label>
+                    </div>
+                  </div>
                   <?php foreach ($requirementFields as $key => $label): ?>
                     <div class="form-check mb-2">
                       <input class="form-check-input" type="checkbox"
@@ -651,14 +806,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div class="invalid-feedback">You must confirm the accuracy of your information to continue.</div>
               </div>
 
-              <div class="col-12 d-grid gap-2 mt-4">
+              <div class="form-actions mt-4">
                 <button type="submit" name="action" value="submit" class="btn btn-brand btn-lg">
                   <ion-icon name="paper-plane-outline"></ion-icon> Submit for Review
                 </button>
-                <button type="submit" name="action" value="save" class="btn btn-outline-dark">
-                  <ion-icon name="save-outline"></ion-icon> Save as Draft
-                </button>
-                <a href="../../login.php" class="btn btn-link text-center text-muted" style="text-decoration: none;">
+                <a href="../../login.php" class="btn btn-link text-muted" style="text-decoration: none;">
                   Already have an account? Login here.
                 </a>
               </div>
@@ -709,6 +861,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           const isText = pw.getAttribute('type') === 'text';
           pw.setAttribute('type', isText ? 'password' : 'text');
           toggle.textContent = isText ? 'Show' : 'Hide';
+        });
+      }
+
+      // Select-all for requirements
+      const selectAll = document.getElementById('selectAllRequirements');
+      const requirementChecks = Array.from(document.querySelectorAll('.requirement-card .form-check-input'))
+        .filter(el => el.id !== 'selectAllRequirements');
+      if (selectAll) {
+        selectAll.addEventListener('change', () => {
+          requirementChecks.forEach(cb => { cb.checked = selectAll.checked; });
+          selectAll.indeterminate = false;
+        });
+        requirementChecks.forEach(cb => {
+          cb.addEventListener('change', () => {
+            const allChecked = requirementChecks.every(i => i.checked);
+            selectAll.checked = allChecked;
+            selectAll.indeterminate = !allChecked && requirementChecks.some(i => i.checked);
+          });
         });
       }
     })();

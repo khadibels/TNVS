@@ -3,6 +3,7 @@
 require_once __DIR__ . "/../includes/config.php";
 require_once __DIR__ . "/../includes/auth.php";
 require_once __DIR__ . "/../includes/db.php";
+require_once __DIR__ . "/../includes/vendor_capability.php";
 
 require_login();
 require_role(['admin','procurement_officer','vendor_manager']);
@@ -17,6 +18,12 @@ $userName  = $user['name'] ?? 'Guest';
 $userRole  = $user['role'] ?? 'Unknown';
 $section   = 'procurement';
 $active    = 'po_rfq';
+
+function col_exists(PDO $pdo, string $t, string $c): bool {
+  $s=$pdo->prepare("SELECT 1 FROM information_schema.columns
+                     WHERE table_schema=DATABASE() AND table_name=? AND column_name=? LIMIT 1");
+  $s->execute([$t,$c]); return (bool)$s->fetchColumn();
+}
 
 /* ---------- AJAX: RFQ detail for modal ---------- */
 if (isset($_GET['ajax']) && $_GET['ajax'] === 'rfq_detail') {
@@ -33,6 +40,20 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'rfq_detail') {
     $it = $pdo->prepare("SELECT * FROM rfq_items WHERE rfq_id=? ORDER BY line_no ASC, id ASC");
     $it->execute([$id]);
     $items = $it->fetchAll(PDO::FETCH_ASSOC);
+    if (!col_exists($pdo,'rfq_items','category')) {
+      try {
+        $catMap = [];
+        $cst = $pdo->prepare("SELECT rfq_item_id, category FROM rfq_item_categories WHERE rfq_id=?");
+        $cst->execute([$id]);
+        foreach ($cst->fetchAll(PDO::FETCH_ASSOC) as $r) {
+          $catMap[(int)$r['rfq_item_id']] = $r['category'];
+        }
+        foreach ($items as &$row) {
+          $row['category'] = $catMap[(int)$row['id']] ?? '';
+        }
+        unset($row);
+      } catch (Throwable $e) { }
+    }
 
     $sp = $pdo->prepare("
       SELECT rs.vendor_id, rs.status,
@@ -59,7 +80,20 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'rfq_detail') {
       $quotes = $qs->fetchAll(PDO::FETCH_ASSOC);
     } catch (Throwable $e) {}
 
-    echo json_encode(['rfq'=>$rfq,'items'=>$items,'suppliers'=>$suppliers,'quotes'=>$quotes]);
+    $ex = [];
+    try {
+      ensure_vendor_capability_tables($pdo);
+      $exq = $pdo->prepare("
+        SELECT e.vendor_id, e.reason, v.company_name, v.email
+          FROM rfq_vendor_exclusions e
+          JOIN vendors v ON v.id=e.vendor_id
+         WHERE e.rfq_id=?
+      ");
+      $exq->execute([$id]);
+      $ex = $exq->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Throwable $e) { }
+
+    echo json_encode(['rfq'=>$rfq,'items'=>$items,'suppliers'=>$suppliers,'quotes'=>$quotes,'excluded'=>$ex]);
   } catch (Throwable $e) {
     http_response_code(400);
     echo json_encode(['error' => $e->getMessage()]);
@@ -83,29 +117,32 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'create_rfq' && $_SERVER['REQUEST_
       if ($t !== false) $due_at = date('Y-m-d H:i:s', $t);
     }
 
-    $item_names   = $_POST['item']  ?? [];
-    $item_specs   = $_POST['specs'] ?? [];
-    $item_qty     = $_POST['qty']   ?? [];
-    $item_uom     = [];
-    $supplier_ids = array_map('intval', $_POST['supplier_ids'] ?? []);
+    $item_names    = $_POST['item']  ?? [];
+    $item_specs    = $_POST['specs'] ?? [];
+    $item_qty      = $_POST['qty']   ?? [];
+    $item_category = $_POST['category'] ?? [];
+    $item_uom      = [];
+    $supplier_ids  = array_map('intval', $_POST['supplier_ids'] ?? []);
 
     $clean_items = [];
-    $count = max(count($item_names), count($item_specs), count($item_qty));
+    $count = max(count($item_names), count($item_specs), count($item_qty), count($item_category));
     for ($i=0; $i<$count; $i++) {
       $nm = trim($item_names[$i] ?? '');
       if ($nm === '') continue;
       $sp = trim($item_specs[$i] ?? '');
       $qt = (float)($item_qty[$i] ?? 0);
+      $cat = trim($item_category[$i] ?? '');
       if ($qt <= 0) $qt = 1;
-      $clean_items[] = ['item'=>$nm,'specs'=>$sp,'qty'=>$qt,'uom'=>'unit'];
+      $clean_items[] = ['item'=>$nm,'specs'=>$sp,'qty'=>$qt,'uom'=>'unit','category'=>$cat];
     }
 
     if ($title === '') throw new Exception("Title is required.");
     if (!$due_at)      throw new Exception("A valid Due Date/Time is required.");
     if (empty($clean_items))  throw new Exception("Add at least one quotation item.");
-    if (empty($supplier_ids)) throw new Exception("Select at least one supplier to invite.");
+    if (empty($clean_items))  throw new Exception("Add at least one quotation item.");
 
     $pdo->beginTransaction();
+    ensure_vendor_capability_tables($pdo);
 
     // RFQ number
     $prefix = 'RFQ-' . date('Ymd') . '-';
@@ -126,15 +163,74 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'create_rfq' && $_SERVER['REQUEST_
 
     // Items
     $line = 1;
-    $ii = $pdo->prepare("INSERT INTO rfq_items (rfq_id,line_no,item,specs,qty,uom) VALUES (?,?,?,?,?,?)");
+    $hasCatCol = col_exists($pdo,'rfq_items','category');
+    if (!$hasCatCol) {
+      $pdo->exec("
+        CREATE TABLE IF NOT EXISTS rfq_item_categories (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          rfq_id INT NOT NULL,
+          rfq_item_id INT NOT NULL,
+          category VARCHAR(100) NULL,
+          UNIQUE KEY uniq_item (rfq_item_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      ");
+    }
+    $ii = $hasCatCol
+      ? $pdo->prepare("INSERT INTO rfq_items (rfq_id,line_no,item,specs,qty,uom,category) VALUES (?,?,?,?,?,?,?)")
+      : $pdo->prepare("INSERT INTO rfq_items (rfq_id,line_no,item,specs,qty,uom) VALUES (?,?,?,?,?,?)");
+    $insCat = $hasCatCol ? null : $pdo->prepare("INSERT INTO rfq_item_categories (rfq_id, rfq_item_id, category) VALUES (?,?,?)");
     foreach ($clean_items as $row) {
-      $ii->execute([$rfq_id,$line++,$row['item'],$row['specs'],$row['qty'],$row['uom']]);
+      if ($hasCatCol) {
+        $ii->execute([$rfq_id,$line++,$row['item'],$row['specs'],$row['qty'],$row['uom'],$row['category']]);
+      } else {
+        $ii->execute([$rfq_id,$line++,$row['item'],$row['specs'],$row['qty'],$row['uom']]);
+        $itemId = (int)$pdo->lastInsertId();
+        $insCat->execute([$rfq_id, $itemId, $row['category']]);
+      }
     }
 
     // Invite suppliers
+    $categories = array_values(array_unique(array_filter(array_map(fn($r)=>trim((string)$r['category']), $clean_items))));
+    if (!$categories) throw new Exception("Select a category for each item.");
+
+    $allCats = get_all_categories($pdo);
+    $vendors = $pdo->query("SELECT id, company_name, email FROM vendors WHERE status='approved' ORDER BY company_name ASC")->fetchAll(PDO::FETCH_ASSOC);
+
     $ri = $pdo->prepare("INSERT INTO rfq_suppliers (rfq_id,vendor_id,status) VALUES (?,?, 'invited')");
-    foreach ($supplier_ids as $vid) {
-      $ri->execute([$rfq_id, $vid]);
+    $ex = $pdo->prepare("INSERT INTO rfq_vendor_exclusions (rfq_id,vendor_id,reason) VALUES (?,?,?)");
+    $invitedVendorIds = [];
+
+    foreach ($vendors as $v) {
+      $vid = (int)$v['id'];
+      if ($vid <= 0) continue;
+      if (empty($allCats)) $allCats = $categories;
+      recompute_vendor_capability($pdo, $vid, $allCats);
+
+      $cap = $pdo->prepare("SELECT category, status FROM vendor_category_capability WHERE vendor_id=?");
+      $cap->execute([$vid]);
+      $capMap = [];
+      foreach ($cap->fetchAll(PDO::FETCH_ASSOC) as $row) {
+        $capMap[$row['category']] = $row['status'];
+      }
+
+      $eligible = true;
+      $missingCat = '';
+      foreach ($categories as $cat) {
+        $st = $capMap[$cat] ?? 'not_capable';
+        if (!in_array($st, ['verified','unverified'], true)) {
+          $eligible = false;
+          $missingCat = $cat;
+          break;
+        }
+      }
+
+      if ($eligible) {
+        $ri->execute([$rfq_id, $vid]);
+        $invitedVendorIds[] = $vid;
+      } else {
+        $reason = "Does not supply {$missingCat} category";
+        $ex->execute([$rfq_id, $vid, $reason]);
+      }
     }
 
     // ===== Notifications
@@ -146,7 +242,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'create_rfq' && $_SERVER['REQUEST_
     $dueTxt     = $due_at ? date('M d, Y g:i A', strtotime($due_at)) : '';
     $notifBody  = trim("You have been invited to quote on \"{$title}\"." . ($dueTxt ? " Due: {$dueTxt}." : ''));
 
-    foreach ($supplier_ids as $vid) {
+    foreach ($invitedVendorIds as $vid) {
       $ni->execute([$vid, $notifTitle, $notifBody, $rfq_id]);
     }
     // ===== End Notifications
@@ -166,6 +262,15 @@ $vendors = [];
 try {
   $q = $pdo->query("SELECT id, company_name, contact_person, email FROM vendors WHERE status='approved' ORDER BY company_name ASC");
   $vendors = $q->fetchAll(PDO::FETCH_ASSOC);
+} catch (Throwable $e) {}
+
+/* ---------- Categories (from WMS) ---------- */
+$categories = [];
+try {
+  $wms = db('wms');
+  if ($wms instanceof PDO) {
+    $categories = $wms->query("SELECT name FROM inventory_categories ORDER BY name")->fetchAll(PDO::FETCH_COLUMN);
+  }
 } catch (Throwable $e) {}
 
 /* ---------- Load RFQs ---------- */
@@ -379,6 +484,7 @@ function badge($status){
           <?php if (empty($vendors)): ?>
             <div class="alert alert-warning mb-0">No approved vendors yet. Approve at least one supplier first.</div>
           <?php else: ?>
+            <div class="text-muted small mb-2">Suppliers are auto-invited based on item category. The checklist is for review.</div>
             <div class="d-flex gap-2 align-items-center mb-2 flex-wrap">
               <input type="search" id="vendorSearch" class="form-control" placeholder="Filter suppliers by name/email...">
               <div class="d-flex gap-2 ms-auto">
@@ -473,16 +579,17 @@ function badge($status){
   /* —— Create RFQ modal: dynamic items —— */
   const itemsWrap = $('#itemsWrap');
   const btnAdd = $('#btnAddItem');
+  const categoryOptions = `<?php foreach ($categories as $c): ?><option value="<?= h($c) ?>"><?= h($c) ?></option><?php endforeach; ?>`;
 
   function addItemRow(data={item:'',specs:'',qty:'1'}){
     const row = document.createElement('div');
     row.className = 'row g-2 align-items-end item-row';
     row.innerHTML = `
-      <div class="col-md-5">
+      <div class="col-md-4">
         <label class="form-label small">Item</label>
         <input class="form-control" name="item[]" value="${esc(data.item)}" required>
       </div>
-      <div class="col-md-5">
+      <div class="col-md-4">
         <label class="form-label small">Specs / Description</label>
         <input class="form-control" name="specs[]" value="${esc(data.specs)}">
       </div>
@@ -490,12 +597,21 @@ function badge($status){
         <label class="form-label small">Qty</label>
         <input class="form-control" name="qty[]" type="number" min="0" step="any" value="${esc(data.qty)}" required>
       </div>
+      <div class="col-md-2">
+        <label class="form-label small">Category</label>
+        <select class="form-select" name="category[]" required>
+          <option value="">Select</option>
+          ${categoryOptions}
+        </select>
+      </div>
       <div class="col-12">
         <button type="button" class="btn btn-link text-danger p-0 small" onclick="this.closest('.item-row').remove()">
           <ion-icon name="trash-outline"></ion-icon> remove
         </button>
       </div>`;
     itemsWrap?.appendChild(row);
+    const sel = row.querySelector('select[name="category[]"]');
+    if (sel && data.category) sel.value = data.category;
   }
   btnAdd?.addEventListener('click', addItemRow);
   if (itemsWrap && !itemsWrap.children.length) addItemRow();
@@ -555,14 +671,14 @@ function badge($status){
       const j = await res.json();
       if (!res.ok || j.error) throw new Error(j.error || 'Load failed');
 
-      const { rfq, items=[], suppliers=[], quotes=[] } = j;
+      const { rfq, items=[], suppliers=[], quotes=[], excluded=[] } = j;
       title.textContent = `Quotation ${esc(rfq.rfq_no || ('#'+id))}`;
       status.innerHTML = badgeHTML(rfq.status);
 
       const itemsHTML = items.length
         ? `<div class="table-responsive"><table class="table table-sm align-middle">
-             <thead><tr><th>#</th><th>Item</th><th>Specs</th><th class="text-end">Qty</th></tr></thead>
-             <tbody>${items.map(r=>`<tr><td>${r.line_no}</td><td>${esc(r.item)}</td><td class="text-muted">${esc(r.specs)}</td><td class="text-end">${Number(r.qty).toLocaleString()}</td></tr>`).join('')}</tbody>
+             <thead><tr><th>#</th><th>Item</th><th>Specs</th><th>Category</th><th class="text-end">Qty</th></tr></thead>
+             <tbody>${items.map(r=>`<tr><td>${r.line_no}</td><td>${esc(r.item)}</td><td class="text-muted">${esc(r.specs)}</td><td>${esc(r.category||'')}</td><td class="text-end">${Number(r.qty).toLocaleString()}</td></tr>`).join('')}</tbody>
            </table></div>`
         : `<div class="text-muted">No items.</div>`;
 
@@ -578,6 +694,17 @@ function badge($status){
                </div>`).join('')}
            </div>`
         : `<div class="text-muted">No invited suppliers.</div>`;
+
+      const excludedHTML = excluded.length
+        ? `<div class="list-group list-group-flush">
+             ${excluded.map(s=>`
+               <div class="list-group-item px-0">
+                 <div class="fw-semibold">${esc(s.company_name)}</div>
+                 <div class="small text-muted">${esc(s.email||'')}</div>
+                 <div class="small text-danger">Auto-excluded: ${esc(s.reason||'')}</div>
+               </div>`).join('')}
+           </div>`
+        : `<div class="text-muted">No auto-excluded suppliers.</div>`;
 
       const quotesHTML = quotes.length
         ? `<div class="table-responsive"><table class="table table-sm align-middle">
@@ -609,6 +736,9 @@ function badge($status){
           <div class="col-lg-5">
             <h6 class="fw-semibold">Invited Suppliers</h6>
             ${supsHTML}
+            <hr class="my-4">
+            <h6 class="fw-semibold">Auto-excluded Suppliers</h6>
+            ${excludedHTML}
             <hr class="my-4">
             <h6 class="fw-semibold">Quotes</h6>
             ${quotesHTML}

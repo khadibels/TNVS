@@ -32,6 +32,9 @@
         <a class="nav-link<?= a('shipments') ?>" href="<?= u('warehousing/TrackShipment/shipmentTracking.php') ?>">
           <ion-icon name="paper-plane-outline"></ion-icon><span>Track Shipments</span>
         </a>
+        <a class="nav-link<?= a('warehouse_categories') ?>" href="<?= u('all-modules-admin-access/categories.php') ?>">
+          <ion-icon name="pricetags-outline"></ion-icon><span>Inventory Categories</span>
+        </a>
       </nav>
 
       <h6 class="text-uppercase mb-2">Procurement and Sourcing Management</h6>

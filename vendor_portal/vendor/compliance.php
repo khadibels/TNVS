@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/auth.php';
 require_once __DIR__ . '/../../includes/db.php';
+require_once __DIR__ . '/../../includes/vendor_capability.php';
 
 vendor_require_login();
 
@@ -14,6 +15,16 @@ $authUser = $_SESSION['user'] ?? [];
 $vendorId = (int)($authUser['vendor_id'] ?? 0);
 if ($vendorId <= 0) { die('Invalid vendor session.'); }
 
+ensure_vendor_capability_tables($proc);
+
+$cats = [];
+try {
+    $wms = db('wms');
+    if ($wms instanceof PDO) {
+        $cats = $wms->query("SELECT name FROM inventory_categories ORDER BY name")->fetchAll(PDO::FETCH_COLUMN);
+    }
+} catch (Throwable $e) { $cats = []; }
+
 $st = $proc->prepare("SELECT * FROM vendors WHERE id = ? LIMIT 1");
 $st->execute([$vendorId]);
 $vendor = $st->fetch(PDO::FETCH_ASSOC);
@@ -25,6 +36,9 @@ $ok  = "";
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action     = $_POST['action'] ?? 'save';
     $categories = trim($_POST['categories'] ?? '');
+    $catalog_category = trim($_POST['catalog_category'] ?? '');
+    $receipt_category = trim($_POST['receipt_category'] ?? '');
+    $website_link     = trim($_POST['website_link'] ?? '');
 
     $set    = ['categories = :cats'];
     $params = [':cats' => $categories, ':id' => $vendorId];
@@ -34,7 +48,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'bir'     => 'bir_doc',
         'permit'  => 'permit_doc',
         'bank'    => 'bank_doc',
-        'catalog' => 'catalog_doc'
+        'catalog' => 'catalog_doc',
+        'receipt' => 'delivery_receipt_doc'
     ];
 
     $dir = __DIR__ . '/uploads';
@@ -56,7 +71,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             @chmod($abs, 0644);
             $set[] = "$col = :$col";
             $params[":$col"] = $fname;
+
+            try {
+                $docType = $field === 'receipt' ? 'delivery_receipt' : $field;
+                $docCategory = null;
+                if ($docType === 'catalog') $docCategory = $catalog_category ?: null;
+                if ($docType === 'delivery_receipt') $docCategory = $receipt_category ?: null;
+                if ($docType === 'permit') $docCategory = 'ALL';
+                $ins = $proc->prepare("
+                  INSERT INTO vendor_documents (vendor_id, doc_type, category, file_path, status)
+                  VALUES (?,?,?,?, 'pending')
+                ");
+                $ins->execute([$vendorId, $docType, $docCategory, $fname]);
+            } catch (Throwable $e) { }
         }
+    }
+
+    if ($website_link !== '') {
+        try {
+            $ins = $proc->prepare("
+              INSERT INTO vendor_documents (vendor_id, doc_type, category, url, status)
+              VALUES (?,?,?,?, 'pending')
+            ");
+            $ins->execute([$vendorId, 'website', null, $website_link]);
+        } catch (Throwable $e) { }
     }
 
     $current   = strtolower((string)($vendor['status'] ?? 'draft'));
@@ -168,6 +206,7 @@ $status = strtolower($vendor['status'] ?? 'draft');
                 <?php if (!empty($vendor['permit_doc'])): ?>
                   <a href="uploads/<?= h($vendor['permit_doc']) ?>" target="_blank" class="small">View uploaded</a>
                 <?php endif; ?>
+                <div class="form-text">Applies to all categories.</div>
               </div>
 
               <div class="col-md-6">
@@ -179,11 +218,37 @@ $status = strtolower($vendor['status'] ?? 'draft');
               </div>
 
               <div class="col-md-12">
-                <label class="form-label">Catalog (optional)</label>
+                <label class="form-label">Catalog / Price List (optional)</label>
                 <input type="file" name="catalog" class="form-control">
                 <?php if (!empty($vendor['catalog_doc'])): ?>
                   <a href="uploads/<?= h($vendor['catalog_doc']) ?>" target="_blank" class="small">View uploaded</a>
                 <?php endif; ?>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Catalog Category</label>
+                <select name="catalog_category" class="form-select">
+                  <option value="">Select category</option>
+                  <?php foreach ($cats as $c): ?>
+                    <option value="<?= h($c) ?>"><?= h($c) ?></option>
+                  <?php endforeach; ?>
+                </select>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Website / Online Store Link</label>
+                <input type="url" name="website_link" class="form-control" placeholder="https://">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Delivery Receipt / Invoice (optional)</label>
+                <input type="file" name="receipt" class="form-control">
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">Receipt Category</label>
+                <select name="receipt_category" class="form-select">
+                  <option value="">Select category</option>
+                  <?php foreach ($cats as $c): ?>
+                    <option value="<?= h($c) ?>"><?= h($c) ?></option>
+                  <?php endforeach; ?>
+                </select>
               </div>
             </div>
 
