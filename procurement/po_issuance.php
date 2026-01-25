@@ -18,22 +18,15 @@ $userRole = $user['role'] ?? '';
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>PO Issuance | Procurement</title>
+<title>Purchase Order Issuance | Procurement</title>
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
 <link href="<?= $BASE ?>/css/style.css" rel="stylesheet" />
 <link href="<?= $BASE ?>/css/modules.css" rel="stylesheet" />
 <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
 <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
 <script src="<?= $BASE ?>/js/sidebar-toggle.js"></script>
-<style>
-  body{background:#f6f7fb}
-  .main-content{padding:1.25rem} @media(min-width:992px){.main-content{padding:2rem}}
-  .card{border-radius:16px}
-  .badge-status{border-radius:999px}
-  .table thead th{font-size:.82rem;text-transform:uppercase}
-</style>
 </head>
-<body>
+<body class="saas-page">
 <div class="container-fluid p-0">
   <div class="row g-0">
     <?php include __DIR__ . '/../includes/sidebar.php'; ?>
@@ -44,15 +37,21 @@ $userRole = $user['role'] ?? '';
           <button class="sidebar-toggle d-lg-none btn btn-outline-secondary btn-sm" id="sidebarToggle2" aria-label="Toggle sidebar">
             <ion-icon name="menu-outline"></ion-icon>
           </button>
-          <h2 class="m-0 d-flex align-items-center gap-2">
-            <ion-icon name="file-tray-full-outline"></ion-icon>PO Issuance
+          <h2 class="m-0 d-flex align-items-center gap-2 page-title">
+            <ion-icon name="file-tray-full-outline"></ion-icon>Purchase Order Issuance
           </h2>
         </div>
-        <div class="d-flex align-items-center gap-2">
-          <img src="<?= $BASE ?>/img/profile.jpg" class="rounded-circle" width="36" height="36" alt="">
-          <div class="small">
-            <strong><?= htmlspecialchars($userName, ENT_QUOTES) ?></strong><br/>
-            <span class="text-muted"><?= htmlspecialchars($userRole, ENT_QUOTES) ?></span>
+        <div class="profile-menu" data-profile-menu>
+          <button class="profile-trigger" type="button" data-profile-trigger aria-expanded="false" aria-haspopup="true">
+            <img src="<?= $BASE ?>/img/profile.jpg" class="rounded-circle" width="36" height="36" alt="">
+            <div class="profile-text">
+              <div class="profile-name"><?= htmlspecialchars($userName, ENT_QUOTES) ?></div>
+              <div class="profile-role"><?= htmlspecialchars($userRole, ENT_QUOTES) ?></div>
+            </div>
+            <ion-icon class="profile-caret" name="chevron-down-outline"></ion-icon>
+          </button>
+          <div class="profile-dropdown" data-profile-dropdown role="menu">
+            <a href="<?= u('auth/logout.php') ?>" role="menuitem">Sign out</a>
           </div>
         </div>
       </div>
@@ -60,7 +59,7 @@ $userRole = $user['role'] ?? '';
       <section class="card shadow-sm mb-3">
         <div class="card-body">
           <div class="row g-2 align-items-center">
-            <div class="col-md-5"><input id="fSearch" class="form-control" placeholder="Search PO No / RFQ No / Title…"></div>
+            <div class="col-md-5"><input id="fSearch" class="form-control" placeholder="Search Purchase Order No / Quotation No / Title…"></div>
             <div class="col-md-3">
               <select id="fStatus" class="form-select">
                 <option value="">All Status</option>
@@ -86,7 +85,7 @@ $userRole = $user['role'] ?? '';
             <table class="table align-middle mb-0">
               <thead class="table-light">
                 <tr>
-                  <th>PO No</th><th>RFQ No</th><th>Title</th>
+                  <th>Purchase Order No</th><th>Quotation No</th><th>Title</th>
                   <th>Vendor</th><th class="text-end">Total</th><th>Status</th><th>Issued</th><th class="text-end">Action</th>
                 </tr>
               </thead>
@@ -108,13 +107,13 @@ $userRole = $user['role'] ?? '';
 <div class="modal fade" id="mdlPO" tabindex="-1">
   <div class="modal-dialog modal-xl modal-dialog-scrollable"><div class="modal-content">
     <div class="modal-header">
-      <h5 class="modal-title"><span id="mTitle">PO</span> <span id="mStatus" class="ms-2"></span></h5>
+      <h5 class="modal-title"><span id="mTitle">Purchase Order</span> <span id="mStatus" class="ms-2"></span></h5>
       <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
     </div>
     <div class="modal-body" id="mBody"><div class="text-center text-muted py-5">Loading…</div></div>
     <div class="modal-footer">
       <button class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
-      <button class="btn btn-primary" id="btnIssue">Issue PO</button>
+      <button class="btn btn-primary" id="btnIssue">Issue Purchase Order</button>
     </div>
   </div></div>
 </div>
@@ -122,6 +121,7 @@ $userRole = $user['role'] ?? '';
 <div class="toast-container position-fixed top-0 end-0 p-3" id="toasts" style="z-index:1080"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="<?= $BASE ?>/js/profile-dropdown.js"></script>
 <script>
 const API = {
   list  : './api/pos_list.php',

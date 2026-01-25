@@ -380,6 +380,137 @@
   background: #f3f3f3;
 }
 
+/* ====== SaaS page shell + profile menu ====== */
+.saas-page {
+  --vh-primary: #6a45ff;
+  --vh-primary-700: #4d2bd8;
+  --vh-primary-100: #efeaff;
+  --vh-primary-200: #e0d8ff;
+  --vh-text-strong: #2b2349;
+  --vh-text-muted: #6f6c80;
+  --vh-shadow-soft: 0 10px 24px rgba(40, 34, 84, 0.06);
+}
+
+.saas-page {
+  background: linear-gradient(180deg, #f3f1ff 0%, #f8f9ff 40%, #fbfbff 100%);
+  color: var(--vh-text-muted);
+}
+
+.saas-page .main-content {
+  background: transparent;
+}
+
+.saas-page .card {
+  border: 1px solid rgba(106, 69, 255, 0.08);
+  border-radius: 18px;
+  box-shadow: var(--vh-shadow-soft);
+}
+
+.saas-page .card-body {
+  padding: 1.4rem 1.5rem;
+}
+
+.saas-page h2.page-title,
+.saas-page h2 .page-title {
+  font-weight: 700;
+  color: var(--vh-text-strong);
+  letter-spacing: -0.02em;
+}
+
+.saas-page .form-control,
+.saas-page .form-select {
+  border-radius: 12px;
+  border-color: #e5def7;
+  box-shadow: none;
+}
+
+.saas-page .table thead th {
+  color: #4b4566;
+  font-weight: 600;
+}
+
+.saas-page .pagination .page-link {
+  border-radius: 10px;
+}
+
+.profile-menu {
+  position: relative;
+}
+
+.profile-trigger {
+  border: 0;
+  background: transparent;
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.25rem 0.4rem;
+  border-radius: 999px;
+}
+
+.profile-trigger img {
+  border: 1px solid rgba(106, 69, 255, 0.18);
+}
+
+.profile-trigger:focus {
+  outline: 2px solid rgba(106, 69, 255, 0.25);
+  outline-offset: 2px;
+}
+
+.profile-text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.1;
+}
+
+.profile-name {
+  font-weight: 700;
+  color: var(--vh-text-strong);
+  font-size: 0.95rem;
+}
+
+.profile-role {
+  color: #8b86a3;
+  font-size: 0.8rem;
+  text-transform: lowercase;
+}
+
+.profile-caret {
+  font-size: 14px;
+  color: #8b86a3;
+}
+
+.profile-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  min-width: 160px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 14px 30px rgba(43, 35, 73, 0.12);
+  border: 1px solid #eee;
+  display: none;
+  z-index: 10;
+}
+
+.profile-dropdown.show {
+  display: block;
+}
+
+.profile-dropdown a {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.85rem;
+  color: var(--vh-text-strong);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.profile-dropdown a:hover {
+  background: #f4f3fb;
+}
+
 .route {
   font-size: 0.9rem;
   color: #555;
@@ -445,4 +576,9 @@
 .stats-card .value {
   font-size: 1.6rem;
   font-weight: 700;
+}
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
+
+html, body {
+  font-family: 'Poppins', sans-serif;
 }

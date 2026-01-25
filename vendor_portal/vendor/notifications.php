@@ -40,7 +40,17 @@ function vendor_avatar_url(): string {
 <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
 <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
 <script src="<?= $BASE ?>/js/sidebar-toggle.js"></script>
-<style>.card{border-radius:16px}</style>
+<style>
+  .card{border-radius:16px}
+  .profile-menu{position:relative}
+  .profile-trigger{border:0;background:transparent;display:flex;align-items:center;gap:.6rem;padding:.2rem .4rem;border-radius:999px}
+  .profile-trigger:focus{outline:2px solid rgba(101,50,201,.25);outline-offset:2px}
+  .profile-name{font-weight:600;color:#2b2349}
+  .profile-caret{font-size:14px;color:#6f6c80}
+  .profile-dropdown{position:absolute;right:0;top:calc(100% + 10px);min-width:160px;background:#fff;border-radius:12px;box-shadow:0 14px 30px rgba(43,35,73,.12);border:1px solid #eee;display:none;z-index:10}
+  .profile-dropdown a{display:block;padding:.6rem .9rem;color:#2b2349;text-decoration:none;font-size:.9rem}
+  .profile-dropdown a:hover{background:#f4f3fb}
+</style>
 </head>
 <body class="bg-light">
 <div class="container-fluid p-0">
@@ -55,11 +65,14 @@ function vendor_avatar_url(): string {
           </button>
           <h2 class="m-0">Notifications</h2>
         </div>
-        <div class="d-flex align-items-center gap-2">
-          <img src="<?= vendor_avatar_url() ?>" class="rounded-circle" width="36" height="36" alt="">
-          <div class="small text-end">
-            <strong><?= htmlspecialchars($vendorName, ENT_QUOTES, 'UTF-8') ?></strong><br/>
-            <span class="text-muted">vendor</span>
+        <div class="profile-menu">
+          <button class="profile-trigger" type="button" id="profileTrigger" aria-expanded="false" aria-haspopup="true">
+            <img src="<?= vendor_avatar_url() ?>" class="rounded-circle" width="36" height="36" alt="">
+            <span class="profile-name"><?= htmlspecialchars($vendorName, ENT_QUOTES, 'UTF-8') ?></span>
+            <ion-icon class="profile-caret" name="chevron-down-outline"></ion-icon>
+          </button>
+          <div class="profile-dropdown" id="profileDropdown" role="menu" aria-labelledby="profileTrigger">
+            <a href="<?= $BASE ?>/auth/logout.php" role="menuitem">Sign out</a>
           </div>
         </div>
       </div>
@@ -114,6 +127,22 @@ document.addEventListener('click', async (e)=>{
 });
 
 load();
+
+const trigger = document.getElementById('profileTrigger');
+const dropdown = document.getElementById('profileDropdown');
+if (trigger && dropdown) {
+  trigger.addEventListener('click', () => {
+    const isOpen = dropdown.style.display === 'block';
+    dropdown.style.display = isOpen ? 'none' : 'block';
+    trigger.setAttribute('aria-expanded', String(!isOpen));
+  });
+  document.addEventListener('click', (e) => {
+    if (!trigger.contains(e.target) && !dropdown.contains(e.target)) {
+      dropdown.style.display = 'none';
+      trigger.setAttribute('aria-expanded', 'false');
+    }
+  });
+}
 </script>
 </body>
 </html>

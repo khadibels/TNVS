@@ -41,7 +41,7 @@ if (function_exists("current_user")) {
   <script src="../js/sidebar-toggle.js"></script>
   
 </head>
-<body>
+<body class="saas-page">
 <div class="container-fluid p-0">
   <div class="row g-0">
 
@@ -56,13 +56,21 @@ if (function_exists("current_user")) {
           <button class="sidebar-toggle d-lg-none btn btn-outline-secondary btn-sm" id="sidebarToggle2" aria-label="Toggle sidebar">
             <ion-icon name="menu-outline"></ion-icon>
           </button>
-          <h2 class="m-0">Project Tracking</h2>
+          <h2 class="m-0 d-flex align-items-center gap-2 page-title">
+            <ion-icon name="briefcase-outline"></ion-icon>Project Tracking
+          </h2>
         </div>
-        <div class="d-flex align-items-center gap-2">
-          <img src="../img/profile.jpg" class="rounded-circle" width="36" height="36" alt="">
-          <div class="small">
-            <strong><?= htmlspecialchars($userName) ?></strong><br/>
-            <span class="text-muted"><?= htmlspecialchars($userRole) ?></span>
+        <div class="profile-menu" data-profile-menu>
+          <button class="profile-trigger" type="button" data-profile-trigger aria-expanded="false" aria-haspopup="true">
+            <img src="../img/profile.jpg" class="rounded-circle" width="36" height="36" alt="">
+            <div class="profile-text">
+              <div class="profile-name"><?= htmlspecialchars($userName) ?></div>
+              <div class="profile-role"><?= htmlspecialchars($userRole) ?></div>
+            </div>
+            <ion-icon class="profile-caret" name="chevron-down-outline"></ion-icon>
+          </button>
+          <div class="profile-dropdown" data-profile-dropdown role="menu">
+            <a href="<?= u('auth/logout.php') ?>" role="menuitem">Sign out</a>
           </div>
         </div>
       </div>
@@ -227,6 +235,7 @@ if (function_exists("current_user")) {
 <div class="toast-container position-fixed top-0 end-0 p-3" id="toasts" style="z-index:1080"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/profile-dropdown.js"></script>
 <script>
 const $ = (s, r=document)=>r.querySelector(s);
 function esc(s){return String(s??'').replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[m]));}

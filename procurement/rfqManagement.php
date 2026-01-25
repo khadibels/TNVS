@@ -23,12 +23,12 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'rfq_detail') {
   header('Content-Type: application/json; charset=utf-8');
   try {
     $id = (int)($_GET['id'] ?? 0);
-    if ($id <= 0) throw new Exception("Invalid RFQ id");
+    if ($id <= 0) throw new Exception("Invalid quotation request id");
 
     $st = $pdo->prepare("SELECT * FROM rfqs WHERE id=? LIMIT 1");
     $st->execute([$id]);
     $rfq = $st->fetch(PDO::FETCH_ASSOC);
-    if (!$rfq) throw new Exception("RFQ not found");
+    if (!$rfq) throw new Exception("Quotation request not found");
 
     $it = $pdo->prepare("SELECT * FROM rfq_items WHERE rfq_id=? ORDER BY line_no ASC, id ASC");
     $it->execute([$id]);
@@ -73,7 +73,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'create_rfq' && $_SERVER['REQUEST_
   try {
     $title       = trim($_POST['title'] ?? '');
     $description = trim($_POST['description'] ?? '');
-    $currency    = strtoupper(trim($_POST['currency'] ?? 'PHP'));
+    $currency    = 'PHP';
     $due_raw     = trim($_POST['due_at'] ?? '');
 
     $due_at = null;
@@ -103,7 +103,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'create_rfq' && $_SERVER['REQUEST_
 
     if ($title === '') throw new Exception("Title is required.");
     if (!$due_at)      throw new Exception("A valid Due Date/Time is required.");
-    if (empty($clean_items))  throw new Exception("Add at least one RFQ item.");
+    if (empty($clean_items))  throw new Exception("Add at least one quotation item.");
     if (empty($supplier_ids)) throw new Exception("Select at least one supplier to invite.");
 
     $pdo->beginTransaction();
@@ -143,7 +143,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'create_rfq' && $_SERVER['REQUEST_
       INSERT INTO vendor_notifications (vendor_id, title, body, rfq_id, type, is_read, created_at)
       VALUES (?, ?, ?, ?, 'rfq_invite', 0, NOW())
     ");
-    $notifTitle = "New RFQ: {$rfq_no}";
+    $notifTitle = "New Quotation Request: {$rfq_no}";
     $dueTxt     = $due_at ? date('M d, Y g:i A', strtotime($due_at)) : '';
     $notifBody  = trim("You have been invited to quote on \"{$title}\"." . ($dueTxt ? " Due: {$dueTxt}." : ''));
 
@@ -153,7 +153,7 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'create_rfq' && $_SERVER['REQUEST_
     // ===== End Notifications
 
     $pdo->commit();
-    echo json_encode(['ok'=>1,'id'=>$rfq_id,'rfq_no'=>$rfq_no,'message'=>'RFQ created']);
+    echo json_encode(['ok'=>1,'id'=>$rfq_id,'rfq_no'=>$rfq_no,'message'=>'Quotation request created']);
   } catch (Throwable $e) {
     if ($pdo->inTransaction()) $pdo->rollBack();
     http_response_code(400);
@@ -202,7 +202,7 @@ function badge($status){
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>RFQ Management | TNVS</title>
+  <title>Quotation Management | TNVS</title>
 
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link href="../css/style.css" rel="stylesheet" />
@@ -251,7 +251,7 @@ function badge($status){
     .vendor-list{max-height:260px;overflow:auto;border:1px solid var(--bs-border-color);border-radius:.5rem;padding:.5rem .75rem}
   </style>
 </head>
-<body>
+<body class="saas-page">
 <div class="container-fluid p-0">
   <div class="row g-0">
 
@@ -263,25 +263,31 @@ function badge($status){
           <button class="sidebar-toggle d-lg-none btn btn-outline-secondary btn-sm" id="sidebarToggle2" aria-label="Toggle sidebar">
             <ion-icon name="menu-outline"></ion-icon>
           </button>
-          <h2 class="m-0 d-flex align-items-center gap-2"><ion-icon name="document-text-outline"></ion-icon> RFQ Management</h2>
+          <h2 class="m-0 d-flex align-items-center gap-2 page-title"><ion-icon name="document-text-outline"></ion-icon> Quotation Management</h2>
         </div>
-        <div class="d-flex align-items-center gap-2">
-          <img src="../img/profile.jpg" class="rounded-circle" width="36" height="36" alt="">
-          <div class="small">
-            <strong><?= h($userName) ?></strong><br/>
-            <span class="text-muted"><?= h($userRole) ?></span>
+        <div class="profile-menu" data-profile-menu>
+          <button class="profile-trigger" type="button" data-profile-trigger aria-expanded="false" aria-haspopup="true">
+            <img src="../img/profile.jpg" class="rounded-circle" width="36" height="36" alt="">
+            <div class="profile-text">
+              <div class="profile-name"><?= h($userName) ?></div>
+              <div class="profile-role"><?= h($userRole) ?></div>
+            </div>
+            <ion-icon class="profile-caret" name="chevron-down-outline"></ion-icon>
+          </button>
+          <div class="profile-dropdown" data-profile-dropdown role="menu">
+            <a href="<?= u('auth/logout.php') ?>" role="menuitem">Sign out</a>
           </div>
         </div>
       </div>
 
       <!-- Top metrics -->
       <div class="row g-3 mb-3">
-        <div class="col-6 col-md-3"><div class="metric"><div class="label">Total RFQs</div><div class="value"><?= count($rfqs) ?></div></div></div>
+        <div class="col-6 col-md-3"><div class="metric"><div class="label">Total Requests</div><div class="value"><?= count($rfqs) ?></div></div></div>
         <div class="col-6 col-md-3"><div class="metric"><div class="label">Open / Sent</div><div class="value"><?= array_sum(array_map(fn($r)=>strtolower($r['status'])==='sent'?1:0,$rfqs)) ?></div></div></div>
         <div class="col-6 col-md-3"><div class="metric"><div class="label">Awarded</div><div class="value"><?= array_sum(array_map(fn($r)=>strtolower($r['status'])==='awarded'?1:0,$rfqs)) ?></div></div></div>
         <div class="col-6 col-md-3 text-md-end d-grid d-md-block">
           <button class="btn btn-violet mt-3 mt-md-0" data-bs-toggle="modal" data-bs-target="#mdlCreateRFQ">
-            <ion-icon name="add-circle-outline"></ion-icon> New RFQ
+            <ion-icon name="add-circle-outline"></ion-icon> New Quotation Request
           </button>
         </div>
       </div>
@@ -291,21 +297,21 @@ function badge($status){
         <div class="card-body">
           <div class="d-flex justify-content-between align-items-center mb-3">
             <h5 class="card-title mb-0">Requests for Quotation</h5>
-            <input id="tblSearch" class="form-control form-control-sm" style="max-width:300px" placeholder="Search by RFQ No or Title…">
+            <input id="tblSearch" class="form-control form-control-sm" style="max-width:300px" placeholder="Search by Quotation No or Title…">
           </div>
 
           <div class="table-responsive">
             <table class="table table-hover align-middle mb-0" id="rfqTable">
               <thead class="table-light">
                 <tr>
-                  <th>RFQ No</th><th>Title</th><th>Due Date</th>
+                  <th>Quotation No</th><th>Title</th><th>Due Date</th>
                   <th class="text-center">Invited</th><th class="text-center">Quoted</th>
                   <th>Status</th><th class="text-end">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 <?php if (!$rfqs): ?>
-                  <tr><td colspan="7" class="text-center py-5 text-muted">No RFQs created yet.</td></tr>
+                  <tr><td colspan="7" class="text-center py-5 text-muted">No quotation requests created yet.</td></tr>
                 <?php else: foreach ($rfqs as $r): ?>
                   <tr>
                     <td class="fw-semibold text-primary"><?= h($r['rfq_no']) ?></td>
@@ -330,14 +336,14 @@ function badge($status){
   </div>
 </div>
 
-<!-- ====== Create RFQ (Guaranteed Scrollable) ====== -->
+<!-- ====== Create Quotation Request (Guaranteed Scrollable) ====== -->
 <div class="modal fade" id="mdlCreateRFQ" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg modal-dialog-scrollable">
     <div class="modal-content">
       <form id="createRfqForm">
         <div class="modal-header">
           <h5 class="modal-title d-flex align-items-center gap-2">
-            <ion-icon name="add-circle-outline"></ion-icon> Create RFQ
+            <ion-icon name="add-circle-outline"></ion-icon> Create Quotation Request
           </h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
@@ -358,17 +364,11 @@ function badge($status){
               <label class="form-label">Description</label>
               <textarea name="description" class="form-control" rows="2" placeholder="What are you sourcing? (optional)"></textarea>
             </div>
-            <div class="col-md-3">
-              <label class="form-label">Currency</label>
-              <select name="currency" class="form-select">
-                <option value="PHP">PHP</option><option value="USD">USD</option><option value="EUR">EUR</option><option value="JPY">JPY</option>
-              </select>
-            </div>
           </div>
 
           <hr class="my-4">
 
-          <h6 class="fw-semibold mb-2">RFQ Items <span class="text-danger">*</span></h6>
+          <h6 class="fw-semibold mb-2">Quotation Items <span class="text-danger">*</span></h6>
           <div id="itemsWrap" class="vstack gap-2"></div>
           <button type="button" class="btn btn-outline-primary btn-sm mt-2" id="btnAddItem">
             <ion-icon name="add-outline"></ion-icon> Add Item
@@ -401,7 +401,7 @@ function badge($status){
         <div class="modal-footer">
           <button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button>
           <button class="btn btn-violet" type="submit">
-            <ion-icon name="send-outline"></ion-icon> Create &amp; Send RFQ
+            <ion-icon name="send-outline"></ion-icon> Create &amp; Send Request
           </button>
         </div>
       </form>
@@ -409,13 +409,13 @@ function badge($status){
   </div>
 </div>
 
-<!-- ====== RFQ Detail (Scrollable) ====== -->
+<!-- ====== Quotation Detail (Scrollable) ====== -->
 <div class="modal fade" id="mdlRFQDetail" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-xl modal-dialog-scrollable">
     <div class="modal-content">
       <div class="modal-header">
         <h5 class="modal-title d-flex align-items-center gap-2">
-          <ion-icon name="document-text-outline"></ion-icon> <span id="rfqModalTitle">RFQ Details</span>
+          <ion-icon name="document-text-outline"></ion-icon> <span id="rfqModalTitle">Quotation Details</span>
         </h5>
         <span id="rfqModalStatus" class="ms-auto me-3"></span>
         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -435,6 +435,7 @@ function badge($status){
 <div class="toast-container position-fixed top-0 end-0 p-3" id="toasts" style="z-index:1080"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/profile-dropdown.js"></script>
 <script>
 (function(){
   const $ = (s, r=document)=>r.querySelector(s);
@@ -524,10 +525,10 @@ function badge($status){
       if (!res.ok || j.error) throw new Error(j.error || 'Create failed');
 
       bootstrap.Modal.getOrCreateInstance($('#mdlCreateRFQ')).hide();
-      toast('RFQ created • ' + (j.rfq_no || ''), 'success');
+      toast('Quotation request created • ' + (j.rfq_no || ''), 'success');
       setTimeout(()=> location.reload(), 400);
     } catch (e) {
-      errEl.textContent = e.message || 'Failed to create RFQ';
+      errEl.textContent = e.message || 'Failed to create quotation request';
       errEl.classList.remove('d-none');
     } finally {
       btn.disabled = false; btn.innerHTML = prev;
@@ -538,7 +539,7 @@ function badge($status){
   window.openRFQModal = async (id)=>{
     const modal = bootstrap.Modal.getOrCreateInstance($('#mdlRFQDetail'));
     const body = $('#rfqModalBody'), title = $('#rfqModalTitle'), status = $('#rfqModalStatus');
-    title.textContent = 'RFQ Details'; status.innerHTML = '';
+    title.textContent = 'Quotation Details'; status.innerHTML = '';
     body.innerHTML = `<div class="text-center text-muted py-5"><div class="spinner-border text-primary"></div><div class="mt-2">Loading...</div></div>`;
     modal.show();
     try{
@@ -547,7 +548,7 @@ function badge($status){
       if (!res.ok || j.error) throw new Error(j.error || 'Load failed');
 
       const { rfq, items=[], suppliers=[], quotes=[] } = j;
-      title.textContent = `RFQ ${esc(rfq.rfq_no || ('#'+id))}`;
+      title.textContent = `Quotation ${esc(rfq.rfq_no || ('#'+id))}`;
       status.innerHTML = badgeHTML(rfq.status);
 
       const itemsHTML = items.length

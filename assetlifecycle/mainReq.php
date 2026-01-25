@@ -261,7 +261,7 @@ $done    = (int)$pdo->query("SELECT COUNT(*) FROM maintenance_requests WHERE sta
 <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
 <script src="../js/sidebar-toggle.js"></script>
 </head>
-<body>
+<body class="saas-page">
   <div class="container-fluid p-0">
     <div class="row g-0">
 
@@ -276,16 +276,22 @@ $done    = (int)$pdo->query("SELECT COUNT(*) FROM maintenance_requests WHERE sta
             <button class="sidebar-toggle d-lg-none btn btn-outline-secondary btn-sm" id="sidebarToggle2" aria-label="Toggle sidebar">
               <ion-icon name="menu-outline"></ion-icon>
             </button>
-            <h2 class="m-0 d-flex align-items-center gap-2">
+            <h2 class="m-0 d-flex align-items-center gap-2 page-title">
               <ion-icon name="layers-outline"></ion-icon>Maintenance Requests
             </h2>
           </div>
 
-          <div class="d-flex align-items-center gap-2">
-            <img src="../img/profile.jpg" class="rounded-circle" width="36" height="36" alt="">
-            <div class="small">
-              <strong><?= h($userName) ?></strong><br/>
-              <span class="text-muted"><?= h($userRole) ?></span>
+          <div class="profile-menu" data-profile-menu>
+            <button class="profile-trigger" type="button" data-profile-trigger aria-expanded="false" aria-haspopup="true">
+              <img src="../img/profile.jpg" class="rounded-circle" width="36" height="36" alt="">
+              <div class="profile-text">
+                <div class="profile-name"><?= h($userName) ?></div>
+                <div class="profile-role"><?= h($userRole) ?></div>
+              </div>
+              <ion-icon class="profile-caret" name="chevron-down-outline"></ion-icon>
+            </button>
+            <div class="profile-dropdown" data-profile-dropdown role="menu">
+              <a href="<?= u('auth/logout.php') ?>" role="menuitem">Sign out</a>
             </div>
           </div>
         </div>
@@ -619,5 +625,6 @@ loadTechnicians().then(fetchList);
 </script>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/profile-dropdown.js"></script>
 </body>
 </html>

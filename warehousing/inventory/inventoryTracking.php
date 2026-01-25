@@ -36,19 +36,19 @@ $catNames = $pdo
   <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
   <script src="../../js/sidebar-toggle.js"></script>
 
-  <!-- mobile-only layout for topbar button under profile -->
+  <!-- page-specific styling for topbar button under profile -->
   <style>
     .topbar-right{ display:flex; align-items:center; gap:.5rem; }
     @media (max-width: 611px){
       .topbar-right{ flex-direction:column; align-items:flex-end; gap:.25rem; }
       .topbar-right img{ order:0; }
-      .topbar-right .small{ order:1; text-align:right; line-height:1.1; }
+      .topbar-right .profile-text{ order:1; text-align:right; line-height:1.1; }
       .topbar-right .btn-violet{ order:2; width:100%; max-width:160px; padding:.4rem .6rem; font-size:.9rem; line-height:1.1; }
       .main-content h2.m-0{ font-size:1.25rem; }
     }
   </style>
 </head>
-<body>
+<body class="saas-page">
   <div class="container-fluid p-0">
     <div class="row g-0">
 
@@ -63,7 +63,9 @@ $catNames = $pdo
             <button class="sidebar-toggle d-lg-none btn btn-outline-secondary btn-sm" id="sidebarToggle2" aria-label="Toggle sidebar">
               <ion-icon name="menu-outline"></ion-icon>
             </button>
-            <h2 class="m-0">Inventory Tracking</h2>
+            <h2 class="m-0 d-flex align-items-center gap-2 page-title">
+              <ion-icon name="cube-outline"></ion-icon>Inventory Tracking
+            </h2>
           </div>
 
           <!-- Right side: profile + Add button (mobile stacks) -->
@@ -71,10 +73,18 @@ $catNames = $pdo
             <button class="btn btn-violet" data-bs-toggle="modal" data-bs-target="#addModal">
               <ion-icon name="add-outline"></ion-icon> Add Item
             </button>
-            <img src="../../img/profile.jpg" class="rounded-circle" width="36" height="36" alt="">
-            <div class="small">
-              <strong><?= htmlspecialchars($userName) ?></strong><br/>
-              <span class="text-muted"><?= htmlspecialchars($userRole) ?></span>
+            <div class="profile-menu" data-profile-menu>
+              <button class="profile-trigger" type="button" data-profile-trigger aria-expanded="false" aria-haspopup="true">
+                <img src="../../img/profile.jpg" class="rounded-circle" width="36" height="36" alt="">
+                <div class="profile-text">
+                  <div class="profile-name"><?= htmlspecialchars($userName) ?></div>
+                  <div class="profile-role"><?= htmlspecialchars($userRole) ?></div>
+                </div>
+                <ion-icon class="profile-caret" name="chevron-down-outline"></ion-icon>
+              </button>
+              <div class="profile-dropdown" data-profile-dropdown role="menu">
+                <a href="<?= u('auth/logout.php') ?>" role="menuitem">Sign out</a>
+              </div>
             </div>
           </div>
         </div>
@@ -346,6 +356,7 @@ $catNames = $pdo
 
   <!-- JS -->
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../../js/profile-dropdown.js"></script>
   <script>
     const api = {
       list:   'list_items.php',
@@ -524,8 +535,6 @@ $catNames = $pdo
         loadTable();
       }catch(e){ showInlineErr('#delForeverErr', e); }
     });
-
-    
 
     document.getElementById('formAdd').addEventListener('submit', async (ev)=>{
       ev.preventDefault();

@@ -348,13 +348,139 @@ for ($i=0;$i<14;$i++){
   <script src="../js/sidebar-toggle.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <style>
-    .kpi-card .icon-wrap,.kpi .icon-wrap{width:42px;height:42px;display:flex;align-items:center;justify-content:center;border-radius:12px}
-    .chart-card canvas{width:100%!important;height:320px!important}
-    .badge-status{font-weight:500}
-    .section-title{margin:6px 0 14px 0}
+    .admin-dashboard {
+      --vh-primary: #6a45ff;
+      --vh-primary-700: #4d2bd8;
+      --vh-primary-100: #efeaff;
+      --vh-primary-200: #e0d8ff;
+      --vh-surface: #ffffff;
+      --vh-surface-soft: #f6f4ff;
+      --vh-text-strong: #2b2349;
+      --vh-text-muted: #6f6c80;
+      --vh-shadow: 0 18px 40px rgba(40, 34, 84, 0.08);
+      --vh-shadow-soft: 0 10px 24px rgba(40, 34, 84, 0.06);
+    }
+
+    .admin-dashboard body,
+    .admin-dashboard {
+      background: linear-gradient(180deg, #f3f1ff 0%, #f8f9ff 40%, #fbfbff 100%);
+      color: var(--vh-text-muted);
+    }
+
+    .admin-dashboard .main-content {
+      background: transparent;
+      padding: 28px !important;
+    }
+
+    .admin-dashboard .dashboard-topbar {
+      margin-bottom: 22px !important;
+    }
+
+    .admin-dashboard .page-title {
+      font-size: 1.9rem;
+      font-weight: 700;
+      color: var(--vh-text-strong);
+      letter-spacing: -0.02em;
+    }
+
+    .admin-dashboard .page-breadcrumb {
+      font-size: 0.9rem;
+      color: #8b86a3;
+    }
+
+    .admin-dashboard .card,
+    .admin-dashboard .chart-card {
+      border: 1px solid rgba(106, 69, 255, 0.08);
+      border-radius: 18px;
+      background: var(--vh-surface);
+      box-shadow: var(--vh-shadow-soft);
+    }
+
+    .admin-dashboard .card-body {
+      padding: 1.4rem 1.5rem;
+    }
+
+    .admin-dashboard .kpi-card,
+    .admin-dashboard .kpi {
+      min-height: 120px;
+    }
+
+    .admin-dashboard .kpi-card .icon-wrap,
+    .admin-dashboard .kpi .icon-wrap {
+      width: 54px;
+      height: 54px;
+      border-radius: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.35rem;
+      color: var(--vh-primary-700);
+      background: var(--vh-primary-100);
+    }
+
+    .admin-dashboard .kpi-card .h4,
+    .admin-dashboard .kpi .h4 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      color: var(--vh-text-strong);
+    }
+
+    .admin-dashboard .text-muted,
+    .admin-dashboard .small {
+      color: var(--vh-text-muted) !important;
+    }
+
+    .admin-dashboard .section-title {
+      margin: 10px 0 16px 0;
+      font-weight: 700;
+      color: var(--vh-text-strong);
+      letter-spacing: -0.01em;
+    }
+
+    .admin-dashboard .section-title ion-icon {
+      color: var(--vh-primary);
+    }
+
+    .admin-dashboard .chart-card canvas {
+      width: 100% !important;
+      height: 300px !important;
+    }
+
+    .admin-dashboard .badge-status {
+      font-weight: 500;
+    }
+
+    .admin-dashboard .table thead th {
+      font-weight: 600;
+      color: #4b4566;
+    }
+
+    .admin-dashboard .bg-primary-subtle,
+    .admin-dashboard .bg-info-subtle,
+    .admin-dashboard .bg-violet-subtle {
+      background-color: var(--vh-primary-100) !important;
+      color: var(--vh-primary-700) !important;
+    }
+
+    .admin-dashboard .bg-success-subtle {
+      background-color: #e8f7f0 !important;
+      color: #18825d !important;
+    }
+
+    .admin-dashboard .bg-warning-subtle {
+      background-color: #fff4e2 !important;
+      color: #b96a00 !important;
+    }
+
+    .admin-dashboard .card h6,
+    .admin-dashboard .card .h6 {
+      font-weight: 700;
+      color: var(--vh-text-strong);
+    }
+
   </style>
 </head>
-<body>
+<body class="admin-dashboard">
 <div class="container-fluid p-0">
   <div class="row g-0">
 
@@ -364,16 +490,25 @@ for ($i=0;$i<14;$i++){
     <div class="col main-content p-3 p-lg-4">
 
       <!-- Topbar -->
-      <div class="d-flex justify-content-between align-items-center mb-3">
+      <div class="dashboard-topbar d-flex justify-content-between align-items-center mb-3">
         <div class="d-flex align-items-center gap-3">
           <button class="sidebar-toggle d-lg-none btn btn-outline-secondary btn-sm" id="sidebarToggle2"><ion-icon name="menu-outline"></ion-icon></button>
-          <h2 class="m-0">Dashboard</h2>
+          <div>
+            <h2 class="m-0 page-title">Dashboard</h2>
+            <div class="page-breadcrumb">Home / Dashboard</div>
+          </div>
         </div>
-        <div class="d-flex align-items-center gap-2">
-          <img src="../img/profile.jpg" class="rounded-circle" width="36" height="36" alt="">
-          <div class="small">
-            <strong><?= htmlspecialchars($userName) ?></strong><br/>
-            <span class="text-muted"><?= htmlspecialchars($userRole) ?></span>
+        <div class="profile-menu" data-profile-menu>
+          <button class="profile-trigger" type="button" data-profile-trigger aria-expanded="false" aria-haspopup="true">
+            <img src="../img/profile.jpg" class="rounded-circle" width="36" height="36" alt="">
+            <div class="profile-text">
+              <div class="profile-name"><?= htmlspecialchars($userName) ?></div>
+              <div class="profile-role"><?= htmlspecialchars($userRole) ?></div>
+            </div>
+            <ion-icon class="profile-caret" name="chevron-down-outline"></ion-icon>
+          </button>
+          <div class="profile-dropdown" data-profile-dropdown role="menu">
+            <a href="<?= u('auth/logout.php') ?>" role="menuitem">Sign out</a>
           </div>
         </div>
       </div>
@@ -596,6 +731,13 @@ for ($i=0;$i<14;$i++){
   // Global Chart.js defaults
   Chart.defaults.font.family = getComputedStyle(document.body).fontFamily || 'system-ui';
   Chart.defaults.color = getComputedStyle(document.body).color || '#222';
+  const dashboardStyles = getComputedStyle(document.body);
+  const purple = dashboardStyles.getPropertyValue('--vh-primary').trim() || '#6a45ff';
+  const purpleDeep = dashboardStyles.getPropertyValue('--vh-primary-700').trim() || '#4d2bd8';
+  const purpleSoft = dashboardStyles.getPropertyValue('--vh-primary-100').trim() || '#efeaff';
+  const purpleSoft2 = dashboardStyles.getPropertyValue('--vh-primary-200').trim() || '#e0d8ff';
+  const chartGrid = 'rgba(106, 69, 255, 0.12)';
+  Chart.defaults.borderColor = chartGrid;
 
   /* ---------- SW charts ---------- */
   const sw_catLabels   = <?= json_encode($sw_catLabels) ?>;
@@ -610,28 +752,28 @@ for ($i=0;$i<14;$i++){
 
   new Chart(document.getElementById('sw_catChart'), {
     type:'bar',
-    data:{ labels: sw_catLabels, datasets:[{ label:'Units', data: sw_catData, borderWidth:1 }] },
-    options:{ maintainAspectRatio:false, scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } } }, plugins:{ legend:{ display:false } } }
+    data:{ labels: sw_catLabels, datasets:[{ label:'Units', data: sw_catData, borderWidth:1, backgroundColor: purpleSoft2, borderColor: purpleDeep }] },
+    options:{ maintainAspectRatio:false, scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } }, x:{ grid:{ display:false } } }, plugins:{ legend:{ display:false } } }
   });
 
   new Chart(document.getElementById('sw_trendChart'), {
     type:'line',
     data:{ labels: sw_trendLabels, datasets:[
-      { label:'Incoming', data: sw_incoming, tension:.3, fill:false, borderWidth:2, pointRadius:0 },
-      { label:'Outgoing', data: sw_outgoing, tension:.3, fill:false, borderWidth:2, pointRadius:0 }
+      { label:'Incoming', data: sw_incoming, tension:.35, fill:false, borderWidth:2.5, pointRadius:0, borderColor: purple, backgroundColor: purpleSoft },
+      { label:'Outgoing', data: sw_outgoing, tension:.35, fill:false, borderWidth:2.5, pointRadius:0, borderColor: purpleDeep, backgroundColor: purpleSoft2 }
     ]},
     options:{ maintainAspectRatio:false, scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } } }, plugins:{ tooltip:{ mode:'index', intersect:false } } }
   });
 
   new Chart(document.getElementById('sw_locChart'), {
     type:'doughnut',
-    data:{ labels: sw_locLabels, datasets:[{ data: sw_locData, borderWidth:1 }] },
+    data:{ labels: sw_locLabels, datasets:[{ data: sw_locData, borderWidth:1, backgroundColor: [purple, purpleDeep, purpleSoft2, '#cabdff', '#b39bff', '#9d86ff', '#8a73ff'] }] },
     options:{ maintainAspectRatio:false, plugins:{ legend:{ position:'bottom' } } }
   });
 
   new Chart(document.getElementById('sw_shipChart'), {
     type:'doughnut',
-    data:{ labels: sw_shipLabels, datasets:[{ data: sw_shipData, borderWidth:1 }] },
+    data:{ labels: sw_shipLabels, datasets:[{ data: sw_shipData, borderWidth:1, backgroundColor: [purple, '#7b5bff', '#9b87ff'] }] },
     options:{ maintainAspectRatio:false, plugins:{ legend:{ position:'bottom' } } }
   });
 
@@ -645,20 +787,20 @@ for ($i=0;$i<14;$i++){
 
   new Chart(document.getElementById('pr_chartStatus'), {
     type:'doughnut',
-    data:{ labels: pr_poStatusLabels, datasets:[{ data: pr_poStatusData, borderWidth:1 }] },
+    data:{ labels: pr_poStatusLabels, datasets:[{ data: pr_poStatusData, borderWidth:1, backgroundColor: [purple, '#7b5bff', '#8c6bff', '#9d86ff', '#b39bff', '#cabdff', purpleSoft2] }] },
     options:{ maintainAspectRatio:false, plugins:{ legend:{ position:'bottom' } } }
   });
 
   new Chart(document.getElementById('pr_chartMonth'), {
     type:'bar',
-    data:{ labels: pr_monLabels, datasets:[{ label:'Spend', data: pr_monAmounts, borderWidth:1 }] },
-    options:{ maintainAspectRatio:false, scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } } }, plugins:{ legend:{ display:false }, tooltip:{ mode:'index', intersect:false } } }
+    data:{ labels: pr_monLabels, datasets:[{ label:'Spend', data: pr_monAmounts, borderWidth:1, backgroundColor: purpleSoft2, borderColor: purpleDeep }] },
+    options:{ maintainAspectRatio:false, scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } }, x:{ grid:{ display:false } } }, plugins:{ legend:{ display:false }, tooltip:{ mode:'index', intersect:false } } }
   });
 
   new Chart(document.getElementById('pr_chartSup'), {
     type:'bar',
-    data:{ labels: pr_topSupLabels, datasets:[{ label:'Amount', data: pr_topSupAmts, borderWidth:1 }] },
-    options:{ maintainAspectRatio:false, indexAxis:'y', scales:{ x:{ beginAtZero:true, ticks:{ precision:0 } } }, plugins:{ legend:{ display:false } } }
+    data:{ labels: pr_topSupLabels, datasets:[{ label:'Amount', data: pr_topSupAmts, borderWidth:1, backgroundColor: purpleSoft2, borderColor: purpleDeep }] },
+    options:{ maintainAspectRatio:false, indexAxis:'y', scales:{ x:{ beginAtZero:true, ticks:{ precision:0 } }, y:{ grid:{ display:false } } }, plugins:{ legend:{ display:false } } }
   });
 
   /* ---------- PLT charts ---------- */
@@ -669,16 +811,18 @@ for ($i=0;$i<14;$i++){
 
   new Chart(document.getElementById('plt_status'), {
     type:'doughnut',
-    data:{ labels: plt_stLabels, datasets:[{ data: plt_stValues, borderWidth:1 }] },
+    data:{ labels: plt_stLabels, datasets:[{ data: plt_stValues, borderWidth:1, backgroundColor: [purple, '#7b5bff', '#9b87ff', '#b39bff', purpleSoft2] }] },
     options:{ maintainAspectRatio:false, plugins:{ legend:{ position:'bottom' } } }
   });
   new Chart(document.getElementById('plt_daily'), {
     type:'bar',
-    data:{ labels: plt_dailyLabels, datasets:[{ label:'Shipments', data: plt_dailyValues, borderWidth:1 }] },
-    options:{ maintainAspectRatio:false, scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } } }, plugins:{ legend:{ display:false } } }
+    data:{ labels: plt_dailyLabels, datasets:[{ label:'Shipments', data: plt_dailyValues, borderWidth:1, backgroundColor: purpleSoft2, borderColor: purpleDeep }] },
+    options:{ maintainAspectRatio:false, scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } }, x:{ grid:{ display:false } } }, plugins:{ legend:{ display:false } } }
   });
+
 </script>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/profile-dropdown.js"></script>
 </body>
 </html>

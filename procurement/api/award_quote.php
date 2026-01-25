@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../includes/config.php';
 require_once __DIR__ . '/../../includes/db.php';
 require_once __DIR__ . '/../../includes/auth.php';
+require_once __DIR__ . '/../../includes/vendor_notifications.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -151,6 +152,56 @@ try {
            awarded_at=NOW()
      WHERE id=?
   ")->execute([$vendorId, (int)$quote['id'], $rfq_id]);
+
+  // Update supplier statuses
+  try {
+    $pdo->prepare("UPDATE rfq_suppliers SET status='awarded' WHERE rfq_id=? AND vendor_id=?")
+        ->execute([$rfq_id, $vendorId]);
+    $pdo->prepare("UPDATE rfq_suppliers SET status='lost' WHERE rfq_id=? AND vendor_id<>?")
+        ->execute([$rfq_id, $vendorId]);
+  } catch (Throwable $e) { }
+
+  // Notify vendors (winner + non-selected)
+  try {
+    $pdo->prepare("INSERT INTO vendor_notifications (vendor_id, rfq_id, title, body, is_read, created_at)
+                   VALUES (?,?,?,?,0,NOW())")
+        ->execute([
+          $vendorId,
+          $rfq_id,
+          'Quotation Approved',
+          'Congratulations! Your quotation was accepted.'
+        ]);
+
+    $losers = $pdo->prepare("SELECT vendor_id FROM rfq_suppliers WHERE rfq_id=? AND vendor_id<>?");
+    $losers->execute([$rfq_id, $vendorId]);
+    $insLose = $pdo->prepare("INSERT INTO vendor_notifications (vendor_id, rfq_id, title, body, is_read, created_at)
+                              VALUES (?,?,?,?,0,NOW())");
+    foreach ($losers->fetchAll(PDO::FETCH_COLUMN) as $vid) {
+      $insLose->execute([
+        (int)$vid,
+        $rfq_id,
+        'Quotation Not Approved',
+        'Thank you for your submission. Your quotation was not selected.'
+      ]);
+    }
+  } catch (Throwable $e) { }
+
+  // Email notifications (winner + non-selected)
+  try {
+    $vendorRows = $pdo->prepare("
+      SELECT v.id, v.company_name, v.contact_person, v.email
+      FROM rfq_suppliers rs
+      JOIN vendors v ON v.id = rs.vendor_id
+      WHERE rs.rfq_id=?
+    ");
+    $vendorRows->execute([$rfq_id]);
+    $rfqInfo = ['rfq_no'=>$rfq['rfq_no'] ?? '', 'title'=>$rfq['title'] ?? ''];
+    foreach ($vendorRows->fetchAll(PDO::FETCH_ASSOC) as $v) {
+      if (empty($v['email'])) continue;
+      $result = ((int)$v['id'] === (int)$vendorId) ? 'approved' : 'not_approved';
+      sendVendorQuotationResultEmail($v, $rfqInfo, $result);
+    }
+  } catch (Throwable $e) { }
 
   $pdo->commit();
 

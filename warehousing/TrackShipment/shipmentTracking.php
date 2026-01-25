@@ -62,7 +62,7 @@ $userRole = $_SESSION["user"]["role"] ?? "Warehouse Manager";
 
  
 </head>
-<body>
+<body class="saas-page">
   <div class="container-fluid p-0">
     <div class="row g-0">
 
@@ -79,16 +79,22 @@ $userRole = $_SESSION["user"]["role"] ?? "Warehouse Manager";
             <button class="sidebar-toggle d-lg-none btn btn-outline-secondary btn-sm" id="sidebarToggle2" aria-label="Toggle sidebar">
               <ion-icon name="menu-outline"></ion-icon>
             </button>
-            <h2 class="m-0 d-flex align-items-center gap-2">
-        <ion-icon name="paper-plane-outline"></ion-icon>Track Shipments
-      </h2>
+            <h2 class="m-0 d-flex align-items-center gap-2 page-title">
+              <ion-icon name="paper-plane-outline"></ion-icon>Track Shipments
+            </h2>
           </div>
 
-          <div class="d-flex align-items-center gap-2">
-            <img src="../../img/profile.jpg" class="rounded-circle" width="36" height="36" alt="">
-            <div class="small">
-              <strong><?= htmlspecialchars($userName) ?></strong><br/>
-              <span class="text-muted"><?= htmlspecialchars($userRole) ?></span>
+          <div class="profile-menu" data-profile-menu>
+            <button class="profile-trigger" type="button" data-profile-trigger aria-expanded="false" aria-haspopup="true">
+              <img src="../../img/profile.jpg" class="rounded-circle" width="36" height="36" alt="">
+              <div class="profile-text">
+                <div class="profile-name"><?= htmlspecialchars($userName) ?></div>
+                <div class="profile-role"><?= htmlspecialchars($userRole) ?></div>
+              </div>
+              <ion-icon class="profile-caret" name="chevron-down-outline"></ion-icon>
+            </button>
+            <div class="profile-dropdown" data-profile-dropdown role="menu">
+              <a href="<?= u('auth/logout.php') ?>" role="menuitem">Sign out</a>
             </div>
           </div>
         </div>
@@ -257,6 +263,12 @@ $userRole = $_SESSION["user"]["role"] ?? "Warehouse Manager";
         </div>
         <div class="modal-body">
           <div id="vMeta" class="mb-3 small text-muted"></div>
+          <div id="vAI" class="card border-0 bg-light mb-3">
+            <div class="card-body py-2">
+              <div class="fw-semibold mb-1">AI Insights</div>
+              <div class="text-muted small">No AI insights available.</div>
+            </div>
+          </div>
           <div class="d-flex gap-2 align-items-end mb-3">
             <div>
               <label class="form-label">Update status</label>
@@ -497,13 +509,35 @@ async function openView(id){
     const res = await fetch(`./api/get_shipment.php?id=${id}`, { credentials:'same-origin' });
     const raw = await res.text();
     if (!res.ok) { alert('Load failed: ' + raw.slice(0,180)); console.error(raw); return; }
-    const { shipment, events } = JSON.parse(raw);
+    const { shipment, events, ai_insights } = JSON.parse(raw);
 
     document.getElementById('vRef').textContent = shipment.ref_no;
     document.getElementById('vMeta').textContent =
       `${shipment.origin} → ${shipment.destination} • ${shipment.status} • Carrier: ${shipment.carrier || '—'} • ETA: ${shipment.expected_delivery || '—'}`;
     document.getElementById('vStatus').value = shipment.status;
     document.getElementById('vDetails').value = '';
+
+    const aiWrap = document.getElementById('vAI');
+    if (aiWrap) {
+      if (!ai_insights) {
+        aiWrap.innerHTML = `<div class="card-body py-2"><div class="fw-semibold mb-1">AI Insights</div><div class="text-muted small">No AI insights available.</div></div>`;
+      } else {
+        const methodMap = { pickup: 'Pickup requested', vendor_deliver: 'Vendor delivers', unknown: 'Unknown' };
+        const method = methodMap[ai_insights.delivery_method] || ai_insights.delivery_method || 'Unknown';
+        const list = (arr)=> (arr && arr.length) ? arr.join(', ') : '—';
+        const summary = ai_insights.summary ? ai_insights.summary : '—';
+        const source = ai_insights.source_po ? ` (from ${ai_insights.source_po})` : '';
+        aiWrap.innerHTML = `
+          <div class="card-body py-2">
+            <div class="fw-semibold mb-1">AI Insights${source}</div>
+            <div class="small"><strong>Delivery Method:</strong> ${method}</div>
+            <div class="small"><strong>Dates:</strong> ${list(ai_insights.dates)}</div>
+            <div class="small"><strong>Times:</strong> ${list(ai_insights.times)}</div>
+            <div class="small"><strong>Locations:</strong> ${list(ai_insights.locations)}</div>
+            <div class="small"><strong>Summary:</strong> ${summary}</div>
+          </div>`;
+      }
+    }
 
     document.getElementById('vTimeline').innerHTML =
       (events && events.length)
@@ -576,5 +610,6 @@ document.addEventListener('hidden.bs.modal', cleanupBackdrops);
 
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="../../js/profile-dropdown.js"></script>
 </body>
 </html>

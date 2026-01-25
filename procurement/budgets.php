@@ -54,7 +54,7 @@ $catMap = $pdoWms->query("SELECT id, name FROM inventory_categories ORDER BY nam
     .kpi-card .icon-wrap{width:42px;height:42px;display:flex;align-items:center;justify-content:center;border-radius:12px}
   </style>
 </head>
-<body>
+<body class="saas-page">
 <div class="container-fluid p-0">
   <div class="row g-0">
 
@@ -67,13 +67,21 @@ $catMap = $pdoWms->query("SELECT id, name FROM inventory_categories ORDER BY nam
           <button class="sidebar-toggle d-lg-none btn btn-outline-secondary btn-sm" id="sidebarToggle2">
             <ion-icon name="menu-outline"></ion-icon>
           </button>
-          <h2 class="m-0">Budgets</h2>
+          <h2 class="m-0 d-flex align-items-center gap-2 page-title">
+            <ion-icon name="wallet-outline"></ion-icon>Budgets
+          </h2>
         </div>
-        <div class="d-flex align-items-center gap-2">
-          <img src="../img/profile.jpg" class="rounded-circle" width="36" height="36" alt="">
-          <div class="small">
-            <strong><?= htmlspecialchars($userName) ?></strong><br/>
-            <span class="text-muted"><?= htmlspecialchars($userRole) ?></span>
+        <div class="profile-menu" data-profile-menu>
+          <button class="profile-trigger" type="button" data-profile-trigger aria-expanded="false" aria-haspopup="true">
+            <img src="../img/profile.jpg" class="rounded-circle" width="36" height="36" alt="">
+            <div class="profile-text">
+              <div class="profile-name"><?= htmlspecialchars($userName) ?></div>
+              <div class="profile-role"><?= htmlspecialchars($userRole) ?></div>
+            </div>
+            <ion-icon class="profile-caret" name="chevron-down-outline"></ion-icon>
+          </button>
+          <div class="profile-dropdown" data-profile-dropdown role="menu">
+            <a href="<?= u('auth/logout.php') ?>" role="menuitem">Sign out</a>
           </div>
         </div>
       </div>
@@ -217,6 +225,7 @@ $catMap = $pdoWms->query("SELECT id, name FROM inventory_categories ORDER BY nam
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../js/profile-dropdown.js"></script>
 <script>
 const $ = (s,r=document)=>r.querySelector(s);
 async function fetchJSON(u,o={}){const r=await fetch(u,o);if(!r.ok)throw new Error(await r.text()||r.statusText);return r.json();}

@@ -3,6 +3,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../../../includes/config.php';
 require_once __DIR__ . '/../../../../includes/db.php';
 require_once __DIR__ . '/../../../../includes/auth.php';
+require_once __DIR__ . '/../../../../includes/ai_nlp.php';
 header('Content-Type: application/json; charset=utf-8');
 
 try{
@@ -28,5 +29,42 @@ try{
   ");
   $up->execute([$note,$ship,$delv,$id,$vendorId]);
   if(!$up->rowCount()) throw new Exception('Not allowed');
+
+  if ($note !== '') {
+    try {
+      $pdo->exec("
+        CREATE TABLE IF NOT EXISTS po_ai_insights (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          po_id INT NOT NULL,
+          vendor_id INT NOT NULL,
+          delivery_method VARCHAR(32) NOT NULL,
+          dates_json TEXT NULL,
+          times_json TEXT NULL,
+          locations_json TEXT NULL,
+          summary VARCHAR(255) NULL,
+          raw_note TEXT NULL,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      ");
+
+      $ai = ai_analyze_delivery_note($note);
+      $ins = $pdo->prepare("
+        INSERT INTO po_ai_insights
+          (po_id, vendor_id, delivery_method, dates_json, times_json, locations_json, summary, raw_note)
+        VALUES (?,?,?,?,?,?,?,?)
+      ");
+      $ins->execute([
+        $id,
+        $vendorId,
+        $ai['method'],
+        json_encode($ai['dates'] ?? []),
+        json_encode($ai['times'] ?? []),
+        json_encode($ai['locations'] ?? []),
+        $ai['summary'] ?? '',
+        $note
+      ]);
+    } catch (Throwable $e) { }
+  }
+
   echo json_encode(['ok'=>true]);
 }catch(Throwable $e){ http_response_code(400); echo json_encode(['error'=>$e->getMessage()]); }

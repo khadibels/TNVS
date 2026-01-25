@@ -47,4 +47,64 @@ $ev = $pdo->prepare("
 $ev->execute([$id]);
 $events = $ev->fetchAll(PDO::FETCH_ASSOC);
 
-echo json_encode(["ok"=>true, "shipment"=>$shipment, "events"=>$events]);
+// AI insights from procurement (if ref_no matches PO)
+$ai = null;
+try {
+  $proc = db('proc');
+  if ($proc instanceof PDO) {
+    $chk = $proc->prepare("SELECT 1 FROM information_schema.tables WHERE table_schema=DATABASE() AND table_name='po_ai_insights'");
+    $chk->execute();
+    if ($chk->fetchColumn()) {
+      $poId = 0;
+      $poNo = '';
+      if (!empty($shipment['ref_no'])) {
+        $po = $proc->prepare("SELECT id, po_no FROM pos WHERE po_no=? LIMIT 1");
+        $po->execute([$shipment['ref_no']]);
+        $row = $po->fetch(PDO::FETCH_ASSOC);
+        if ($row) { $poId = (int)$row['id']; $poNo = (string)$row['po_no']; }
+      }
+      if ($poId > 0) {
+        $ins = $proc->prepare("
+          SELECT delivery_method, dates_json, times_json, locations_json, summary
+            FROM po_ai_insights
+           WHERE po_id=?
+           ORDER BY created_at DESC, id DESC
+           LIMIT 1
+        ");
+        $ins->execute([$poId]);
+        $row = $ins->fetch(PDO::FETCH_ASSOC);
+        if ($row) {
+          $ai = [
+            'delivery_method' => $row['delivery_method'],
+            'dates' => json_decode($row['dates_json'] ?? '[]', true) ?: [],
+            'times' => json_decode($row['times_json'] ?? '[]', true) ?: [],
+            'locations' => json_decode($row['locations_json'] ?? '[]', true) ?: [],
+            'summary' => $row['summary'] ?? '',
+            'source_po' => $poNo
+          ];
+        }
+      } else {
+        $ins = $proc->query("
+          SELECT p.po_no, i.delivery_method, i.dates_json, i.times_json, i.locations_json, i.summary
+            FROM po_ai_insights i
+            JOIN pos p ON p.id=i.po_id
+           ORDER BY i.created_at DESC, i.id DESC
+           LIMIT 1
+        ");
+        $row = $ins ? $ins->fetch(PDO::FETCH_ASSOC) : null;
+        if ($row) {
+          $ai = [
+            'delivery_method' => $row['delivery_method'],
+            'dates' => json_decode($row['dates_json'] ?? '[]', true) ?: [],
+            'times' => json_decode($row['times_json'] ?? '[]', true) ?: [],
+            'locations' => json_decode($row['locations_json'] ?? '[]', true) ?: [],
+            'summary' => $row['summary'] ?? '',
+            'source_po' => $row['po_no'] ?? ''
+          ];
+        }
+      }
+    }
+  }
+} catch (Throwable $e) { $ai = null; }
+
+echo json_encode(["ok"=>true, "shipment"=>$shipment, "events"=>$events, "ai_insights"=>$ai]);

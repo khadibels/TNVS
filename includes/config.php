@@ -70,3 +70,6 @@ defined('DB_DOCS_HOST') || define('DB_DOCS_HOST', DB_HOST);
 defined('DB_DOCS_NAME') || define('DB_DOCS_NAME', 'logi_docs');
 defined('DB_DOCS_USER') || define('DB_DOCS_USER', DB_USER);
 defined('DB_DOCS_PASS') || define('DB_DOCS_PASS', DB_PASS);
+
+// ===================== AI / NLP (Java CoreNLP Server) =====================
+defined('CORENLP_URL') || define('CORENLP_URL', 'http://localhost:9000');

@@ -39,7 +39,7 @@ $BASE = rtrim(defined('BASE_URL') ? BASE_URL : '', '/');
       --bg-light:#f9f8fe; --border-color:#e8e4f5;
       --shadow-color:rgba(67,17,165,.05); --shadow-color-hover:rgba(67,17,165,.12);
     }
-    body{font-family:'Inter',sans-serif;color:var(--text-body);}
+    body{color:var(--text-body);}
     .main-content{padding:1.5rem;} @media(min-width:992px){.main-content{padding:2rem}}
     .section-title{font-weight:600;font-size:1.1rem;margin-bottom:1.5rem;display:flex;align-items:center;gap:.6rem;color:var(--text-dark);padding-bottom:.5rem;border-bottom:1px solid var(--border-color)}
     .vendor-card{background:#fff;border:1px solid var(--border-color);border-radius:16px;box-shadow:0 4px 10px var(--shadow-color),0 2px 4px var(--shadow-color);transition:.2s}
@@ -52,7 +52,7 @@ $BASE = rtrim(defined('BASE_URL') ? BASE_URL : '', '/');
     .file-chip{display:inline-flex;align-items:center;gap:.4rem;padding:.25rem .55rem;border:1px solid var(--border-color);border-radius:999px;font-size:.8rem;background:#fff}
   </style>
 </head>
-<body>
+<body class="saas-page">
 <div class="container-fluid p-0">
   <div class="row g-0">
     <?php include __DIR__ . '/../../includes/sidebar.php' ?>
@@ -63,11 +63,22 @@ $BASE = rtrim(defined('BASE_URL') ? BASE_URL : '', '/');
           <button class="sidebar-toggle d-lg-none btn btn-outline-secondary btn-sm" id="sidebarToggle2" aria-label="Toggle sidebar">
             <ion-icon name="menu-outline"></ion-icon>
           </button>
-          <h2 class="m-0">Supplier Management</h2>
+          <h2 class="m-0 d-flex align-items-center gap-2 page-title">
+            <ion-icon name="people-outline"></ion-icon>Supplier Management
+          </h2>
         </div>
-        <div class="d-flex align-items-center gap-2">
-          <img src="../../img/profile.jpg" class="rounded-circle" width="36" height="36" alt="">
-          <div class="small"><strong><?= htmlspecialchars($userName) ?></strong><br><span class="text-muted"><?= htmlspecialchars($userRole) ?></span></div>
+        <div class="profile-menu" data-profile-menu>
+          <button class="profile-trigger" type="button" data-profile-trigger aria-expanded="false" aria-haspopup="true">
+            <img src="../../img/profile.jpg" class="rounded-circle" width="36" height="36" alt="">
+            <div class="profile-text">
+              <div class="profile-name"><?= htmlspecialchars($userName) ?></div>
+              <div class="profile-role"><?= htmlspecialchars($userRole) ?></div>
+            </div>
+            <ion-icon class="profile-caret" name="chevron-down-outline"></ion-icon>
+          </button>
+          <div class="profile-dropdown" data-profile-dropdown role="menu">
+            <a href="<?= u('auth/logout.php') ?>" role="menuitem">Sign out</a>
+          </div>
         </div>
       </div>
 
@@ -161,6 +172,7 @@ $BASE = rtrim(defined('BASE_URL') ? BASE_URL : '', '/');
 <div class="toast-container position-fixed top-0 end-0 p-3" id="toasts" style="z-index:1080"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="../../js/profile-dropdown.js"></script>
 <script>
   // ===== helpers =====
   function toast(msg, variant='success', delay=2200){

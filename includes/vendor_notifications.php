@@ -224,3 +224,70 @@ function sendVendorStatusEmail(array $vendor, string $status): bool
         return false;
     }
 }
+
+function sendVendorQuotationResultEmail(array $vendor, array $rfq, string $result): bool
+{
+    $mail = new PHPMailer(true);
+
+    try {
+        $mail->isSMTP();
+        $mail->Host       = SMTP_HOST;
+        $mail->SMTPAuth   = true;
+        $mail->Username   = SMTP_USER;
+        $mail->Password   = SMTP_PASS;
+        $mail->SMTPSecure = SMTP_SECURE;
+        $mail->Port       = SMTP_PORT;
+
+        $mail->setFrom(MAIL_FROM, MAIL_FROM_NAME);
+        $mail->addAddress($vendor['email'], $vendor['contact_person'] ?? '');
+
+        $name    = $vendor['contact_person'] ?: ($vendor['company_name'] ?? 'Vendor');
+        $company = $vendor['company_name'] ?? '';
+        $rfqNo   = $rfq['rfq_no'] ?? 'Quotation';
+        $rfqTitle= $rfq['title'] ?? '';
+
+        $portal  = rtrim(BASE_URL, '/') . '/vendor_portal/vendor/notifications.php';
+
+        if ($result === 'approved') {
+            $title = 'Quotation Approved';
+            $intro = 'Dear '.$name.',<br><br>'
+                   . 'Congratulations! Your quotation for <strong>'.htmlspecialchars($rfqNo).'</strong> has been <strong>accepted</strong>.';
+            $bodyHtml = '
+              <strong>Quotation:</strong> '.htmlspecialchars($rfqNo).'<br>
+              <strong>Title:</strong> '.htmlspecialchars($rfqTitle).'<br><br>
+              Our procurement team will reach out with the next steps and delivery instructions.<br><br>
+              Regards,<br>
+              TNVS Procurement Team
+            ';
+        } else {
+            $title = 'Quotation Not Approved';
+            $intro = 'Dear '.$name.',<br><br>'
+                   . 'Thank you for submitting a quotation for <strong>'.htmlspecialchars($rfqNo).'</strong>.';
+            $bodyHtml = '
+              After careful evaluation, your quotation was not selected this time.<br><br>
+              <strong>Quotation:</strong> '.htmlspecialchars($rfqNo).'<br>
+              <strong>Title:</strong> '.htmlspecialchars($rfqTitle).'<br><br>
+              We encourage you to participate in future sourcing events.<br><br>
+              Regards,<br>
+              TNVS Procurement Team
+            ';
+        }
+
+        $html = buildEmailTemplate($title, $intro, $bodyHtml, 'Open Vendor Portal', $portal);
+
+        $mail->isHTML(true);
+        $mail->Subject = $title . ' — ' . $rfqNo;
+        $mail->Body    = $html;
+        $mail->AltBody = "Dear {$name},\n\n"
+            .($result === 'approved'
+                ? "Congratulations! Your quotation for {$rfqNo} has been accepted.\n"
+                : "Thank you for your quotation for {$rfqNo}. It was not selected this time.\n")
+            ."Title: {$rfqTitle}\n\n"
+            ."Regards,\nTNVS Procurement Team";
+
+        return $mail->send();
+    } catch (Exception $e) {
+        error_log('MAIL ERROR (quotation result): '.$e->getMessage());
+        return false;
+    }
+}

@@ -40,6 +40,7 @@ $hasLvl = table_exists($pdo, "stock_levels");
 $hasTx = table_exists($pdo, "stock_transactions");
 $hasLoc = table_exists($pdo, "warehouse_locations");
 $hasShip = table_exists($pdo, "shipments");
+$hasWhNotif = table_exists($pdo, "warehouse_notifications");
 
 /* ---- KPI cards ---- */
 $totalSkus = $hasItems
@@ -78,6 +79,17 @@ if ($hasItems) {
         $lowStockCount = (int) fetch_val($pdo, $sql, [], 0);
     } else {
         $lowStockCount = 0;
+    }
+}
+
+/* ---- Warehouse notifications ---- */
+$whNotifs = [];
+if ($hasWhNotif) {
+    try {
+        $st = $pdo->query("SELECT title, body, created_at FROM warehouse_notifications ORDER BY created_at DESC LIMIT 5");
+        $whNotifs = $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    } catch (Throwable $e) {
+        $whNotifs = [];
     }
 }
 
@@ -262,6 +274,34 @@ if ($hasShip) {
             </div>
           </div>
         </div>
+
+        <?php if ($hasWhNotif): ?>
+        <section class="card shadow-sm mb-3">
+          <div class="card-body">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h6 class="m-0">Upcoming Deliveries</h6>
+              <ion-icon name="notifications-outline"></ion-icon>
+            </div>
+            <?php if (!$whNotifs): ?>
+              <div class="text-muted small">No delivery notifications yet.</div>
+            <?php else: ?>
+              <div class="vstack gap-2">
+                <?php foreach ($whNotifs as $n): ?>
+                  <div class="d-flex justify-content-between align-items-start border-bottom pb-2">
+                    <div>
+                      <div class="fw-semibold"><?= htmlspecialchars($n['title']) ?></div>
+                      <div class="text-muted small"><?= htmlspecialchars($n['body']) ?></div>
+                    </div>
+                    <div class="text-muted small ms-3">
+                      <?= htmlspecialchars(date('M d, Y H:i', strtotime($n['created_at']))) ?>
+                    </div>
+                  </div>
+                <?php endforeach; ?>
+              </div>
+            <?php endif; ?>
+          </div>
+        </section>
+        <?php endif; ?>
 
         <!-- KPI Row -->
         <div class="row g-3 mb-3">

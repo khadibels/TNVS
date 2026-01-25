@@ -41,7 +41,11 @@
   </a>
 
   <a class="nav-link<?= a('po_rfq') ?>" href="<?= u('procurement/rfqManagement.php') ?>">
-    <ion-icon name="document-text-outline"></ion-icon><span>RFQ Management</span>
+    <ion-icon name="document-text-outline"></ion-icon><span>Quotation Management</span>
+  </a>
+
+  <a class="nav-link<?= a('po_quotes') ?>" href="<?= u('procurement/quoteEvaluation.php') ?>">
+    <ion-icon name="pricetags-outline"></ion-icon><span>Quote Evaluation &amp; Award</span>
   </a>
 
   <a class="nav-link<?= a('po_pos') ?>" href="<?= u('procurement/po_issuance.php') ?>">
@@ -193,7 +197,7 @@
       </a>
 
       <a class="nav-link<?= a('po_rfq') ?>" href="<?= u('procurement/rfqManagement.php') ?>">
-        <ion-icon name="document-text-outline"></ion-icon><span>RFQ Management</span>
+        <ion-icon name="document-text-outline"></ion-icon><span>Quotation Management</span>
       </a>
 
       <a class="nav-link<?= a('po_quotes') ?>" href="<?= u('procurement/quoteEvaluation.php') ?>">
