@@ -68,4 +68,18 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('resize', () => {
     if (window.innerWidth > 1000) closeSidebar();
   });
+
+  // --- Scroll Persistence ---
+  const savedScroll = localStorage.getItem('sidebarScroll');
+  if (savedScroll && sidebar) {
+    sidebar.scrollTop = parseInt(savedScroll, 10);
+  }
+
+  // Save on unload
+  window.addEventListener('beforeunload', () => {
+    if (sidebar) {
+      localStorage.setItem('sidebarScroll', sidebar.scrollTop);
+    }
+  });
+
 });
