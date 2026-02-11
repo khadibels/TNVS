@@ -30,7 +30,9 @@ $hdr = $pdo->prepare("
          DATE_FORMAT(s.expected_delivery,'%Y-%m-%d') AS expected_delivery,
          s.contact_name, s.contact_phone, s.notes,
          $originExpr AS origin,
-         $destExpr   AS destination
+         $destExpr   AS destination,
+         o.address   AS origin_address,
+         d.address   AS destination_address
     FROM shipments s
     JOIN warehouse_locations o ON o.id=s.origin_id
     JOIN warehouse_locations d ON d.id=s.destination_id

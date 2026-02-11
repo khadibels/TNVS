@@ -269,19 +269,8 @@ $userRole = $_SESSION["user"]["role"] ?? "Warehouse Manager";
               <div class="text-muted small">No AI insights available.</div>
             </div>
           </div>
-          <div class="d-flex gap-2 align-items-end mb-3">
-            <div>
-              <label class="form-label">Update status</label>
-              <select id="vStatus" class="form-select">
-                <option>Ready</option><option>Dispatched</option><option>In Transit</option>
-                <option>Delivered</option><option>Delayed</option><option>Cancelled</option><option>Returned</option>
-              </select>
-            </div>
-            <div class="flex-grow-1">
-              <label class="form-label">Details (optional)</label>
-              <input id="vDetails" class="form-control" placeholder="e.g., Arrived at Qc hub">
-            </div>
-            <button id="btnPostEvent" class="btn btn-primary">Post</button>
+          <div class="alert alert-info small mb-3">
+            Status updates are managed by Logistics 2 dispatch. This view is read-only.
           </div>
           <h6 class="mb-2">Timeline</h6>
           <ul id="vTimeline" class="list-group small"></ul>
@@ -379,8 +368,14 @@ function resetFiltersToAll() {
       tbody.innerHTML = data.rows.map(r => `
         <tr>
           <td class="fw-semibold">${r.ref_no}</td>
-          <td>${r.origin}</td>
-          <td>${r.destination}</td>
+          <td>
+            ${r.origin || '—'}
+            ${r.origin_address ? `<div class="small text-muted">${r.origin_address}</div>` : ''}
+          </td>
+          <td>
+            ${r.destination || '—'}
+            ${r.destination_address ? `<div class="small text-muted">${r.destination_address}</div>` : ''}
+          </td>
           <td><span class="badge bg-${badge(r.status)}">${r.status}</span></td>
           <td>${r.eta || ''}</td>
           <td>${r.carrier || ''}</td>
@@ -512,10 +507,12 @@ async function openView(id){
     const { shipment, events, ai_insights } = JSON.parse(raw);
 
     document.getElementById('vRef').textContent = shipment.ref_no;
-    document.getElementById('vMeta').textContent =
-      `${shipment.origin} → ${shipment.destination} • ${shipment.status} • Carrier: ${shipment.carrier || '—'} • ETA: ${shipment.expected_delivery || '—'}`;
-    document.getElementById('vStatus').value = shipment.status;
-    document.getElementById('vDetails').value = '';
+    const originAddr = shipment.origin_address ? `<div class="small text-muted">From address: ${shipment.origin_address}</div>` : '';
+    const destAddr = shipment.destination_address ? `<div class="small text-muted">To address: ${shipment.destination_address}</div>` : '';
+    document.getElementById('vMeta').innerHTML =
+      `<div>${shipment.origin} → ${shipment.destination} • ${shipment.status} • Carrier: ${shipment.carrier || '—'} • ETA: ${shipment.expected_delivery || '—'}</div>` +
+      originAddr + destAddr;
+    // Status updates handled by Logistics 2 (read-only view here)
 
     const aiWrap = document.getElementById('vAI');
     if (aiWrap) {
@@ -548,19 +545,7 @@ async function openView(id){
 
     new bootstrap.Modal(document.getElementById('mdlView')).show();
 
-    document.getElementById('btnPostEvent').onclick = async ()=>{
-      const body = new URLSearchParams({
-        id,
-        status: document.getElementById('vStatus').value,
-        details: document.getElementById('vDetails').value
-      });
-      const up = await fetch('./api/update_status.php', { method:'POST', body, credentials:'same-origin' });
-      const ut = await up.text();
-      if (!up.ok) { alert('Update failed: ' + ut.slice(0,180)); console.error(ut); return; }
-      toast(`Status updated to ${document.getElementById('vStatus').value}`, 'success');
-      openView(id);
-      loadTable();  
-    };
+    // Update controls removed
   } catch (err) {
     alert('Load failed (network); see console.');
     console.error(err);

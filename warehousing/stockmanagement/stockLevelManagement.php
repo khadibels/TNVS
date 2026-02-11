@@ -114,6 +114,7 @@ if ($dbReady) {
     SELECT item_id, SUM(qty) AS total_qty
     FROM stock_levels
     GROUP BY item_id
+    HAVING SUM(qty) > 0
   ) t ON t.item_id = g.item_id
   ORDER BY i.name, wl.name
   LIMIT :lim OFFSET :off
@@ -147,6 +148,14 @@ if ($dbReady) {
 // Flash
 $ok = isset($_GET["ok"]) ? htmlspecialchars($_GET["ok"]) : "";
 $err = isset($_GET["err"]) ? htmlspecialchars($_GET["err"]) : "";
+
+// Helpers
+// u() is defined in sidebar.php which is included in the body.
+// We only define h() if missing.
+if (!function_exists('h')) {
+    function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -162,6 +171,37 @@ $err = isset($_GET["err"]) ? htmlspecialchars($_GET["err"]) : "";
   <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
   <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
   <script src="../../js/sidebar-toggle.js"></script>
+
+  <style>
+    :root {
+      --slate-50: #f8fafc;
+      --slate-100: #f1f5f9;
+      --slate-200: #e2e8f0;
+      --slate-600: #475569;
+      --slate-800: #1e293b;
+      --primary-600: #4f46e5;
+    }
+    body { background-color: var(--slate-50); }
+
+    /* Custom Table */
+    .card-table { border: 1px solid var(--slate-200); border-radius: 1rem; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow: hidden; }
+    .table-custom thead th { 
+      font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px; 
+      color: var(--slate-600); background: var(--slate-50); 
+      border-bottom: 1px solid var(--slate-200); font-weight: 600; padding: 1rem 1.5rem;
+    }
+    .table-custom tbody td { 
+      padding: 1rem 1.5rem; border-bottom: 1px solid var(--slate-100); 
+      font-size: 0.95rem; color: var(--slate-800); vertical-align: middle;
+    }
+    .table-custom tr:last-child td { border-bottom: none; }
+    .table-custom tr:hover td { background-color: #f8fafc; }
+    
+    .f-mono { font-family: 'SF Mono', 'Segoe UI Mono', 'Roboto Mono', monospace; letter-spacing: -0.5px; }
+    .badge-stock { padding: 5px 10px; border-radius: 6px; font-weight: 600; font-size: 0.75rem; }
+    .badge-stock.low { background: #fee2e2; color: #991b1b; }
+    .badge-stock.ok { background: #dcfce7; color: #166534; }
+  </style>
 </head>
 <body class="saas-page">
   <div class="container-fluid p-0">
@@ -172,242 +212,198 @@ $err = isset($_GET["err"]) ? htmlspecialchars($_GET["err"]) : "";
       <!-- Main Content -->
       <div class="col main-content p-3 p-lg-4">
 
-        <!-- Topbar  -->
+        <!-- Header -->
         <div class="d-flex justify-content-between align-items-center mb-3">
-          <div class="d-flex align-items-center gap-3">
-            <button class="sidebar-toggle d-lg-none btn btn-outline-secondary btn-sm" id="sidebarToggle2" aria-label="Toggle sidebar">
-              <ion-icon name="menu-outline"></ion-icon>
-            </button>
-           <h2 class="m-0 d-flex align-items-center gap-2">
-        <ion-icon name="layers-outline"></ion-icon>Stock Management
-      </h2>
-          </div>
-
-          <div class="profile-menu" data-profile-menu>
-            <button class="profile-trigger" type="button" data-profile-trigger aria-expanded="false" aria-haspopup="true">
-              <img src="../../img/profile.jpg" class="rounded-circle" width="36" height="36" alt="">
-              <div class="profile-text">
-                <div class="profile-name"><?= htmlspecialchars($userName) ?></div>
-                <div class="profile-role"><?= htmlspecialchars($userRole) ?></div>
-              </div>
-              <ion-icon class="profile-caret" name="chevron-down-outline"></ion-icon>
-            </button>
-            <div class="profile-dropdown" data-profile-dropdown role="menu">
-              <a href="<?= u('auth/logout.php') ?>" role="menuitem">Sign out</a>
+            <div class="d-flex align-items-center gap-3">
+              <button class="sidebar-toggle d-lg-none btn btn-outline-secondary btn-sm" id="sidebarToggle2">
+                  <ion-icon name="menu-outline"></ion-icon>
+              </button>
+              <h2 class="m-0 d-flex align-items-center gap-2 page-title">
+                  <ion-icon name="layers-outline"></ion-icon>Stock Management
+              </h2>
             </div>
-          </div>
+            
+            <div class="d-flex align-items-center gap-3">
+               <!-- History Button -->
+               <button class="btn btn-white border shadow-sm d-flex align-items-center gap-2" data-bs-toggle="modal" data-bs-target="#historyModal">
+                  <ion-icon name="time-outline"></ion-icon>
+                  <span>History</span>
+               </button>
+
+               <div class="profile-menu" data-profile-menu>
+                <button class="profile-trigger" type="button" data-profile-trigger>
+                <img src="../../img/profile.jpg" class="rounded-circle" width="36" height="36" alt="">
+                <div class="profile-text">
+                    <div class="profile-name"><?= h($userName) ?></div>
+                    <div class="profile-role"><?= h($userRole) ?></div>
+                </div>
+                <ion-icon class="profile-caret" name="chevron-down-outline"></ion-icon>
+                </button>
+                <div class="profile-dropdown" data-profile-dropdown role="menu">
+                    <a href="<?= u('auth/logout.php') ?>" role="menuitem">Sign out</a>
+                </div>
+            </div>
+            </div>
         </div>
 
-        <!-- Flash -->
-        <?php if ($ok): ?>
-          <div class="alert alert-success alert-dismissible fade show"><?= $ok ?><button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
-        <?php endif; ?>
-        <?php if ($err): ?>
-          <div class="alert alert-danger alert-dismissible fade show"><?= $err ?><button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
-        <?php endif; ?>
+        <div class="px-4 pb-5">
+            <!-- Flash -->
+            <?php if ($ok): ?>
+              <div class="alert alert-success alert-dismissible fade show border-0 shadow-sm"><ion-icon name="checkmark-circle-outline" class="me-2"></ion-icon><?= $ok ?><button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+            <?php endif; ?>
+            <?php if ($err): ?>
+              <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm"><ion-icon name="alert-circle-outline" class="me-2"></ion-icon><?= $err ?><button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
+            <?php endif; ?>
 
-        <!-- DB Not Ready -->
-        <?php if (!$dbReady): ?>
-          <div class="alert alert-warning">
-            Database not initialized for Stock Management.
-            Please run the migration SQL for <b>warehouse_locations</b>, <b>stock_levels</b>, and <b>stock_transactions</b>.
-          </div>
-        <?php endif; ?>
+            <?php if (!$dbReady): ?>
+              <div class="alert alert-warning border-0 shadow-sm">
+                <b>Setup Required:</b> Database tables (warehouse_locations, stock_levels, stock_transactions) are missing.
+              </div>
+            <?php else: ?>
 
-        <?php if ($dbReady): ?>
-        <!-- Action Buttons -->
-        <section class="mb-3">
-          <div class="d-flex gap-2">
-            <button class="btn btn-violet" data-bs-toggle="modal" data-bs-target="#inModal">
-              <ion-icon name="download-outline"></ion-icon> Stock In
-            </button>
-            <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#outModal">
-              <ion-icon name="exit-outline"></ion-icon> Stock Out
-            </button>
-            <button class="btn btn-secondary" data-bs-toggle="modal" data-bs-target="#transferModal">
-              <ion-icon name="swap-horizontal-outline"></ion-icon> Transfer
-            </button>
-          </div>
-        </section>
+            <!-- Action Bar -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                 <!-- Actions -->
+                  <div class="d-flex gap-2">
+                    <button class="btn btn-primary d-flex align-items-center gap-2 px-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#inModal">
+                      <ion-icon name="arrow-down-circle-outline"></ion-icon> Stock In
+                    </button>
+                    <button class="btn btn-white border shadow-sm d-flex align-items-center gap-2 px-3" data-bs-toggle="modal" data-bs-target="#outModal">
+                      <ion-icon name="arrow-up-circle-outline"></ion-icon> Stock Out
+                    </button>
+                    <button class="btn btn-white border shadow-sm d-flex align-items-center gap-2 px-3" data-bs-toggle="modal" data-bs-target="#transferModal">
+                      <ion-icon name="swap-horizontal-outline"></ion-icon> Transfer
+                    </button>
+                  </div>
 
-        <!-- Current Stock Levels -->
-        <section class="card shadow-sm mb-3">
-          <div class="card-body">
-            <h5 class="mb-3">Current Stock Levels</h5>
-            
-
-             <!-- Filters for Levels -->
-<form method="get" class="row g-2 align-items-center mb-2" id="levelsFilter">
-  <div class="col-12 col-md-auto">
-    <select name="loc_id" class="form-select form-select-sm" onchange="this.form.submit()">
-      <option value="">All Locations</option>
-      <?php foreach ($locations as $l): ?>
-        <option value="<?= (int) $l["id"] ?>" <?= $locId === (int) $l["id"]
-    ? "selected"
-    : "" ?>>
-          <?= htmlspecialchars($l["name"]) ?>
-        </option>
-      <?php endforeach; ?>
-    </select>
-  </div>
-
-  <div class="col-12 col-md-auto">
-    <select name="lvl_per" class="form-select form-select-sm" onchange="this.form.submit()">
-      <?php foreach ([10, 25, 50, 100] as $opt): ?>
-        <option value="<?= $opt ?>" <?= $lvlPer === $opt
-    ? "selected"
-    : "" ?>>Show <?= $opt ?></option>
-      <?php endforeach; ?>
-    </select>
-  </div>
-
-  <?php if (isset($_GET["tx_all"])): ?>
-    <input type="hidden" name="tx_all" value="1">
-  <?php endif; ?>
-</form>
-            <div class="table-responsive levels-scroll">
-              <table class="table align-middle">
-                <thead>
-                  <tr>
-                    <th>SKU</th>
-                    <th>Name</th>
-                    <th>Category</th>
-                    <th>Location</th>
-                    <th class="text-end">Total</th>
-                    <th class="text-end">Qty</th>
-
-                  </tr>
-
-                 
-
-
-                </thead>
-                <tbody>
-                  <?php if (!$levels): ?>
-                    <tr><td colspan="6" class="text-center py-4 text-muted">No stock levels yet.</td></tr>
-                  <?php else:foreach ($levels as $r): ?>
-                    <tr>
-                      <td><?= htmlspecialchars($r["sku"]) ?></td>
-                      <td><?= htmlspecialchars($r["item_name"]) ?></td>
-                      <td><?= htmlspecialchars($r["category"]) ?></td>
-                      <td><?= htmlspecialchars($r["location_name"]) ?></td>
-
-                      
-                      <td class="text-end">
-                        <?= (int) $r["total_qty"] ?>
-                        <?php if (
-                            (int) $r["total_qty"] <= (int) $r["reorder_level"]
-                        ): ?>
-                          <span class="badge bg-warning ms-1">Low</span>
-                        <?php endif; ?>
-                      </td>
-
-                    
-                    <td class="text-end"><?= (int) $r["qty"] ?></td>
-
-                    </tr>
-                  <?php endforeach;endif; ?>
-                </tbody>
-              </table>
+                  <!-- Quick Filters -->
+                  <form method="get" class="d-flex gap-2 align-items-center" id="levelsFilter">
+                       <select name="loc_id" class="form-select" style="min-width: 180px;" onchange="this.form.submit()">
+                        <option value="">All Locations</option>
+                        <?php foreach ($locations as $l): ?>
+                          <option value="<?= (int) $l["id"] ?>" <?= $locId === (int) $l["id"] ? "selected" : "" ?>>
+                            <?= h($l["name"]) ?>
+                          </option>
+                        <?php endforeach; ?>
+                      </select>
+                  </form>
             </div>
 
-          
-
-<div class="d-flex justify-content-between align-items-center mt-2">
-  <div class="small text-muted">
-    Page <?= $lvlPage ?> of <?= $lvlPages ?> • <?= $lvlTotal ?> row(s)
-  </div>
-
-  <nav aria-label="Levels pages">
-    <ul class="pagination pagination-sm mb-0">
-      <li class="page-item <?= $lvlPage <= 1 ? "disabled" : "" ?>">
-        <a class="page-link" href="<?= $lvlPage <= 1
-            ? "#"
-            : qs(["lvl_page" => $lvlPage - 1]) ?>">&laquo;</a>
-      </li>
-
-      <?php for (
-          $p = max(1, $lvlPage - 2);
-          $p <= min($lvlPages, $lvlPage + 2);
-          $p++
-      ): ?>
-        <li class="page-item <?= $p === $lvlPage ? "active" : "" ?>">
-          <a class="page-link" href="<?= qs([
-              "lvl_page" => $p,
-          ]) ?>"><?= $p ?></a>
-        </li>
-      <?php endfor; ?>
-
-      <li class="page-item <?= $lvlPage >= $lvlPages ? "disabled" : "" ?>">
-        <a class="page-link" href="<?= $lvlPage >= $lvlPages
-            ? "#"
-            : qs(["lvl_page" => $lvlPage + 1]) ?>">&raquo;</a>
-      </li>
-    </ul>
-  </nav>
-</div>
-  </div>
-</section>
-
-        <!-- Recent Transactions -->
-        <section class="card shadow-sm">
-          <div class="card-body">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-  <h5 class="mb-0">Recent Transactions</h5>
-  <?php if (!isset($_GET["tx_all"])): ?>
-    <a class="btn btn-sm btn-outline-secondary" href="?tx_all=1">Show all</a>
-  <?php else: ?>
-    <a class="btn btn-sm btn-outline-secondary" href="stockLevelManagement.php">Show less</a>
-  <?php endif; ?>
-</div>
-
-            <div class="table-responsive tx-scroll">
-              <table class="table align-middle">
-                <thead>
-                  <tr>
-                    <th>#</th>
-                    <th>When</th>
-                    <th>Item</th>
-                    <th>Action</th>
-                    <th>From</th>
-                    <th>To</th>
-                    <th class="text-end">Qty</th>
-                    <th>Note</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <?php if (!$tx): ?>
-                    <tr><td colspan="8" class="text-center py-4 text-muted">No transactions yet.</td></tr>
-                  <?php else:foreach ($tx as $t): ?>
-                    <tr>
-                      <td>#<?= (int) $t["id"] ?></td>
-                      <td><?= htmlspecialchars(
-                          date("Y-m-d H:i", strtotime($t["created_at"]))
-                      ) ?></td>
-                      <td><?= htmlspecialchars(
-                          $t["sku"] . " — " . $t["item_name"]
-                      ) ?></td>
-                      <td><?= htmlspecialchars($t["action"]) ?></td>
-                      <td><?= htmlspecialchars($t["from_loc"] ?? "—") ?></td>
-                      <td><?= htmlspecialchars($t["to_loc"] ?? "—") ?></td>
-                      <td class="text-end"><?= (int) $t["qty"] ?></td>
-                      <td><?= htmlspecialchars($t["note"] ?? "") ?></td>
-                    </tr>
-                  <?php endforeach;endif; ?>
-                </tbody>
-              </table>
+            <!-- Levels Table -->
+            <div class="card-table">
+               <div class="table-responsive">
+                  <table class="table table-custom mb-0 align-middle">
+                    <thead>
+                      <tr>
+                        <th>SKU</th>
+                        <th>Item Name</th>
+                        <th>Location</th>
+                        <th class="text-end" style="width:120px">Total Stock</th>
+                        <th class="text-end" style="width:120px">In Location</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <?php if (!$levels): ?>
+                        <tr><td colspan="5" class="text-center py-5 text-muted">No stock data found. Use "Stock In" to add items.</td></tr>
+                      <?php else: foreach ($levels as $r): 
+                          $total = (int)$r['total_qty'];
+                          $reorder = (int)$r['reorder_level'];
+                          $isLow = $total <= $reorder;
+                      ?>
+                        <tr>
+                          <td class="f-mono fw-semibold text-primary"><?= h($r["sku"]) ?></td>
+                          <td class="fw-medium text-dark"><?= h($r["item_name"]) ?></td>
+                          <td><span class="badge bg-light text-dark border"><?= h($r["location_name"]) ?></span></td>
+                          
+                          <td class="text-end f-mono">
+                             <?php if($isLow): ?>
+                               <span class="badge-stock low"><?= $total ?></span>
+                             <?php else: ?>
+                               <span class="badge-stock ok"><?= $total ?></span>
+                             <?php endif; ?>
+                          </td>
+                          <td class="text-end f-mono fw-bold text-dark"><?= (int)$r['qty'] ?></td>
+                        </tr>
+                      <?php endforeach; endif; ?>
+                    </tbody>
+                  </table>
+               </div>
+                <!-- Pagination -->
+                <div class="d-flex justify-content-between align-items-center p-3 border-top bg-light bg-opacity-50">
+                    <div class="small text-muted">
+                        Page <?= $lvlPage ?> of <?= $lvlPages ?> • <?= $lvlTotal ?> row(s)
+                    </div>
+                    <nav>
+                      <ul class="pagination pagination-sm mb-0 shadow-sm">
+                        <li class="page-item <?= $lvlPage <= 1 ? "disabled" : "" ?>">
+                          <a class="page-link" href="<?= qs(["lvl_page" => $lvlPage - 1]) ?>">&laquo;</a>
+                        </li>
+                        <li class="page-item disabled"><a class="page-link border-0 bg-transparent text-muted"><?= $lvlPage ?></a></li>
+                         <li class="page-item <?= $lvlPage >= $lvlPages ? "disabled" : "" ?>">
+                          <a class="page-link" href="<?= qs(["lvl_page" => $lvlPage + 1]) ?>">&raquo;</a>
+                        </li>
+                      </ul>
+                    </nav>
+                </div>
             </div>
-          </div>
-        </section>
-        <?php endif; ?>
+
+            <?php endif; ?>
+        </div>
 
       </div>
     </div>
   </div>
 
+  <!-- History Modal -->
+  <div class="modal fade" id="historyModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content border-0 shadow">
+        <div class="modal-header">
+           <div>
+             <h5 class="modal-title fw-bold">Stock History</h5>
+             <div class="text-muted small">Recent movements and adjustments</div>
+           </div>
+           <button class="btn-close" data-bs-dismiss="modal"></button>
+        </div>
+        <div class="modal-body p-0">
+           <table class="table table-hover align-middle mb-0">
+             <thead class="bg-light sticky-top" style="z-index: 2;">
+               <tr>
+                 <th class="ps-4">Date</th>
+                 <th>SKU</th>
+                 <th>Action</th>
+                 <th>From</th>
+                 <th>To</th>
+                 <th class="text-end pe-4">Qty</th>
+                 <th>Note</th>
+               </tr>
+             </thead>
+             <tbody>
+               <?php if (!$tx): ?>
+                 <tr><td colspan="7" class="text-center py-5 text-muted">No history available.</td></tr>
+               <?php else: foreach ($tx as $t): ?>
+                 <tr>
+                   <td class="ps-4 text-muted small"><?= date('M d, H:i', strtotime($t['created_at'])) ?></td>
+                   <td class="fw-medium text-dark"><?= h($t['sku']) ?></td>
+                   <td><span class="badge bg-secondary bg-opacity-10 text-secondary border"><?= h($t['action']) ?></span></td>
+                   <td class="small"><?= h($t['from_loc']??'—') ?></td>
+                   <td class="small"><?= h($t['to_loc']??'—') ?></td>
+                   <td class="text-end pe-4 f-mono fw-bold"><?= (int)$t['qty'] ?></td>
+                   <td class="small text-muted"><?= h($t['note']??'') ?></td>
+                 </tr>
+               <?php endforeach; endif; ?>
+             </tbody>
+           </table>
+        </div>
+        <div class="modal-footer bg-light">
+           <a href="?tx_all=1" class="btn btn-sm btn-link text-decoration-none">Load All History</a>
+           <button class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
 
   <?php include __DIR__ . "/partials/stock_modals.php"; ?>
-
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   <script src="../../js/profile-dropdown.js"></script>

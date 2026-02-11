@@ -66,7 +66,9 @@ try {
     SELECT s.id, s.ref_no, s.status, s.carrier,
            DATE_FORMAT(s.expected_delivery, '%Y-%m-%d') AS eta,
            COALESCE(CONCAT(o.code,' - ',o.name), '—') AS origin,
-           COALESCE(CONCAT(d.code,' - ',d.name), '—') AS destination
+           COALESCE(o.address, '') AS origin_address,
+           COALESCE(CONCAT(d.code,' - ',d.name), '—') AS destination,
+           COALESCE(d.address, '') AS destination_address
     FROM shipments s
     LEFT JOIN warehouse_locations o ON o.id = s.origin_id
     LEFT JOIN warehouse_locations d ON d.id = s.destination_id

@@ -419,6 +419,9 @@ if ($role === 'vendor') {
       <a class="nav-link<?= a('po_list') ?>" href="<?= u('vendor_portal/vendor/po_list.php') ?>">
         <ion-icon name="document-text-outline"></ion-icon><span>Purchase Orders</span>
       </a>
+      <a class="nav-link<?= a('vendor_shipments') ?>" href="<?= u('vendor_portal/vendor/shipment_request.php') ?>">
+        <ion-icon name="paper-plane-outline"></ion-icon><span>Shipment Requests</span>
+      </a>
 
       <a class="nav-link<?= a('messages') ?>" href="<?= u('vendor_portal/vendor/messages.php') ?>">
         <ion-icon name="chatbubbles-outline"></ion-icon><span>Messages</span>
