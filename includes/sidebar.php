@@ -21,79 +21,152 @@
         </a>
       </nav>
 
-      <h6 class="text-uppercase mb-2">Smart Warehousing</h6>
-      <nav class="nav flex-column px-2 mb-4">
-        <a class="nav-link<?= a('inventory') ?>" href="<?= u('warehousing/inventory/inventoryTracking.php') ?>">
-          <ion-icon name="cube-outline"></ion-icon><span>Track Inventory</span>
-        </a>
-        <a class="nav-link<?= a('stock') ?>" href="<?= u('warehousing/stockmanagement/stockLevelManagement.php') ?>">
-          <ion-icon name="layers-outline"></ion-icon><span>Stock Management</span>
-        </a>
-        <a class="nav-link<?= a('shipments') ?>" href="<?= u('warehousing/TrackShipment/shipmentTracking.php') ?>">
-          <ion-icon name="paper-plane-outline"></ion-icon><span>Track Shipments</span>
-        </a>
-        <a class="nav-link<?= a('warehouse_categories') ?>" href="<?= u('all-modules-admin-access/categories.php') ?>">
-          <ion-icon name="pricetags-outline"></ion-icon><span>Inventory Categories</span>
-        </a>
-      </nav>
+      <?php
+        $warehousingChildren = ['inventory','stock','shipments','warehouse_categories'];
+        $procurementChildren = ['vm_suppliers','po_rfq','po_quotes','po_pos'];
+        $pltChildren         = ['projects','tracker','delivery'];
+        $almsChildren        = ['assettracker','requests','repair'];
+        $docsChildren        = ['documents','logistics'];
 
-      <h6 class="text-uppercase mb-2">Procurement and Sourcing Management</h6>
-<nav class="nav flex-column px-2 mb-4">
-  <a class="nav-link<?= a('vm_suppliers') ?>" href="<?= u('vendor_portal/manager/supplierManagement.php') ?>">
-    <ion-icon name="people-outline"></ion-icon><span>Supplier Management</span>
-  </a>
+        $isWarehousingOpen = a_any($warehousingChildren);
+        $isProcurementOpen = a_any($procurementChildren);
+        $isPltOpen         = a_any($pltChildren);
+        $isAlmsOpen        = a_any($almsChildren);
+        $isDocsOpen        = a_any($docsChildren);
+      ?>
 
-  <a class="nav-link<?= a('po_rfq') ?>" href="<?= u('procurement/rfqManagement.php') ?>">
-    <ion-icon name="document-text-outline"></ion-icon><span>Quotation Management</span>
-  </a>
+      <a
+        class="nav-link d-flex align-items-center justify-content-between module-parent<?= $isWarehousingOpen ? ' active is-open' : '' ?>"
+        data-bs-toggle="collapse"
+        data-bs-target="#adminWarehousing"
+        href="#"
+        role="button"
+        aria-expanded="<?= $isWarehousingOpen ? 'true' : 'false' ?>"
+        aria-controls="adminWarehousing"
+      >
+        <span class="module-title">Smart Warehousing</span>
+        <ion-icon class="module-chevron" name="chevron-forward-outline"></ion-icon>
+      </a>
+      <div class="collapse module-collapse<?= $isWarehousingOpen ? ' show' : '' ?>" id="adminWarehousing">
+        <nav class="nav flex-column px-2 mb-3">
+          <a class="nav-link<?= a('inventory') ?>" href="<?= u('warehousing/inventory/inventoryTracking.php') ?>">
+            <ion-icon name="cube-outline"></ion-icon><span>Track Inventory</span>
+          </a>
+          <a class="nav-link<?= a('stock') ?>" href="<?= u('warehousing/stockmanagement/stockLevelManagement.php') ?>">
+            <ion-icon name="layers-outline"></ion-icon><span>Stock Management</span>
+          </a>
+          <a class="nav-link<?= a('shipments') ?>" href="<?= u('warehousing/TrackShipment/shipmentTracking.php') ?>">
+            <ion-icon name="paper-plane-outline"></ion-icon><span>Track Shipments</span>
+          </a>
+          <a class="nav-link<?= a('warehouse_categories') ?>" href="<?= u('all-modules-admin-access/categories.php') ?>">
+            <ion-icon name="pricetags-outline"></ion-icon><span>Inventory Categories</span>
+          </a>
+        </nav>
+      </div>
 
-  <a class="nav-link<?= a('po_quotes') ?>" href="<?= u('procurement/quoteEvaluation.php') ?>">
-    <ion-icon name="pricetags-outline"></ion-icon><span>Quote Evaluation &amp; Award</span>
-  </a>
+      <a
+        class="nav-link d-flex align-items-center justify-content-between module-parent<?= $isProcurementOpen ? ' active is-open' : '' ?>"
+        data-bs-toggle="collapse"
+        data-bs-target="#adminProcurement"
+        href="#"
+        role="button"
+        aria-expanded="<?= $isProcurementOpen ? 'true' : 'false' ?>"
+        aria-controls="adminProcurement"
+      >
+        <span class="module-title">Procurement and Sourcing Management</span>
+        <ion-icon class="module-chevron" name="chevron-forward-outline"></ion-icon>
+      </a>
+      <div class="collapse module-collapse<?= $isProcurementOpen ? ' show' : '' ?>" id="adminProcurement">
+        <nav class="nav flex-column px-2 mb-3">
+          <a class="nav-link<?= a('vm_suppliers') ?>" href="<?= u('vendor_portal/manager/supplierManagement.php') ?>">
+            <ion-icon name="people-outline"></ion-icon><span>Supplier Management</span>
+          </a>
+          <a class="nav-link<?= a('po_rfq') ?>" href="<?= u('procurement/rfqManagement.php') ?>">
+            <ion-icon name="document-text-outline"></ion-icon><span>Quotation Management</span>
+          </a>
+          <a class="nav-link<?= a('po_quotes') ?>" href="<?= u('procurement/quoteEvaluation.php') ?>">
+            <ion-icon name="pricetags-outline"></ion-icon><span>Quote Evaluation &amp; Award</span>
+          </a>
+          <a class="nav-link<?= a('po_pos') ?>" href="<?= u('procurement/po_issuance.php') ?>">
+            <ion-icon name="document-text-outline"></ion-icon><span>Purchase Order Issuance</span>
+          </a>
+        </nav>
+      </div>
 
-  <a class="nav-link<?= a('po_pos') ?>" href="<?= u('procurement/po_issuance.php') ?>">
-    <ion-icon name="document-text-outline"></ion-icon><span>Purchase Order Issuance</span>
-  </a>
+      <a
+        class="nav-link d-flex align-items-center justify-content-between module-parent<?= $isPltOpen ? ' active is-open' : '' ?>"
+        data-bs-toggle="collapse"
+        data-bs-target="#adminPlt"
+        href="#"
+        role="button"
+        aria-expanded="<?= $isPltOpen ? 'true' : 'false' ?>"
+        aria-controls="adminPlt"
+      >
+        <span class="module-title">Project Logistics &amp; Tracking</span>
+        <ion-icon class="module-chevron" name="chevron-forward-outline"></ion-icon>
+      </a>
+      <div class="collapse module-collapse<?= $isPltOpen ? ' show' : '' ?>" id="adminPlt">
+        <nav class="nav flex-column px-2 mb-3">
+          <a class="nav-link<?= a('projects') ?>" href="<?= u('PLT/projectTracking.php') ?>">
+            <ion-icon name="briefcase-outline"></ion-icon><span>Project Tracking</span>
+          </a>
+          <a class="nav-link<?= a('tracker') ?>" href="<?= u('PLT/shipmentTracker.php') ?>">
+            <ion-icon name="trail-sign-outline"></ion-icon><span>Shipment Tracker</span>
+          </a>
+          <a class="nav-link<?= a('delivery') ?>" href="<?= u('PLT/deliverySchedule.php') ?>">
+            <ion-icon name="calendar-outline"></ion-icon><span>Delivery Schedule</span>
+          </a>
+        </nav>
+      </div>
 
-  <!-- Procurement Requests and Budgets removed by request -->
-</nav>
+      <a
+        class="nav-link d-flex align-items-center justify-content-between module-parent<?= $isAlmsOpen ? ' active is-open' : '' ?>"
+        data-bs-toggle="collapse"
+        data-bs-target="#adminAlms"
+        href="#"
+        role="button"
+        aria-expanded="<?= $isAlmsOpen ? 'true' : 'false' ?>"
+        aria-controls="adminAlms"
+      >
+        <span class="module-title">Asset Lifecycle &amp; Maintenance</span>
+        <ion-icon class="module-chevron" name="chevron-forward-outline"></ion-icon>
+      </a>
+      <div class="collapse module-collapse<?= $isAlmsOpen ? ' show' : '' ?>" id="adminAlms">
+        <nav class="nav flex-column px-2 mb-3">
+          <a class="nav-link<?= a('assettracker') ?>" href="<?= u('assetlifecycle/assetTracker.php') ?>">
+            <ion-icon name="cube-outline"></ion-icon><span>Asset Tracking</span>
+          </a>
+          <a class="nav-link<?= a('requests') ?>" href="<?= u('assetlifecycle/mainReq.php') ?>">
+            <ion-icon name="layers-outline"></ion-icon><span>Maintenance Requests</span>
+          </a>
+          <a class="nav-link<?= a('repair') ?>" href="<?= u('assetlifecycle/repair.php') ?>">
+            <ion-icon name="hammer-outline"></ion-icon><span>Repair Logs</span>
+          </a>
+        </nav>
+      </div>
 
-
-      <h6 class="text-uppercase mb-2">Project Logistics &amp; Tracking</h6>
-      <nav class="nav flex-column px-2 mb-4">
-        <a class="nav-link<?= a('projects') ?>" href="<?= u('PLT/projectTracking.php') ?>">
-          <ion-icon name="briefcase-outline"></ion-icon><span>Project Tracking</span>
-        </a>
-        <a class="nav-link<?= a('tracker') ?>" href="<?= u('PLT/shipmentTracker.php') ?>">
-          <ion-icon name="trail-sign-outline"></ion-icon><span>Shipment Tracker</span>
-        </a>
-        <a class="nav-link<?= a('delivery') ?>" href="<?= u('PLT/deliverySchedule.php') ?>">
-          <ion-icon name="calendar-outline"></ion-icon><span>Delivery Schedule</span>
-        </a>
-      </nav>
-
-      <h6 class="text-uppercase mb-2">Asset Lifecycle &amp; Maintenance</h6>
-      <nav class="nav flex-column px-2 mb-4">
-        <a class="nav-link<?= a('assettracker') ?>" href="<?= u('assetlifecycle/assetTracker.php') ?>">
-          <ion-icon name="cube-outline"></ion-icon><span>Asset Tracking</span>
-        </a>
-        <a class="nav-link<?= a('requests') ?>" href="<?= u('assetlifecycle/mainReq.php') ?>">
-          <ion-icon name="layers-outline"></ion-icon><span>Maintenance Requests</span>
-        </a>
-        <a class="nav-link<?= a('repair') ?>" href="<?= u('assetlifecycle/repair.php') ?>">
-          <ion-icon name="hammer-outline"></ion-icon><span>Repair Logs</span>
-        </a>
-      </nav>
-
-      <h6 class="text-uppercase mb-2">Document Tracking</h6>
-      <nav class="nav flex-column px-2 mb-4">
-        <a class="nav-link<?= a('documents') ?>" href="<?= u('documentTracking/document.php') ?>">
-          <ion-icon name="document-text-outline"></ion-icon><span>Documents</span>
-        </a>
-        <a class="nav-link<?= a('logistics') ?>" href="<?= u('documentTracking/logistic.php') ?>">
-          <ion-icon name="cube-outline"></ion-icon><span>Logistics</span>
-        </a>
-      </nav>
+      <a
+        class="nav-link d-flex align-items-center justify-content-between module-parent<?= $isDocsOpen ? ' active is-open' : '' ?>"
+        data-bs-toggle="collapse"
+        data-bs-target="#adminDocs"
+        href="#"
+        role="button"
+        aria-expanded="<?= $isDocsOpen ? 'true' : 'false' ?>"
+        aria-controls="adminDocs"
+      >
+        <span class="module-title">Document Tracking</span>
+        <ion-icon class="module-chevron" name="chevron-forward-outline"></ion-icon>
+      </a>
+      <div class="collapse module-collapse<?= $isDocsOpen ? ' show' : '' ?>" id="adminDocs">
+        <nav class="nav flex-column px-2 mb-3">
+          <a class="nav-link<?= a('documents') ?>" href="<?= u('documentTracking/document.php') ?>">
+            <ion-icon name="document-text-outline"></ion-icon><span>Documents</span>
+          </a>
+          <a class="nav-link<?= a('logistics') ?>" href="<?= u('documentTracking/logistic.php') ?>">
+            <ion-icon name="cube-outline"></ion-icon><span>Logistics</span>
+          </a>
+        </nav>
+      </div>
 
       <hr class="mx-3 my-2">
 
@@ -107,7 +180,7 @@
     $isSettingsOpen = a_any($settingsChildren) || $active === 'settings';
   ?>
   <a
-    class="nav-link d-flex align-items-center justify-content-between settings-parent<?= $isSettingsOpen ? ' active is-open' : '' ?>"
+    class="nav-link d-flex align-items-center justify-content-between module-parent settings-parent<?= $isSettingsOpen ? ' active is-open' : '' ?>"
     data-bs-toggle="collapse"
     data-bs-target="#adminSettings"
     href="#"
@@ -116,10 +189,10 @@
     aria-controls="adminSettings"
   >
     <span><ion-icon name="settings-outline"></ion-icon><span>Settings</span></span>
-    <ion-icon name="<?= $isSettingsOpen ? 'chevron-down-outline' : 'chevron-forward-outline' ?>"></ion-icon>
+    <ion-icon class="module-chevron" name="chevron-forward-outline"></ion-icon>
   </a>
 
-  <div class="collapse<?= $isSettingsOpen ? ' show' : '' ?>" id="adminSettings">
+  <div class="collapse module-collapse<?= $isSettingsOpen ? ' show' : '' ?>" id="adminSettings">
     <div class="nav flex-column mt-1">
       <a class="nav-link sub-link<?= a('settings_access') ?>" href="<?= u('all-modules-admin-access/accessControl.php') ?>">
         <ion-icon name="lock-closed-outline"></ion-icon><span>Access Control</span>

@@ -50,7 +50,8 @@ document.addEventListener('DOMContentLoaded', () => {
   // Close after clicking any link (except the Settings parent which just expands)
   document.querySelectorAll('.sidebar a').forEach(a => {
     a.addEventListener('click', () => {
-      if (window.innerWidth <= 1000 && !a.classList.contains('settings-parent')) {
+      const isCollapseToggle = a.getAttribute('data-bs-toggle') === 'collapse';
+      if (window.innerWidth <= 1000 && !isCollapseToggle) {
         closeSidebar();
       }
     });
