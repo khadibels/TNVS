@@ -73,6 +73,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (empty($_POST['terms'])) {
                 $errors[] = "You must agree to the TNVS Vendor Contract & Privacy Policy before submitting for review.";
             }
+            $hasCatalog = isset($_FILES['catalog']) && $_FILES['catalog']['error'] === UPLOAD_ERR_OK;
+            $hasLink = trim((string)($_POST['website_link'] ?? '')) !== '';
+            if (!$hasCatalog && !$hasLink) {
+                $errors[] = "Please upload a product catalog or provide a website/online store link.";
+            }
         }
 
         if ($errors) {
@@ -150,6 +155,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'catalog' => 'catalog_doc',
                     'receipt' => 'delivery_receipt_doc'
                 ];
+                $allowedExtsByField = [
+                    'dti'     => ['pdf', 'png', 'jpg', 'jpeg'],
+                    'bir'     => ['pdf', 'png', 'jpg', 'jpeg'],
+                    'permit'  => ['pdf', 'png', 'jpg', 'jpeg'],
+                    'bank'    => ['pdf', 'png', 'jpg', 'jpeg'],
+                    'catalog' => ['pdf', 'png', 'jpg', 'jpeg', 'xlsx', 'xls', 'csv'],
+                    'receipt' => ['pdf', 'png', 'jpg', 'jpeg']
+                ];
 
                 $setParts = [];
                 $params   = [':id' => $vendorId];
@@ -162,7 +175,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $tmp  = $_FILES[$field]['tmp_name'];
                     $orig = $_FILES[$field]['name'];
                     $ext  = strtolower(pathinfo($orig, PATHINFO_EXTENSION));
-                    if (!in_array($ext, ['pdf', 'png', 'jpg', 'jpeg'], true)) {
+                    $allowedExts = $allowedExtsByField[$field] ?? ['pdf', 'png', 'jpg', 'jpeg'];
+                    if (!in_array($ext, $allowedExts, true)) {
                         continue;
                     }
 
@@ -722,9 +736,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     </div>
 
                     <div class="col-md-12">
-                      <label class="form-label">Product Catalog (Optional)</label>
-                      <input type="file" name="catalog" class="form-control" accept=".pdf,.png,.jpg,.jpeg">
-                      <small class="form-text text-muted d-block mt-1">Upload your price list or service catalog.</small>
+                      <label class="form-label">Product Catalog (Required)</label>
+                      <input type="file" name="catalog" class="form-control" accept=".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.csv">
+                      <small class="form-text text-muted d-block mt-1">Upload your product list / catalog (PDF, Excel, or image).</small>
                     </div>
                     <div class="col-md-6">
                       <label class="form-label">Catalog Category</label>
@@ -736,8 +750,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                       </select>
                     </div>
                     <div class="col-md-6">
-                      <label class="form-label">Website / Online Store Link</label>
+                      <label class="form-label">Website / Online Store Link (Optional)</label>
                       <input type="url" name="website_link" class="form-control" placeholder="https://">
+                      <small class="form-text text-muted d-block mt-1">Optional if you already uploaded a catalog.</small>
                     </div>
                     <div class="col-md-6">
                       <label class="form-label">Delivery Receipt / Invoice (Optional)</label>
@@ -793,7 +808,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                        <?= !empty($_POST['terms']) ? 'checked' : '' ?> aria-describedby="termsHelp">
                 <label class="form-check-label" for="terms">
                   I have read and agree to the
-                  <a href="<?= BASE_URL ?>docs/vendor_contract.pdf" target="_blank" class="fw-semibold" style="color: var(--brand-deep);">TNVS Vendor Contract & Privacy Policy</a>.
+                  <a href="<?= BASE_URL ?>vendor_portal/vendor/contract_policy.php" target="_blank" class="fw-semibold" style="color: var(--brand-deep);">
+                    TNVS Vendor Contract &amp; Privacy Policy
+                  </a>.
                 </label>
                 <div class="invalid-feedback">You must agree to the contract and policy before submitting.</div>
               </div>

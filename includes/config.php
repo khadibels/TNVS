@@ -71,5 +71,9 @@ defined('DB_DOCS_NAME') || define('DB_DOCS_NAME', 'logi_docs');
 defined('DB_DOCS_USER') || define('DB_DOCS_USER', DB_USER);
 defined('DB_DOCS_PASS') || define('DB_DOCS_PASS', DB_PASS);
 
+// ===================== Ollama (local LLM) =====================
+defined('OLLAMA_URL')   || define('OLLAMA_URL', 'http://localhost:11434');
+defined('OLLAMA_MODEL') || define('OLLAMA_MODEL', 'llama3:latest');
+
 // ===================== AI / NLP (Java CoreNLP Server) =====================
 defined('CORENLP_URL') || define('CORENLP_URL', 'http://localhost:9000');

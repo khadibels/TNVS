@@ -246,10 +246,6 @@ async function openPOModal(id){
         </div>
         <div class="col-lg-5">
           <h6 class="fw-semibold">Respond</h6>
-          <div class="row g-2">
-            <div class="col-6"><label class="form-label small mb-1">Promised Ship</label><input id="promShip" type="datetime-local" class="form-control form-control-sm"></div>
-            <div class="col-6"><label class="form-label small mb-1">Promised Delivery</label><input id="promDelv" type="datetime-local" class="form-control form-control-sm"></div>
-          </div>
           <div class="mt-2"><label class="form-label small mb-1">Note / Reason</label><textarea id="vNote" class="form-control form-control-sm" rows="4"></textarea></div>
         </div>
       </div>`;
@@ -286,8 +282,8 @@ document.getElementById('btnAck').addEventListener('click', async ()=>{
 });
 document.getElementById('btnAccept').addEventListener('click', async ()=>{
   const id = Number(document.getElementById('btnAccept').dataset.id||0); if(!id) return;
-  const ship = $('#promShip')?.value || ''; const delv = $('#promDelv')?.value || ''; const note = ($('#vNote')?.value||'').trim();
-  try{ await postForm(API.accept, {id, promised_ship_at:ship, promised_deliver_at:delv, note}); toast('Accepted'); bootstrap.Modal.getInstance(document.getElementById('mdlPO')).hide(); loadPOs(); }catch(e){ toast(e.message||'Failed','danger'); }
+  const note = ($('#vNote')?.value||'').trim();
+  try{ await postForm(API.accept, {id, note}); toast('Accepted'); bootstrap.Modal.getInstance(document.getElementById('mdlPO')).hide(); loadPOs(); }catch(e){ toast(e.message||'Failed','danger'); }
 });
 document.getElementById('btnDecline').addEventListener('click', async ()=>{
   const id = Number(document.getElementById('btnDecline').dataset.id||0); if(!id) return;

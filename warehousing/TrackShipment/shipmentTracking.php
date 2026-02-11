@@ -60,7 +60,6 @@ $userRole = $_SESSION["user"]["role"] ?? "Warehouse Manager";
   <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
   <script src="../../js/sidebar-toggle.js"></script>
 
- 
 </head>
 <body class="saas-page">
   <div class="container-fluid p-0">
@@ -285,6 +284,7 @@ $userRole = $_SESSION["user"]["role"] ?? "Warehouse Manager";
   <!-- JS -->
   <script>
     const state = { page:1, per:25, q:'', status:'', from:'', to:'' };
+    const currentShipment = { id: 0, ref: '' };
 
     // Reset filters + go back to page 1 so the newest shipment is visible
 function resetFiltersToAll() {
@@ -505,6 +505,10 @@ async function openView(id){
     const raw = await res.text();
     if (!res.ok) { alert('Load failed: ' + raw.slice(0,180)); console.error(raw); return; }
     const { shipment, events, ai_insights } = JSON.parse(raw);
+    currentShipment.id = Number(shipment.id || 0);
+    currentShipment.ref = String(shipment.ref_no || '');
+    const aiRefInput = document.getElementById('aiRef');
+    if (aiRefInput) aiRefInput.value = currentShipment.ref;
 
     document.getElementById('vRef').textContent = shipment.ref_no;
     const originAddr = shipment.origin_address ? `<div class="small text-muted">From address: ${shipment.origin_address}</div>` : '';
@@ -552,6 +556,8 @@ async function openView(id){
   }
 }
 
+// AI chat loaded via includes/ai_chatbot.php
+
 
 
 
@@ -589,6 +595,7 @@ document.addEventListener('hidden.bs.modal', cleanupBackdrops);
 
 
   </script>
+
 
 <!-- Toasts -->
 <div class="toast-container position-fixed top-0 end-0 p-3" id="toasts" style="z-index:1080"></div>

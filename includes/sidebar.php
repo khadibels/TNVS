@@ -216,6 +216,7 @@
         </a>
       </div>
     </div>
+    <?php include __DIR__ . '/ai_chatbot.php'; ?>
     <?php
     return;
   }
@@ -253,6 +254,7 @@
         </a>
       </div>
     </div>
+    <?php include __DIR__ . '/ai_chatbot.php'; ?>
   <?php return; } ?>
 
   <?php if ($section === 'procurement') { ?>
@@ -294,6 +296,7 @@
       </a>
     </div>
   </div>
+<?php include __DIR__ . '/ai_chatbot.php'; ?>
 <?php return; } ?>
 
 
@@ -328,6 +331,7 @@
         </a>
       </div>
     </div>
+  <?php include __DIR__ . '/ai_chatbot.php'; ?>
   <?php return; } ?>
 
   <?php if ($section === 'alms') { ?>
@@ -359,6 +363,7 @@
         </a>
       </div>
     </div>
+  <?php include __DIR__ . '/ai_chatbot.php'; ?>
   <?php return; } ?>
 
   <?php if ($section === 'docs') { ?>
@@ -387,6 +392,7 @@
         </a>
       </div>
     </div>
+  <?php include __DIR__ . '/ai_chatbot.php'; ?>
   <?php return; } ?>
 
   <?php if ($role === 'vendor_manager') { ?>
@@ -428,6 +434,7 @@
       </a>
     </div>
   </div>
+<?php include __DIR__ . '/ai_chatbot.php'; ?>
 <?php return; } ?>
 
 

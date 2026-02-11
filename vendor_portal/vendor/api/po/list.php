@@ -29,10 +29,17 @@ try {
   $off = ($page-1)*$per;
 
   $st = $pdo->prepare("
-    SELECT p.id, p.po_no, p.currency, p.total, p.issued_at, p.vendor_ack_status,
+    SELECT p.id, p.po_no, p.currency,
+           COALESCE(NULLIF(p.total,0), it.items_total, p.total, 0) AS total,
+           p.issued_at, p.vendor_ack_status,
            r.rfq_no, r.title
     FROM pos p
     LEFT JOIN rfqs r ON r.id=p.rfq_id
+    LEFT JOIN (
+      SELECT po_id, SUM(line_total) AS items_total
+      FROM po_items
+      GROUP BY po_id
+    ) it ON it.po_id = p.id
     $where
     ORDER BY p.id DESC
     LIMIT $per OFFSET $off
