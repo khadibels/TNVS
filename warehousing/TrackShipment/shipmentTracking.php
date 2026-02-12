@@ -383,7 +383,7 @@ $isLocationEditor = in_array(strtolower($_SESSION["user"]["role"] ?? ""), ["admi
                 <select id="mapFocusSel" class="form-select form-select-sm" style="min-width:220px">
                   <option value="auto">Auto (Origin to Destination)</option>
                 </select>
-                <button class="btn btn-sm btn-outline-success" id="mapApplyToBtn" type="button" disabled>Set as To</button>
+                <button class="btn btn-sm btn-outline-success" id="mapApplyToBtn" type="button" disabled>Set Location</button>
                 <span class="map-chip"><ion-icon name="navigate-outline"></ion-icon> Live Route Preview</span>
               </div>
             </div>

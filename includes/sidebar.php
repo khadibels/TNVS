@@ -8,6 +8,30 @@
   function a($key){ global $active; return $active === $key ? ' active' : ''; }
   function a_any(array $keys){ global $active; return in_array($active ?? '', $keys, true); }
 
+  if (!defined('TNVS_SIDEBAR_TUNE_V2')) {
+    define('TNVS_SIDEBAR_TUNE_V2', 1);
+    echo '<style>
+      .sidebar .module-parent.active,
+      .sidebar .module-parent.is-open {
+        background: linear-gradient(90deg, #905cff 0%, #3d0f99 100%);
+        color: #fff;
+      }
+      .sidebar .module-collapse .nav .nav-link {
+        color: #c7cfda;
+        transition: background .2s, color .2s, opacity .2s;
+      }
+      .sidebar .module-parent.is-open + .module-collapse .nav .nav-link.active {
+        background: rgba(154, 102, 255, .26);
+        color: #f4f2ff;
+        opacity: .9;
+        box-shadow: inset 0 0 0 1px rgba(255,255,255,.1);
+      }
+      .sidebar .module-parent.is-open + .module-collapse .nav .nav-link:not(.active) {
+        opacity: .92;
+      }
+    </style>';
+  }
+
   if ($role === 'admin') {
     ?>
     <div class="sidebar d-flex flex-column">

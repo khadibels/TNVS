@@ -19,7 +19,7 @@ if (!$procPdo) {                                     // soft fallback so page st
 $pltPdo  = db('plt');                                // PLT
 
 /* -------------------- helpers -------------------- */
-function table_exists(PDO $pdo = null, string $table = ''): bool {
+function table_exists(?PDO $pdo = null, string $table = ''): bool {
   if (!$pdo) return false;
   try {
     $stmt = $pdo->prepare("SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?");
@@ -27,7 +27,7 @@ function table_exists(PDO $pdo = null, string $table = ''): bool {
     return (bool)$stmt->fetchColumn();
   } catch (Throwable $e) { return false; }
 }
-function column_exists(PDO $pdo = null, string $table = '', string $col = ''): bool {
+function column_exists(?PDO $pdo = null, string $table = '', string $col = ''): bool {
   if (!$pdo) return false;
   try {
     $s = $pdo->prepare("SHOW COLUMNS FROM `$table` LIKE ?");
@@ -35,7 +35,7 @@ function column_exists(PDO $pdo = null, string $table = '', string $col = ''): b
     return (bool)$s->fetchColumn();
   } catch (Throwable $e) { return false; }
 }
-function fetch_val(PDO $pdo = null, string $sql = '', array $params = [], $fallback = 0) {
+function fetch_val(?PDO $pdo = null, string $sql = '', array $params = [], $fallback = 0) {
   if (!$pdo) return $fallback;
   try {
     $st = $pdo->prepare($sql);
@@ -44,7 +44,7 @@ function fetch_val(PDO $pdo = null, string $sql = '', array $params = [], $fallb
     return $v !== false ? $v : $fallback;
   } catch (Throwable $e) { return $fallback; }
 }
-function qall(PDO $pdo = null, string $sql = '', array $bind = []) {
+function qall(?PDO $pdo = null, string $sql = '', array $bind = []) {
   if (!$pdo) return [];
   try {
     $st = $pdo->prepare($sql);
@@ -332,6 +332,12 @@ for ($i=0;$i<14;$i++){
   $match = array_values(array_filter($plt_rowsDaily, fn($r)=>$r['d']===$lbl));
   $plt_dailyValues[] = $match ? (int)$match[0]['total'] : 0;
 }
+$pr_hasTopSupData = !empty($pr_topSupLabels) && array_sum($pr_topSupAmts) > 0;
+$plt_hasStatusData = !empty($plt_stValues) && array_sum($plt_stValues) > 0;
+$plt_hasDailyData  = !empty($plt_dailyValues) && array_sum($plt_dailyValues) > 0;
+$plt_hasUpcomingData = !empty($plt_upcoming);
+$plt_hasRecentData = !empty($plt_recent);
+$plt_hasAtRiskData = !empty($plt_atRisk);
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -594,13 +600,14 @@ for ($i=0;$i<14;$i++){
         </div></div></div>
       </div>
 
+      <?php if ($pr_hasTopSupData): ?>
       <div class="row g-3 mb-4">
         <div class="col-12"><div class="card shadow-sm chart-card h-100"><div class="card-body">
           <div class="d-flex justify-content-between align-items-center mb-2"><h6 class="m-0">Top Suppliers (last 90 days)</h6><ion-icon name="ribbon-outline"></ion-icon></div>
           <canvas id="pr_chartSup"></canvas>
-          <?php if(!$hasSup || !$poHeaderTbl): ?><div class="text-muted small mt-2">Tip: ensure <code>suppliers</code> and POs are linked via <code>supplier_id</code>.</div><?php endif; ?>
         </div></div></div>
       </div>
+      <?php endif; ?>
 
       <!-- ===================== PLT ===================== -->
       <h5 class="section-title d-flex align-items-center gap-2"><ion-icon name="trail-sign-outline"></ion-icon> PLT</h5>
@@ -632,18 +639,25 @@ for ($i=0;$i<14;$i++){
         </div></div></div>
       </div>
 
+      <?php if ($plt_hasStatusData || $plt_hasDailyData): ?>
       <div class="row g-3 mb-3">
+        <?php if ($plt_hasStatusData): ?>
         <div class="col-12 col-lg-6"><div class="card shadow-sm chart-card h-100"><div class="card-body">
           <h6 class="mb-2 d-flex align-items-center gap-2"><ion-icon name="pie-chart-outline"></ion-icon> Status (last 30d)</h6>
           <canvas id="plt_status"></canvas>
         </div></div></div>
+        <?php endif; ?>
+        <?php if ($plt_hasDailyData): ?>
         <div class="col-12 col-lg-6"><div class="card shadow-sm chart-card h-100"><div class="card-body">
-          <h6 class="mb-2 d-flex align-items-center gap-2"><ion-icon name="bar-chart-outline"></ionicon> Shipments per Day (last 14d)</h6>
+          <h6 class="mb-2 d-flex align-items-center gap-2"><ion-icon name="bar-chart-outline"></ion-icon> Shipments per Day (last 14d)</h6>
           <canvas id="plt_daily"></canvas>
         </div></div></div>
+        <?php endif; ?>
       </div>
+      <?php endif; ?>
 
       <div class="row g-3">
+        <?php if ($plt_hasUpcomingData): ?>
         <div class="col-12 col-lg-6">
           <div class="card shadow-sm h-100">
             <div class="card-body">
@@ -669,7 +683,9 @@ for ($i=0;$i<14;$i++){
             </div>
           </div>
         </div>
+        <?php endif; ?>
 
+        <?php if ($plt_hasRecentData): ?>
         <div class="col-12 col-lg-6">
           <div class="card shadow-sm h-100">
             <div class="card-body">
@@ -695,7 +711,9 @@ for ($i=0;$i<14;$i++){
             </div>
           </div>
         </div>
+        <?php endif; ?>
 
+        <?php if ($plt_hasAtRiskData): ?>
         <div class="col-12">
           <div class="card shadow-sm">
             <div class="card-body">
@@ -720,6 +738,13 @@ for ($i=0;$i<14;$i++){
             </div>
           </div>
         </div>
+        <?php endif; ?>
+
+        <?php if (!$plt_hasUpcomingData && !$plt_hasRecentData && !$plt_hasAtRiskData && !$plt_hasStatusData && !$plt_hasDailyData): ?>
+        <div class="col-12">
+          <div class="alert alert-light border text-muted mb-0">No PLT dashboard data available yet.</div>
+        </div>
+        <?php endif; ?>
 
       </div><!-- /PLT tables -->
 
@@ -750,13 +775,15 @@ for ($i=0;$i<14;$i++){
   const sw_shipLabels  = <?= json_encode($sw_shipLabels) ?>;
   const sw_shipData    = <?= json_encode($sw_shipData) ?>;
 
-  new Chart(document.getElementById('sw_catChart'), {
+  const swCatEl = document.getElementById('sw_catChart');
+  if (swCatEl) new Chart(swCatEl, {
     type:'bar',
     data:{ labels: sw_catLabels, datasets:[{ label:'Units', data: sw_catData, borderWidth:1, backgroundColor: purpleSoft2, borderColor: purpleDeep }] },
     options:{ maintainAspectRatio:false, scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } }, x:{ grid:{ display:false } } }, plugins:{ legend:{ display:false } } }
   });
 
-  new Chart(document.getElementById('sw_trendChart'), {
+  const swTrendEl = document.getElementById('sw_trendChart');
+  if (swTrendEl) new Chart(swTrendEl, {
     type:'line',
     data:{ labels: sw_trendLabels, datasets:[
       { label:'Incoming', data: sw_incoming, tension:.35, fill:false, borderWidth:2.5, pointRadius:0, borderColor: purple, backgroundColor: purpleSoft },
@@ -765,13 +792,15 @@ for ($i=0;$i<14;$i++){
     options:{ maintainAspectRatio:false, scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } } }, plugins:{ tooltip:{ mode:'index', intersect:false } } }
   });
 
-  new Chart(document.getElementById('sw_locChart'), {
+  const swLocEl = document.getElementById('sw_locChart');
+  if (swLocEl) new Chart(swLocEl, {
     type:'doughnut',
     data:{ labels: sw_locLabels, datasets:[{ data: sw_locData, borderWidth:1, backgroundColor: [purple, purpleDeep, purpleSoft2, '#cabdff', '#b39bff', '#9d86ff', '#8a73ff'] }] },
     options:{ maintainAspectRatio:false, plugins:{ legend:{ position:'bottom' } } }
   });
 
-  new Chart(document.getElementById('sw_shipChart'), {
+  const swShipEl = document.getElementById('sw_shipChart');
+  if (swShipEl) new Chart(swShipEl, {
     type:'doughnut',
     data:{ labels: sw_shipLabels, datasets:[{ data: sw_shipData, borderWidth:1, backgroundColor: [purple, '#7b5bff', '#9b87ff'] }] },
     options:{ maintainAspectRatio:false, plugins:{ legend:{ position:'bottom' } } }
@@ -785,19 +814,22 @@ for ($i=0;$i<14;$i++){
   const pr_topSupLabels   = <?= json_encode($pr_topSupLabels) ?>;
   const pr_topSupAmts     = <?= json_encode($pr_topSupAmts) ?>;
 
-  new Chart(document.getElementById('pr_chartStatus'), {
+  const prStatusEl = document.getElementById('pr_chartStatus');
+  if (prStatusEl) new Chart(prStatusEl, {
     type:'doughnut',
     data:{ labels: pr_poStatusLabels, datasets:[{ data: pr_poStatusData, borderWidth:1, backgroundColor: [purple, '#7b5bff', '#8c6bff', '#9d86ff', '#b39bff', '#cabdff', purpleSoft2] }] },
     options:{ maintainAspectRatio:false, plugins:{ legend:{ position:'bottom' } } }
   });
 
-  new Chart(document.getElementById('pr_chartMonth'), {
+  const prMonthEl = document.getElementById('pr_chartMonth');
+  if (prMonthEl) new Chart(prMonthEl, {
     type:'bar',
     data:{ labels: pr_monLabels, datasets:[{ label:'Spend', data: pr_monAmounts, borderWidth:1, backgroundColor: purpleSoft2, borderColor: purpleDeep }] },
     options:{ maintainAspectRatio:false, scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } }, x:{ grid:{ display:false } } }, plugins:{ legend:{ display:false }, tooltip:{ mode:'index', intersect:false } } }
   });
 
-  new Chart(document.getElementById('pr_chartSup'), {
+  const prSupEl = document.getElementById('pr_chartSup');
+  if (prSupEl) new Chart(prSupEl, {
     type:'bar',
     data:{ labels: pr_topSupLabels, datasets:[{ label:'Amount', data: pr_topSupAmts, borderWidth:1, backgroundColor: purpleSoft2, borderColor: purpleDeep }] },
     options:{ maintainAspectRatio:false, indexAxis:'y', scales:{ x:{ beginAtZero:true, ticks:{ precision:0 } }, y:{ grid:{ display:false } } }, plugins:{ legend:{ display:false } } }
@@ -809,12 +841,14 @@ for ($i=0;$i<14;$i++){
   const plt_dailyLabels = <?= json_encode($plt_dailyLabels) ?>;
   const plt_dailyValues = <?= json_encode($plt_dailyValues) ?>;
 
-  new Chart(document.getElementById('plt_status'), {
+  const pltStatusEl = document.getElementById('plt_status');
+  if (pltStatusEl) new Chart(pltStatusEl, {
     type:'doughnut',
     data:{ labels: plt_stLabels, datasets:[{ data: plt_stValues, borderWidth:1, backgroundColor: [purple, '#7b5bff', '#9b87ff', '#b39bff', purpleSoft2] }] },
     options:{ maintainAspectRatio:false, plugins:{ legend:{ position:'bottom' } } }
   });
-  new Chart(document.getElementById('plt_daily'), {
+  const pltDailyEl = document.getElementById('plt_daily');
+  if (pltDailyEl) new Chart(pltDailyEl, {
     type:'bar',
     data:{ labels: plt_dailyLabels, datasets:[{ label:'Shipments', data: plt_dailyValues, borderWidth:1, backgroundColor: purpleSoft2, borderColor: purpleDeep }] },
     options:{ maintainAspectRatio:false, scales:{ y:{ beginAtZero:true, ticks:{ precision:0 } }, x:{ grid:{ display:false } } }, plugins:{ legend:{ display:false } } }
