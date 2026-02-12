@@ -58,6 +58,11 @@ if (!isset($BASE)) {
     font-weight: 700;
     letter-spacing: .2px;
   }
+  .ai-head-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
   .ai-title .dot {
     width: 10px;
     height: 10px;
@@ -137,7 +142,10 @@ if (!isset($BASE)) {
 <div class="ai-panel" id="aiPanel">
   <div class="ai-head">
     <div class="ai-title"><span class="dot"></span> TNVS Assistant</div>
-    <button class="btn btn-sm btn-light" id="aiClose" aria-label="Close">×</button>
+    <div class="ai-head-actions">
+      <button class="btn btn-sm btn-outline-secondary" id="aiClear" type="button">Clear Chat</button>
+      <button class="btn btn-sm btn-light" id="aiClose" aria-label="Close" type="button">×</button>
+    </div>
   </div>
   <div class="ai-body">
     <div class="ai-log" id="aiLog"></div>
@@ -157,6 +165,7 @@ if (!isset($BASE)) {
   const aiFab = document.getElementById('aiFab');
   const aiPanel = document.getElementById('aiPanel');
   const aiClose = document.getElementById('aiClose');
+  const aiClear = document.getElementById('aiClear');
   const aiSend = document.getElementById('aiSend');
   const aiLog = document.getElementById('aiLog');
   const aiQ = document.getElementById('aiQ');
@@ -237,6 +246,13 @@ if (!isset($BASE)) {
     }
   }
 
+  function clearChat(){
+    history = [];
+    saveHistory(history);
+    if (aiLog) aiLog.innerHTML = '';
+    addMsg('Chat cleared. How can I help you now?', 'bot');
+  }
+
   aiFab?.addEventListener('click', ()=>{
     toggleAi(!aiPanel.classList.contains('show'));
     if (aiLog && aiLog.children.length === 0) {
@@ -248,6 +264,7 @@ if (!isset($BASE)) {
     }
   });
   aiClose?.addEventListener('click', ()=> toggleAi(false));
+  aiClear?.addEventListener('click', clearChat);
 
   window.__aiChatShipment = window.__aiChatShipment || { id: 0, ref: '' };
   window.__aiChat = {
