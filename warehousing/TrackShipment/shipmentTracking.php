@@ -908,6 +908,39 @@ function writeGeoCache(key, point){
   try { localStorage.setItem(GEO_CACHE_PREFIX + key, JSON.stringify(point)); } catch (e) {}
 }
 
+async function fetchRoadRoute(originPoint, destPoint){
+  if (!originPoint || !destPoint) return null;
+  const oLat = Number(originPoint.lat), oLng = Number(originPoint.lng);
+  const dLat = Number(destPoint.lat), dLng = Number(destPoint.lng);
+  if (!Number.isFinite(oLat) || !Number.isFinite(oLng) || !Number.isFinite(dLat) || !Number.isFinite(dLng)) return null;
+
+  // Try more than one public OSRM service so we get road geometry reliably.
+  const endpoints = [
+    'https://router.project-osrm.org',
+    'https://routing.openstreetmap.de/routed-car'
+  ];
+
+  for (const base of endpoints) {
+    const url = `${base}/route/v1/driving/${oLng},${oLat};${dLng},${dLat}?overview=full&geometries=geojson&alternatives=false&steps=false&continue_straight=true`;
+    try {
+      const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+      if (!res.ok) continue;
+      const j = await res.json();
+      const coords = j?.routes?.[0]?.geometry?.coordinates;
+      if (!Array.isArray(coords) || !coords.length) continue;
+      const out = coords
+        .map(c => [Number(c[1]), Number(c[0])])
+        .filter(c => Number.isFinite(c[0]) && Number.isFinite(c[1]));
+      // If route has only 2 points it behaves like straight fallback; treat as unusable.
+      if (out.length < 3) continue;
+      return out;
+    } catch (e) {
+      // Try next endpoint
+    }
+  }
+  return null;
+}
+
 async function geocode(query){
   const rows = await geocodeMany(query, 1);
   return rows[0] || null;
@@ -1109,17 +1142,32 @@ async function renderShipmentMap(shipment, focusMode = 'auto'){
       .bindPopup(`<strong>Warehouse</strong><br>${extraLabel}`).addTo(mapState.points);
   }
 
+  let usedRoadRoute = false;
   if (!isWarehouseFocus && focusMode === 'auto' && originPoint && destPoint) {
-    mapState.line = L.polyline([
-      [originPoint.lat, originPoint.lng],
-      [destPoint.lat, destPoint.lng]
-    ], { color: '#2563eb', weight: 5, opacity: 0.9, dashArray: '10 8' }).addTo(map);
+    let routePath = await fetchRoadRoute(originPoint, destPoint);
+    if (!routePath || routePath.length < 2) {
+      routePath = [
+        [originPoint.lat, originPoint.lng],
+        [destPoint.lat, destPoint.lng]
+      ];
+      usedRoadRoute = false;
+    } else {
+      usedRoadRoute = true;
+    }
+    mapState.line = L.polyline(routePath, usedRoadRoute
+      ? { color: '#2563eb', weight: 5, opacity: 0.95 }
+      : { color: '#2563eb', weight: 5, opacity: 0.9, dashArray: '10 8' }
+    ).addTo(map);
   }
 
   if (points.length > 1) {
     map.fitBounds(points, { padding: [32, 32] });
     if (map.getZoom() > 14) map.setZoom(14);
-    if (hintEl) hintEl.textContent = 'Live route preview based on saved warehouse pins and addresses.';
+    if (hintEl) {
+      hintEl.textContent = usedRoadRoute
+        ? 'Live road route preview based on saved warehouse pins.'
+        : 'Live route preview based on saved warehouse pins and addresses.';
+    }
   } else if (points.length === 1) {
     map.setView(points[0], 16, { animate: true });
     if (hintEl) hintEl.textContent = 'Live route preview based on saved warehouse pins and addresses.';

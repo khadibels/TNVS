@@ -176,6 +176,49 @@ function fallback_reply(string $q, array $context, ?array $shipment): string {
 try {
   require_login("json");
 
+  if (($_GET['action'] ?? '') === 'health') {
+    $probe = [
+      'ok' => true,
+      'time' => date('c'),
+      'db' => [
+        'wms' => false,
+        'proc' => false,
+        'auth' => false,
+      ],
+      'ollama' => [
+        'configured_url' => defined('OLLAMA_URL') ? OLLAMA_URL : null,
+        'configured_model' => defined('OLLAMA_MODEL') ? OLLAMA_MODEL : null,
+        'reachable' => false,
+        'models' => [],
+        'error' => null,
+      ],
+    ];
+
+    $wms  = db('wms');
+    $proc = db('proc');
+    $auth = db('auth');
+    $probe['db']['wms'] = $wms instanceof PDO;
+    $probe['db']['proc'] = $proc instanceof PDO;
+    $probe['db']['auth'] = $auth instanceof PDO;
+
+    $ollamaUrl = defined('OLLAMA_URL') ? OLLAMA_URL : 'http://localhost:11434';
+    $candidates = array_unique([
+      rtrim($ollamaUrl, '/'),
+      'http://127.0.0.1:11434',
+      'http://localhost:11434',
+    ]);
+    $models = array_filter(ollama_list_models($candidates));
+    if ($models) {
+      $probe['ollama']['reachable'] = true;
+      $probe['ollama']['models'] = array_values($models);
+    } else {
+      $probe['ollama']['error'] = 'Could not reach Ollama tags endpoint from this server.';
+    }
+
+    echo json_encode($probe);
+    exit;
+  }
+
   if ($_SERVER['REQUEST_METHOD'] !== 'POST') throw new Exception('POST required');
 
   $q = trim((string)($_POST['q'] ?? ''));

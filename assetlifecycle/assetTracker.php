@@ -65,9 +65,42 @@ foreach ([
   "updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"
 ] as $def) { safe_add_column($pdo, 'assets', $def); }
 
+// Seed default purchased vehicles once (no duplicates).
+$seedVehicles = [
+  ['name' => 'Toyota Hiace', 'manufacturer' => 'Toyota', 'model' => 'Hiace'],
+  ['name' => 'Isuzu Travis', 'manufacturer' => 'Isuzu', 'model' => 'Travis'],
+];
+$seedCheck = $pdo->prepare("SELECT id FROM assets WHERE LOWER(name)=LOWER(:name) LIMIT 1");
+$seedInsert = $pdo->prepare(
+  "INSERT INTO assets
+   (name, asset_type, manufacturer, model, department, status, notes)
+   VALUES
+   (:name, 'Vehicle', :manufacturer, :model, 'Logistics', 'Registered', 'Seeded default purchased vehicle')"
+);
+foreach ($seedVehicles as $vehicle) {
+  $seedCheck->execute([':name' => $vehicle['name']]);
+  if (!$seedCheck->fetchColumn()) {
+    $seedInsert->execute([
+      ':name' => $vehicle['name'],
+      ':manufacturer' => $vehicle['manufacturer'],
+      ':model' => $vehicle['model'],
+    ]);
+  }
+}
+
 // -------------------- HELPERS --------------------
 function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
 function money_fmt($v){ return number_format((float)$v, 2); }
+function next_status_options(string $status): array {
+  return match ($status) {
+    'Registered' => ['Deployed'],
+    'Deployed' => ['Active', 'In Maintenance', 'Retired'],
+    'Active' => ['In Maintenance', 'Retired'],
+    'In Maintenance' => ['Active', 'Retired'],
+    'Retired' => ['Disposed'],
+    default => [],
+  };
+}
 
 // CSRF
 if (empty($_SESSION['csrf_token'])) { $_SESSION['csrf_token'] = bin2hex(random_bytes(16)); }
@@ -301,6 +334,51 @@ $userRole = $_SESSION["user"]["role"] ?? "Warehouse Manager";
 
   <!-- Sidebar toggle -->
   <script src="../js/sidebar-toggle.js"></script>
+  <style>
+    :root {
+      --slate-50: #f8fafc;
+      --slate-100: #f1f5f9;
+      --slate-200: #e2e8f0;
+      --slate-600: #475569;
+      --slate-800: #1e293b;
+    }
+    body { background-color: var(--slate-50); }
+    .text-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 700; color: #94a3b8; margin-bottom: 2px; }
+    .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1.25rem; margin-bottom: 1.25rem; }
+    .stat-card { background: #fff; border: 1px solid var(--slate-200); border-radius: 1rem; padding: 1.2rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); transition: transform .2s; }
+    .stat-card:hover { transform: translateY(-2px); box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+    .stat-icon { width: 44px; height: 44px; border-radius: 12px; display:flex; align-items:center; justify-content:center; font-size: 1.3rem; margin-bottom: .8rem; }
+    .card-table { border: 1px solid var(--slate-200); border-radius: 1rem; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow: hidden; }
+    .table-custom thead th {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--slate-600);
+      background: var(--slate-50);
+      border-bottom: 1px solid var(--slate-200);
+      font-weight: 600;
+      padding: 1rem 1.25rem;
+    }
+    .table-custom tbody td {
+      padding: 0.95rem 1.25rem;
+      border-bottom: 1px solid var(--slate-100);
+      font-size: 0.95rem;
+      color: var(--slate-800);
+      vertical-align: middle;
+    }
+    .table-custom tbody tr:last-child td { border-bottom: none; }
+    .table-custom tbody tr:hover td { background-color: #f8fafc; }
+    .asset-table th, .asset-table td { vertical-align: middle; }
+    .asset-table th:last-child, .asset-table td:last-child { min-width: 280px; }
+    .asset-actions { display: grid; gap: 0.45rem; }
+    .asset-status-form { display: flex; gap: 0.4rem; align-items: center; }
+    .asset-status-form .form-select { min-width: 140px; }
+    .asset-manage { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+    .asset-meta { color: #667085; font-size: .86rem; }
+    .f-mono { font-family: 'SF Mono', 'Segoe UI Mono', 'Roboto Mono', monospace; letter-spacing: -0.3px; }
+    .filters-wrap .input-group-text { background:#fff; border-right:0; color:#94a3b8; }
+    .filters-wrap .form-control.search-control { border-left:0; padding-left:0; }
+  </style>
 </head>
 <body class="saas-page">
   <div class="container-fluid p-0">
@@ -377,135 +455,110 @@ $userRole = $_SESSION["user"]["role"] ?? "Warehouse Manager";
           </div>
         </div>
 
-        <!-- Error banner -->
-        <?php if (!empty($_GET['err'])): ?>
-          <div class="alert alert-danger"><?= h($_GET['err']) ?></div>
-        <?php endif; ?>
+        <div class="px-4 pb-5">
+          <!-- Error banner -->
+          <?php if (!empty($_GET['err'])): ?>
+            <div class="alert alert-danger alert-dismissible fade show border-0 shadow-sm mb-3">
+              <ion-icon name="alert-circle-outline" class="me-2"></ion-icon><?= h($_GET['err']) ?>
+              <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+          <?php endif; ?>
 
-        <!-- Actions -->
-        <section class="mb-3">
-          <div class="d-flex gap-2">
-            <a class="btn btn-violet"
-               href="?action=export&status=<?= h($fStatus) ?>&type=<?= h($fType) ?>&dept=<?= h($fDept) ?>&q=<?= urlencode($fQ) ?>">
-              <ion-icon name="download-outline"></ion-icon> Export CSV
-            </a>
-          </div>
-        </section>
+          <!-- Action bar -->
+          <section class="mb-3">
+            <div class="d-flex justify-content-between align-items-center gap-2 flex-wrap">
+              <div class="d-flex gap-2">
+                <a class="btn btn-violet d-flex align-items-center gap-2"
+                   href="?action=export&status=<?= h($fStatus) ?>&type=<?= h($fType) ?>&dept=<?= h($fDept) ?>&q=<?= urlencode($fQ) ?>">
+                  <ion-icon name="download-outline"></ion-icon> Export CSV
+                </a>
+                <?php if ($isAdmin): ?>
+                  <button class="btn btn-white border shadow-sm d-flex align-items-center gap-2"
+                          type="button" data-bs-toggle="modal" data-bs-target="#addAssetModal">
+                    <ion-icon name="add-circle-outline"></ion-icon> Add Asset
+                  </button>
+                <?php endif; ?>
+              </div>
+            </div>
+          </section>
 
         <!-- KPIs -->
-        <section class="card shadow-sm mb-3">
-          <div class="card-body">
-            <div class="row g-2 g-md-3">
-              <div class="col-6 col-md-2"><div class="stat"><div class="label">Total Assets</div><div class="number"><?= (int)$totalAssets ?></div></div></div>
-              <div class="col-6 col-md-2"><div class="stat"><div class="label">Registered</div><div class="number"><?= (int)$registered ?></div></div></div>
-              <div class="col-6 col-md-2"><div class="stat"><div class="label">Deployed</div><div class="number"><?= (int)$deployed ?></div></div></div>
-              <div class="col-6 col-md-2"><div class="stat"><div class="label">Active</div><div class="number"><?= (int)$active ?></div></div></div>
-              <div class="col-6 col-md-2"><div class="stat"><div class="label">In Maintenance</div><div class="number"><?= (int)$inMaint ?></div></div></div>
-              <div class="col-6 col-md-2"><div class="stat"><div class="label">Retired/Disposed</div><div class="number"><?= (int)$retired ?></div></div></div>
-              <div class="col-12 col-md-3"><div class="stat"><div class="label">Total Purchase Value</div><div class="number">₱<?= money_fmt($purchaseSum) ?></div></div></div>
-            </div>
+        <section class="stats-row">
+          <div class="stat-card">
+            <div class="stat-icon bg-primary bg-opacity-10 text-primary"><ion-icon name="cube-outline"></ion-icon></div>
+            <div class="text-label">Total Assets</div>
+            <div class="fs-3 fw-bold text-dark mt-1"><?= (int)$totalAssets ?></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon bg-secondary bg-opacity-10 text-secondary"><ion-icon name="bookmark-outline"></ion-icon></div>
+            <div class="text-label">Registered</div>
+            <div class="fs-3 fw-bold text-dark mt-1"><?= (int)$registered ?></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon bg-info bg-opacity-10 text-info"><ion-icon name="send-outline"></ion-icon></div>
+            <div class="text-label">Deployed</div>
+            <div class="fs-3 fw-bold text-dark mt-1"><?= (int)$deployed ?></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon bg-success bg-opacity-10 text-success"><ion-icon name="checkmark-circle-outline"></ion-icon></div>
+            <div class="text-label">Active</div>
+            <div class="fs-3 fw-bold text-dark mt-1"><?= (int)$active ?></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon bg-warning bg-opacity-10 text-warning"><ion-icon name="construct-outline"></ion-icon></div>
+            <div class="text-label">In Maintenance</div>
+            <div class="fs-3 fw-bold text-dark mt-1"><?= (int)$inMaint ?></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon bg-dark bg-opacity-10 text-dark"><ion-icon name="archive-outline"></ion-icon></div>
+            <div class="text-label">Retired / Disposed</div>
+            <div class="fs-3 fw-bold text-dark mt-1"><?= (int)$retired ?></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon bg-primary bg-opacity-10 text-primary"><ion-icon name="cash-outline"></ion-icon></div>
+            <div class="text-label">Total Purchase Value</div>
+            <div class="fs-3 fw-bold text-dark mt-1">₱<?= money_fmt($purchaseSum) ?></div>
           </div>
         </section>
 
         <!-- Filters -->
-        <section class="card shadow-sm mb-3">
-          <div class="card-body">
-            <form class="row g-2 align-items-end" onsubmit="event.preventDefault();applyFilters();">
-              <div class="col-12 col-md-3">
-                <label class="form-label">Search</label>
-                <input id="f_q" class="form-control" placeholder="name / ID / driver / route" value="<?= h($fQ) ?>">
+        <section class="filters-wrap mb-3">
+          <div class="d-flex flex-wrap gap-2 align-items-center">
+            <div class="flex-grow-1" style="max-width: 320px;">
+              <div class="input-group">
+                <span class="input-group-text"><ion-icon name="search-outline"></ion-icon></span>
+                <input id="f_q" class="form-control search-control" placeholder="Search name / ID / driver / route" value="<?= h($fQ) ?>">
               </div>
-              <div class="col-6 col-md-3">
-                <label class="form-label">Status</label>
-                <select id="f_status" class="form-select">
-                  <option value="">All statuses</option>
-                  <?php foreach ($statuses as $s): ?>
-                    <option value="<?= h($s) ?>" <?= $fStatus===$s?'selected':'' ?>><?= h($s) ?></option>
-                  <?php endforeach; ?>
-                </select>
-              </div>
-              <div class="col-6 col-md-3">
-                <label class="form-label">Type</label>
-                <select id="f_type" class="form-select">
-                  <option value="">All types</option>
-                  <?php foreach ($types as $t): ?>
-                    <option value="<?= h($t) ?>" <?= $fType===$t?'selected':'' ?>><?= h($t) ?></option>
-                  <?php endforeach; ?>
-                </select>
-              </div>
-              <div class="col-12 col-md-2">
-                <label class="form-label">Department</label>
-                <select id="f_dept" class="form-select">
-                  <option value="">All departments</option>
-                  <?php foreach ($departments as $d): ?>
-                    <option value="<?= h($d) ?>" <?= $fDept===$d?'selected':'' ?>><?= h($d) ?></option>
-                  <?php endforeach; ?>
-                </select>
-              </div>
-              <div class="col-12 col-md-1 d-grid">
-                <button type="submit" class="btn btn-outline-secondary">Filter</button>
-              </div>
-            </form>
-          </div>
-        </section>
-
-        <!-- Add Asset -->
-        <section class="card shadow-sm mb-3">
-          <div class="card-body">
-            <?php if ($isAdmin): ?>
-              <form method="POST" action="<?= h($_SERVER['PHP_SELF']) ?>" class="row g-2">
-                <input type="hidden" name="op" value="add">
-                <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-
-                <div class="col-12 col-md-3"><input class="form-control" name="name" placeholder="Asset Name" required></div>
-                <div class="col-12 col-md-3"><input class="form-control" name="unique_id" placeholder="Unique ID (QR/RFID/Serial)"></div>
-                <div class="col-6 col-md-2">
-                  <select class="form-select" name="asset_type">
-                    <option value="">Type</option>
-                    <?php foreach ($types as $t): ?><option><?= h($t) ?></option><?php endforeach; ?>
-                  </select>
-                </div>
-                <div class="col-6 col-md-2"><input class="form-control" name="manufacturer" placeholder="Manufacturer"></div>
-                <div class="col-6 col-md-2"><input class="form-control" name="model" placeholder="Model"></div>
-
-                <div class="col-6 col-md-2"><input class="form-control" type="date" name="purchase_date" title="Purchase date"></div>
-                <div class="col-6 col-md-2"><input class="form-control" type="number" step="0.01" name="purchase_cost" placeholder="Cost"></div>
-                <div class="col-6 col-md-2">
-                  <select class="form-select" name="department">
-                    <option value="">Department</option>
-                    <?php foreach ($departments as $d): ?><option><?= h($d) ?></option><?php endforeach; ?>
-                  </select>
-                </div>
-                <div class="col-6 col-md-2"><input class="form-control" name="driver" placeholder="Assigned Driver"></div>
-                <div class="col-6 col-md-2"><input class="form-control" name="route" placeholder="Route"></div>
-                <div class="col-6 col-md-2"><input class="form-control" name="depot" placeholder="Depot"></div>
-                <div class="col-6 col-md-2">
-                  <select class="form-select" name="status">
-                    <?php foreach ($statuses as $s): ?><option <?= $s==='Registered'?'selected':'' ?>><?= h($s) ?></option><?php endforeach; ?>
-                  </select>
-                </div>
-                <div class="col-6 col-md-2"><input class="form-control" type="date" name="deployment_date" title="Deployment date"></div>
-                <div class="col-6 col-md-2"><input class="form-control" name="gps_imei" placeholder="GPS IMEI"></div>
-                <div class="col-12 col-md-4"><input class="form-control" name="notes" placeholder="Notes"></div>
-
-                <div class="col-12 col-md-2 d-grid">
-                  <button class="btn btn-violet" type="submit">
-                    <ion-icon name="add-circle-outline"></ion-icon> Add Asset
-                  </button>
-                </div>
-              </form>
-            <?php else: ?>
-              <div class="text-muted">Read-only access. Contact an administrator to add assets.</div>
-            <?php endif; ?>
+            </div>
+            <select id="f_status" class="form-select" style="max-width: 200px;">
+              <option value="">All statuses</option>
+              <?php foreach ($statuses as $s): ?>
+                <option value="<?= h($s) ?>" <?= $fStatus===$s?'selected':'' ?>><?= h($s) ?></option>
+              <?php endforeach; ?>
+            </select>
+            <select id="f_type" class="form-select" style="max-width: 200px;">
+              <option value="">All types</option>
+              <?php foreach ($types as $t): ?>
+                <option value="<?= h($t) ?>" <?= $fType===$t?'selected':'' ?>><?= h($t) ?></option>
+              <?php endforeach; ?>
+            </select>
+            <select id="f_dept" class="form-select" style="max-width: 220px;">
+              <option value="">All departments</option>
+              <?php foreach ($departments as $d): ?>
+                <option value="<?= h($d) ?>" <?= $fDept===$d?'selected':'' ?>><?= h($d) ?></option>
+              <?php endforeach; ?>
+            </select>
+            <div class="ms-auto d-flex align-items-center gap-3">
+              <button type="button" id="btnFilter" class="btn btn-white border shadow-sm fw-medium px-3">Filter</button>
+              <button type="button" id="btnReset" class="btn btn-link text-decoration-none text-muted p-0">Reset</button>
+            </div>
           </div>
         </section>
 
         <!-- Table -->
-        <section class="card shadow-sm">
-          <div class="card-body">
-            <h5 class="mb-3">Assets</h5>
+        <section class="card-table">
             <div class="table-responsive">
-              <table class="table align-middle">
+              <table class="table table-custom mb-0 align-middle asset-table">
                 <thead class="sticky-th">
                   <tr>
                     <th>ID</th>
@@ -515,15 +568,19 @@ $userRole = $_SESSION["user"]["role"] ?? "Warehouse Manager";
                     <th>Status</th>
                     <th>Purchase</th>
                     <th>Deploy / Retire</th>
-                    <th>Actions</th>
+                    <th>Status / Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                <?php foreach ($assets as $a): ?>
+                <?php if (!$assets): ?>
+                  <tr>
+                    <td colspan="8" class="text-center py-5 text-muted">No assets found.</td>
+                  </tr>
+                <?php else: foreach ($assets as $a): ?>
                   <tr class="<?= ($highlightId && $a['id']===$highlightId)?'highlight':'' ?>" id="asset-<?= (int)$a['id'] ?>">
-                    <td><?= (int)$a['id'] ?></td>
+                    <td class="f-mono fw-semibold"><?= (int)$a['id'] ?></td>
                     <td>
-                      <div class="fw-semibold"><?= h($a['unique_id'] ?: '—') ?></div>
+                      <div class="fw-semibold f-mono text-primary"><?= h($a['unique_id'] ?: '—') ?></div>
                       <div><?= h($a['name']) ?></div>
                     </td>
                     <td>
@@ -533,11 +590,6 @@ $userRole = $_SESSION["user"]["role"] ?? "Warehouse Manager";
                     <td>
                       <div><?= h($a['driver'] ?: 'Unassigned') ?></div>
                       <div class="text-muted small"><?= h($a['route'] ?: '—') ?> · <?= h($a['depot'] ?: '—') ?></div>
-                      <div class="mt-1">
-                        <a class="btn btn-sm btn-outline-secondary" href="repair.php">
-                          <ion-icon name="construct-outline"></ion-icon> Repairs
-                        </a>
-                      </div>
                     </td>
                     <td>
                       <?php $cls = 's-'.strtolower(str_replace(' ','',$a['status'])); ?>
@@ -553,161 +605,185 @@ $userRole = $_SESSION["user"]["role"] ?? "Warehouse Manager";
                     </td>
                     <td>
                       <?php $st = $a['status']; ?>
-                      <div class="d-flex flex-wrap gap-1">
+                      <div class="asset-actions">
                         <?php if ($isAdmin): ?>
-                          <?php if ($st==='Registered'): ?>
-                            <form method="POST" action="<?= h($_SERVER['PHP_SELF']) ?>" class="d-inline">
-                              <input type="hidden" name="op" value="transition">
+                          <?php $nextOptions = next_status_options((string)$st); ?>
+                          <form method="POST" action="<?= h($_SERVER['PHP_SELF']) ?>" class="asset-status-form"
+                                onsubmit="const sel=this.querySelector('select[name=to]'); if(!sel || !sel.value){ return false; } if(sel.value==='Retired'){ return confirm('Retire this asset?'); } if(sel.value==='Disposed'){ return confirm('Mark this asset as disposed?'); } return true;">
+                            <input type="hidden" name="op" value="transition">
+                            <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+                            <input type="hidden" name="id" value="<?= (int)$a['id'] ?>">
+                            <select class="form-select form-select-sm" name="to" <?= empty($nextOptions) ? 'disabled' : '' ?>>
+                              <option value="">Change status...</option>
+                              <?php foreach ($nextOptions as $opt): ?>
+                                <option value="<?= h($opt) ?>"><?= h($opt) ?></option>
+                              <?php endforeach; ?>
+                            </select>
+                            <button class="btn btn-sm btn-violet" type="submit" <?= empty($nextOptions) ? 'disabled' : '' ?>>
+                              Apply
+                            </button>
+                          </form>
+                          <div class="asset-manage">
+                            <button class="btn btn-sm btn-outline-secondary js-edit-asset"
+                                    type="button"
+                                    data-id="<?= (int)$a['id'] ?>"
+                                    data-name="<?= h($a['name']) ?>"
+                                    data-unique_id="<?= h($a['unique_id']) ?>"
+                                    data-asset_type="<?= h($a['asset_type']) ?>"
+                                    data-manufacturer="<?= h($a['manufacturer']) ?>"
+                                    data-model="<?= h($a['model']) ?>"
+                                    data-purchase_date="<?= h($a['purchase_date']) ?>"
+                                    data-purchase_cost="<?= h($a['purchase_cost']) ?>"
+                                    data-department="<?= h($a['department']) ?>"
+                                    data-driver="<?= h($a['driver']) ?>"
+                                    data-route="<?= h($a['route']) ?>"
+                                    data-depot="<?= h($a['depot']) ?>"
+                                    data-status="<?= h($a['status']) ?>"
+                                    data-deployment_date="<?= h($a['deployment_date']) ?>"
+                                    data-retired_on="<?= h($a['retired_on']) ?>"
+                                    data-gps_imei="<?= h($a['gps_imei']) ?>"
+                                    data-notes="<?= h($a['notes']) ?>">
+                              <ion-icon name="create-outline"></ion-icon> Edit
+                            </button>
+                            <a class="btn btn-sm btn-outline-secondary" href="repair.php">
+                              <ion-icon name="construct-outline"></ion-icon> Repairs
+                            </a>
+                            <form method="POST" action="<?= h($_SERVER['PHP_SELF']) ?>" class="d-inline" onsubmit="return confirm('Delete this asset?')">
+                              <input type="hidden" name="op" value="delete">
                               <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
                               <input type="hidden" name="id" value="<?= (int)$a['id'] ?>">
-                              <input type="hidden" name="to" value="Deployed">
-                              <button class="btn btn-sm btn-violet"><ion-icon name="rocket-outline"></ion-icon> Deploy</button>
+                              <button class="btn btn-sm btn-danger"><ion-icon name="trash-outline"></ion-icon> Delete</button>
                             </form>
-                          <?php endif; ?>
-                          <?php if ($st==='Deployed'): ?>
-                            <form method="POST" action="<?= h($_SERVER['PHP_SELF']) ?>" class="d-inline">
-                              <input type="hidden" name="op" value="transition">
-                              <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-                              <input type="hidden" name="id" value="<?= (int)$a['id'] ?>">
-                              <input type="hidden" name="to" value="Active">
-                              <button class="btn btn-sm btn-violet"><ion-icon name="play-circle-outline"></ion-icon> Activate</button>
-                            </form>
-                            <form method="POST" action="<?= h($_SERVER['PHP_SELF']) ?>" class="d-inline">
-                              <input type="hidden" name="op" value="transition">
-                              <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-                              <input type="hidden" name="id" value="<?= (int)$a['id'] ?>">
-                              <input type="hidden" name="to" value="In Maintenance">
-                              <button class="btn btn-sm btn-outline-secondary"><ion-icon name="construct-outline"></ion-icon> Maintenance</button>
-                            </form>
-                            <form method="POST" action="<?= h($_SERVER['PHP_SELF']) ?>" class="d-inline" onsubmit="return confirm('Retire this asset?')">
-                              <input type="hidden" name="op" value="transition">
-                              <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-                              <input type="hidden" name="id" value="<?= (int)$a['id'] ?>">
-                              <input type="hidden" name="to" value="Retired">
-                              <button class="btn btn-sm btn-outline-secondary"><ion-icon name="power-outline"></ion-icon> Retire</button>
-                            </form>
-                          <?php endif; ?>
-                          <?php if ($st==='Active'): ?>
-                            <form method="POST" action="<?= h($_SERVER['PHP_SELF']) ?>" class="d-inline">
-                              <input type="hidden" name="op" value="transition">
-                              <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-                              <input type="hidden" name="id" value="<?= (int)$a['id'] ?>">
-                              <input type="hidden" name="to" value="In Maintenance">
-                              <button class="btn btn-sm btn-outline-secondary"><ion-icon name="construct-outline"></ion-icon> Maintenance</button>
-                            </form>
-                            <form method="POST" action="<?= h($_SERVER['PHP_SELF']) ?>" class="d-inline" onsubmit="return confirm('Retire this asset?')">
-                              <input type="hidden" name="op" value="transition">
-                              <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-                              <input type="hidden" name="id" value="<?= (int)$a['id'] ?>">
-                              <input type="hidden" name="to" value="Retired">
-                              <button class="btn btn-sm btn-outline-secondary"><ion-icon name="power-outline"></ion-icon> Retire</button>
-                            </form>
-                          <?php endif; ?>
-                          <?php if ($st==='In Maintenance'): ?>
-                            <form method="POST" action="<?= h($_SERVER['PHP_SELF']) ?>" class="d-inline">
-                              <input type="hidden" name="op" value="transition">
-                              <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-                              <input type="hidden" name="id" value="<?= (int)$a['id'] ?>">
-                              <input type="hidden" name="to" value="Active">
-                              <button class="btn btn-sm btn-violet"><ion-icon name="checkmark-circle-outline"></ion-icon> Back Active</button>
-                            </form>
-                            <form method="POST" action="<?= h($_SERVER['PHP_SELF']) ?>" class="d-inline" onsubmit="return confirm('Retire this asset?')">
-                              <input type="hidden" name="op" value="transition">
-                              <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-                              <input type="hidden" name="id" value="<?= (int)$a['id'] ?>">
-                              <input type="hidden" name="to" value="Retired">
-                              <button class="btn btn-sm btn-outline-secondary"><ion-icon name="power-outline"></ion-icon> Retire</button>
-                            </form>
-                          <?php endif; ?>
-                          <?php if ($st==='Retired'): ?>
-                            <form method="POST" action="<?= h($_SERVER['PHP_SELF']) ?>" class="d-inline" onsubmit="return confirm('Mark this asset as disposed?')">
-                              <input type="hidden" name="op" value="transition">
-                              <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-                              <input type="hidden" name="id" value="<?= (int)$a['id'] ?>">
-                              <input type="hidden" name="to" value="Disposed">
-                              <button class="btn btn-sm btn-danger"><ion-icon name="trash-outline"></ion-icon> Dispose</button>
-                            </form>
-                          <?php endif; ?>
+                          </div>
                         <?php else: ?>
                           <span class="text-muted small">No actions available</span>
                         <?php endif; ?>
                       </div>
-
-                      <?php if ($isAdmin): ?>
-                      <div class="mt-2 d-flex flex-wrap gap-1">
-                        <button class="btn btn-sm btn-outline-secondary" onclick="toggleEdit(<?= (int)$a['id'] ?>)">
-                          <ion-icon name="create-outline"></ion-icon> Edit
-                        </button>
-                        <form method="POST" action="<?= h($_SERVER['PHP_SELF']) ?>" class="d-inline" onsubmit="return confirm('Delete this asset?')">
-                          <input type="hidden" name="op" value="delete">
-                          <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-                          <input type="hidden" name="id" value="<?= (int)$a['id'] ?>">
-                          <button class="btn btn-sm btn-danger"><ion-icon name="trash-outline"></ion-icon> Delete</button>
-                        </form>
-                      </div>
-                      <?php endif; ?>
                     </td>
                   </tr>
-                  <tr id="edit-<?= (int)$a['id'] ?>" style="display:none;background:#eef4ff">
-                    <td colspan="8">
-                      <form method="POST" action="<?= h($_SERVER['PHP_SELF']) ?>" class="row g-2 align-items-start">
-                        <input type="hidden" name="op" value="update">
-                        <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-                        <input type="hidden" name="id" value="<?= (int)$a['id'] ?>">
-
-                        <div class="col-12 col-md-3"><input class="form-control" name="name" value="<?= h($a['name']) ?>" placeholder="Asset Name" required></div>
-                        <div class="col-12 col-md-3"><input class="form-control" name="unique_id" value="<?= h($a['unique_id']) ?>" placeholder="Unique ID"></div>
-                        <div class="col-6 col-md-2">
-                          <select class="form-select" name="asset_type">
-                            <?php foreach ($types as $t): ?><option <?= ($a['asset_type']===$t?'selected':'') ?>><?= h($t) ?></option><?php endforeach; ?>
-                          </select>
-                        </div>
-                        <div class="col-6 col-md-2"><input class="form-control" name="manufacturer" value="<?= h($a['manufacturer']) ?>" placeholder="Manufacturer"></div>
-                        <div class="col-6 col-md-2"><input class="form-control" name="model" value="<?= h($a['model']) ?>" placeholder="Model"></div>
-                        <div class="col-6 col-md-2"><input class="form-control" type="date" name="purchase_date" value="<?= h($a['purchase_date']) ?>" title="Purchase date"></div>
-                        <div class="col-6 col-md-2"><input class="form-control" type="number" step="0.01" name="purchase_cost" value="<?= h($a['purchase_cost']) ?>" placeholder="Cost"></div>
-                        <div class="col-6 col-md-2">
-                          <select class="form-select" name="department">
-                            <?php foreach ($departments as $d): ?><option <?= ($a['department']===$d?'selected':'') ?>><?= h($d) ?></option><?php endforeach; ?>
-                          </select>
-                        </div>
-                        <div class="col-6 col-md-2"><input class="form-control" name="driver" value="<?= h($a['driver']) ?>" placeholder="Assigned Driver"></div>
-                        <div class="col-6 col-md-2"><input class="form-control" name="route" value="<?= h($a['route']) ?>" placeholder="Route"></div>
-                        <div class="col-6 col-md-2"><input class="form-control" name="depot" value="<?= h($a['depot']) ?>" placeholder="Depot"></div>
-                        <div class="col-6 col-md-2">
-                          <select class="form-select" name="status">
-                            <?php foreach ($statuses as $s): ?><option <?= ($a['status']===$s?'selected':'') ?>><?= h($s) ?></option><?php endforeach; ?>
-                          </select>
-                        </div>
-                        <div class="col-6 col-md-2"><input class="form-control" type="date" name="deployment_date" value="<?= h($a['deployment_date']) ?>" title="Deployment date"></div>
-                        <div class="col-6 col-md-2"><input class="form-control" type="date" name="retired_on" value="<?= h($a['retired_on']) ?>" title="Retired on"></div>
-                        <div class="col-6 col-md-2"><input class="form-control" name="gps_imei" value="<?= h($a['gps_imei']) ?>" placeholder="GPS IMEI"></div>
-                        <div class="col-12 col-md-4"><input class="form-control" name="notes" value="<?= h($a['notes']) ?>" placeholder="Notes"></div>
-
-                        <div class="col-12 col-md-2 d-grid">
-                          <button class="btn btn-violet" type="submit">
-                            <ion-icon name="save-outline"></ion-icon> Save
-                          </button>
-                        </div>
-                        <div class="col-12 col-md-2 d-grid">
-                          <button class="btn btn-outline-secondary" type="button" onclick="toggleEdit(<?= (int)$a['id'] ?>)">
-                            <ion-icon name="close-outline"></ion-icon> Cancel
-                          </button>
-                        </div>
-                      </form>
-                    </td>
-                  </tr>
-                <?php endforeach; ?>
+                <?php endforeach; endif; ?>
                 </tbody>
               </table>
             </div>
-          </div>
+            <div class="d-flex justify-content-between align-items-center p-3 border-top bg-light bg-opacity-50">
+              <div class="small text-muted">Showing <?= count($assets) ?> asset(s)</div>
+            </div>
         </section>
+        </div>
 
       </div><!-- /main -->
     </div>
   </div>
 
+  <?php if ($isAdmin): ?>
+  <div class="modal fade" id="addAssetModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content">
+        <form method="POST" action="<?= h($_SERVER['PHP_SELF']) ?>" class="modal-form">
+          <input type="hidden" name="op" value="add">
+          <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+          <div class="modal-header">
+            <h5 class="modal-title">Add Asset</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div class="row g-2">
+              <div class="col-12 col-md-4"><input class="form-control" name="name" placeholder="Asset Name" required></div>
+              <div class="col-12 col-md-4"><input class="form-control" name="unique_id" placeholder="Unique ID (QR/RFID/Serial)"></div>
+              <div class="col-12 col-md-4">
+                <select class="form-select" name="asset_type">
+                  <option value="">Type</option>
+                  <?php foreach ($types as $t): ?><option><?= h($t) ?></option><?php endforeach; ?>
+                </select>
+              </div>
+              <div class="col-6 col-md-3"><input class="form-control" name="manufacturer" placeholder="Manufacturer"></div>
+              <div class="col-6 col-md-3"><input class="form-control" name="model" placeholder="Model"></div>
+              <div class="col-6 col-md-3"><input class="form-control" type="date" name="purchase_date" title="Purchase date"></div>
+              <div class="col-6 col-md-3"><input class="form-control" type="number" step="0.01" name="purchase_cost" placeholder="Cost"></div>
+              <div class="col-6 col-md-3">
+                <select class="form-select" name="department">
+                  <option value="">Department</option>
+                  <?php foreach ($departments as $d): ?><option><?= h($d) ?></option><?php endforeach; ?>
+                </select>
+              </div>
+              <div class="col-6 col-md-3"><input class="form-control" name="driver" placeholder="Assigned Driver"></div>
+              <div class="col-6 col-md-3"><input class="form-control" name="route" placeholder="Route"></div>
+              <div class="col-6 col-md-3"><input class="form-control" name="depot" placeholder="Depot"></div>
+              <div class="col-6 col-md-3">
+                <select class="form-select" name="status">
+                  <?php foreach ($statuses as $s): ?><option <?= $s==='Registered'?'selected':'' ?>><?= h($s) ?></option><?php endforeach; ?>
+                </select>
+              </div>
+              <div class="col-6 col-md-3"><input class="form-control" type="date" name="deployment_date" title="Deployment date"></div>
+              <div class="col-6 col-md-3"><input class="form-control" name="gps_imei" placeholder="GPS IMEI"></div>
+              <div class="col-12"><input class="form-control" name="notes" placeholder="Notes"></div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button class="btn btn-violet" type="submit">Save Asset</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="editAssetModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
+      <div class="modal-content">
+        <form method="POST" action="<?= h($_SERVER['PHP_SELF']) ?>" id="editAssetForm">
+          <input type="hidden" name="op" value="update">
+          <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+          <input type="hidden" name="id" id="e_id">
+          <div class="modal-header">
+            <h5 class="modal-title">Edit Asset</h5>
+            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+          </div>
+          <div class="modal-body">
+            <div class="row g-2">
+              <div class="col-12 col-md-4"><input class="form-control" name="name" id="e_name" placeholder="Asset Name" required></div>
+              <div class="col-12 col-md-4"><input class="form-control" name="unique_id" id="e_unique_id" placeholder="Unique ID"></div>
+              <div class="col-12 col-md-4">
+                <select class="form-select" name="asset_type" id="e_asset_type">
+                  <option value="">Type</option>
+                  <?php foreach ($types as $t): ?><option value="<?= h($t) ?>"><?= h($t) ?></option><?php endforeach; ?>
+                </select>
+              </div>
+              <div class="col-6 col-md-3"><input class="form-control" name="manufacturer" id="e_manufacturer" placeholder="Manufacturer"></div>
+              <div class="col-6 col-md-3"><input class="form-control" name="model" id="e_model" placeholder="Model"></div>
+              <div class="col-6 col-md-3"><input class="form-control" type="date" name="purchase_date" id="e_purchase_date" title="Purchase date"></div>
+              <div class="col-6 col-md-3"><input class="form-control" type="number" step="0.01" name="purchase_cost" id="e_purchase_cost" placeholder="Cost"></div>
+              <div class="col-6 col-md-3">
+                <select class="form-select" name="department" id="e_department">
+                  <option value="">Department</option>
+                  <?php foreach ($departments as $d): ?><option value="<?= h($d) ?>"><?= h($d) ?></option><?php endforeach; ?>
+                </select>
+              </div>
+              <div class="col-6 col-md-3"><input class="form-control" name="driver" id="e_driver" placeholder="Assigned Driver"></div>
+              <div class="col-6 col-md-3"><input class="form-control" name="route" id="e_route" placeholder="Route"></div>
+              <div class="col-6 col-md-3"><input class="form-control" name="depot" id="e_depot" placeholder="Depot"></div>
+              <div class="col-6 col-md-3">
+                <select class="form-select" name="status" id="e_status">
+                  <?php foreach ($statuses as $s): ?><option value="<?= h($s) ?>"><?= h($s) ?></option><?php endforeach; ?>
+                </select>
+              </div>
+              <div class="col-6 col-md-3"><input class="form-control" type="date" name="deployment_date" id="e_deployment_date" title="Deployment date"></div>
+              <div class="col-6 col-md-3"><input class="form-control" type="date" name="retired_on" id="e_retired_on" title="Retired on"></div>
+              <div class="col-6 col-md-3"><input class="form-control" name="gps_imei" id="e_gps_imei" placeholder="GPS IMEI"></div>
+              <div class="col-12"><input class="form-control" name="notes" id="e_notes" placeholder="Notes"></div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button class="btn btn-violet" type="submit">Save Changes</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+  <?php endif; ?>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   <script>
     function applyFilters(){
       const s = document.getElementById('f_status').value;
@@ -721,18 +797,46 @@ $userRole = $_SESSION["user"]["role"] ?? "Warehouse Manager";
       if (q) url.searchParams.set('q', q); else url.searchParams.delete('q');
       window.location.href = url.toString();
     }
-    function toggleEdit(id){
-      const el = document.getElementById('edit-'+id);
-      if (!el) return; el.style.display = (el.style.display==='none'||!el.style.display) ? 'table-row' : 'none';
-      if (el.style.display==='table-row') {
-        el.scrollIntoView({behavior:'smooth', block:'center'});
-      }
-    }
+    const editModalEl = document.getElementById('editAssetModal');
+    const editModal = editModalEl ? new bootstrap.Modal(editModalEl) : null;
+    document.querySelectorAll('.js-edit-asset').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (!editModal) return;
+        const d = btn.dataset;
+        const setVal = (id, v) => {
+          const el = document.getElementById(id);
+          if (el) el.value = v || '';
+        };
+        setVal('e_id', d.id);
+        setVal('e_name', d.name);
+        setVal('e_unique_id', d.unique_id);
+        setVal('e_asset_type', d.asset_type);
+        setVal('e_manufacturer', d.manufacturer);
+        setVal('e_model', d.model);
+        setVal('e_purchase_date', d.purchase_date);
+        setVal('e_purchase_cost', d.purchase_cost);
+        setVal('e_department', d.department);
+        setVal('e_driver', d.driver);
+        setVal('e_route', d.route);
+        setVal('e_depot', d.depot);
+        setVal('e_status', d.status);
+        setVal('e_deployment_date', d.deployment_date);
+        setVal('e_retired_on', d.retired_on);
+        setVal('e_gps_imei', d.gps_imei);
+        setVal('e_notes', d.notes);
+        editModal.show();
+      });
+    });
     
     (function(){ var el=document.querySelector('tr.highlight'); if(el){ el.scrollIntoView({behavior:'smooth', block:'center'}); }})();
+    document.getElementById('btnFilter')?.addEventListener('click', applyFilters);
+    document.getElementById('btnReset')?.addEventListener('click', () => {
+      const url = new URL(window.location.href);
+      ['status','type','dept','q'].forEach((k)=>url.searchParams.delete(k));
+      window.location.href = url.toString();
+    });
   </script>
 
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   <script src="../js/profile-dropdown.js"></script>
 </body>
 </html>

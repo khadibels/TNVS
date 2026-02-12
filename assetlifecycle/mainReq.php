@@ -260,6 +260,34 @@ $done    = (int)$pdo->query("SELECT COUNT(*) FROM maintenance_requests WHERE sta
 <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
 <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
 <script src="../js/sidebar-toggle.js"></script>
+<style>
+  :root {
+    --slate-50: #f8fafc;
+    --slate-100: #f1f5f9;
+    --slate-200: #e2e8f0;
+    --slate-600: #475569;
+    --slate-800: #1e293b;
+  }
+  body { background-color: var(--slate-50); }
+  .text-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 700; color: #94a3b8; margin-bottom: 2px; }
+  .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 1.25rem; margin-bottom: 1.25rem; }
+  .stat-card { background: #fff; border: 1px solid var(--slate-200); border-radius: 1rem; padding: 1.2rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+  .stat-icon { width: 44px; height: 44px; border-radius: 12px; display:flex; align-items:center; justify-content:center; font-size: 1.3rem; margin-bottom: .8rem; }
+  .card-table { border: 1px solid var(--slate-200); border-radius: 1rem; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow: hidden; }
+  .table-custom thead th {
+    font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.5px;
+    color: var(--slate-600); background: var(--slate-50);
+    border-bottom: 1px solid var(--slate-200); font-weight: 600; padding: 1rem 1.25rem;
+  }
+  .table-custom tbody td {
+    padding: 0.95rem 1.25rem; border-bottom: 1px solid var(--slate-100);
+    font-size: 0.95rem; color: var(--slate-800); vertical-align: middle;
+  }
+  .table-custom tbody tr:last-child td { border-bottom: none; }
+  .table-custom tbody tr:hover td { background-color: #f8fafc; }
+  .filters-wrap .input-group-text { background:#fff; border-right:0; color:#94a3b8; }
+  .filters-wrap .form-control.search-control { border-left:0; padding-left:0; }
+</style>
 </head>
 <body class="saas-page">
   <div class="container-fluid p-0">
@@ -296,89 +324,57 @@ $done    = (int)$pdo->query("SELECT COUNT(*) FROM maintenance_requests WHERE sta
           </div>
         </div>
 
+        <div class="px-4 pb-5">
         <!-- KPIs -->
-        <section class="card shadow-sm mb-3">
-          <div class="card-body">
-            <div class="row g-3">
-              <div class="col-6 col-md-3"><div class="text-muted small">Total</div><div class="fs-5 fw-semibold"><?= $total ?></div></div>
-              <div class="col-6 col-md-3"><div class="text-muted small">Pending</div><div class="fs-5 fw-semibold"><?= $pending ?></div></div>
-              <div class="col-6 col-md-3"><div class="text-muted small">In Progress</div><div class="fs-5 fw-semibold"><?= $inprog ?></div></div>
-              <div class="col-6 col-md-3"><div class="text-muted small">Completed</div><div class="fs-5 fw-semibold"><?= $done ?></div></div>
-            </div>
+        <section class="stats-row">
+          <div class="stat-card">
+            <div class="stat-icon bg-primary bg-opacity-10 text-primary"><ion-icon name="clipboard-outline"></ion-icon></div>
+            <div class="text-label">Total Requests</div>
+            <div class="fs-3 fw-bold text-dark mt-1"><?= $total ?></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon bg-warning bg-opacity-10 text-warning"><ion-icon name="time-outline"></ion-icon></div>
+            <div class="text-label">Pending</div>
+            <div class="fs-3 fw-bold text-dark mt-1"><?= $pending ?></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon bg-info bg-opacity-10 text-info"><ion-icon name="sync-outline"></ion-icon></div>
+            <div class="text-label">In Progress</div>
+            <div class="fs-3 fw-bold text-dark mt-1"><?= $inprog ?></div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon bg-success bg-opacity-10 text-success"><ion-icon name="checkmark-done-outline"></ion-icon></div>
+            <div class="text-label">Completed</div>
+            <div class="fs-3 fw-bold text-dark mt-1"><?= $done ?></div>
           </div>
         </section>
 
-        <!-- Add Request -->
-        <section class="card shadow-sm mb-3">
-          <div class="card-body">
-            <form id="addForm" enctype="multipart/form-data" class="row g-2 align-items-end">
-              <div class="col-12 col-md-4">
-                <label class="form-label small">Asset</label>
-                <input class="form-control" name="asset_name" id="asset_name" placeholder="Asset name or ID" required>
-              </div>
-              <div class="col-6 col-md-2">
-                <label class="form-label small">Priority</label>
-                <select class="form-select" name="priority" id="priority">
-                  <option value="Normal" selected>Normal</option>
-                  <option value="Low">Low</option>
-                  <option value="High">High</option>
-                </select>
-              </div>
-              <div class="col-6 col-md-2">
-                <label class="form-label small">Reported by</label>
-                <input class="form-control" name="reported_by" id="reported_by" placeholder="Name">
-              </div>
-              <div class="col-12 col-md-3">
-                <label class="form-label small">Assign to</label>
-                <select class="form-select" name="assigned_to" id="assigned_to"><option value="">-- Select technician --</option></select>
-              </div>
-              <div class="col-12">
-                <label class="form-label small">Issue description</label>
-                <textarea class="form-control" name="description" id="description" required></textarea>
-              </div>
-              <div class="col-12 col-md-4">
-                <input class="form-control" type="file" name="attachment" id="attachment" accept="image/*,.pdf,.doc,.docx">
-              </div>
-              <div class="col-12 col-md-3 d-grid">
-                <button class="btn btn-violet" type="submit"><ion-icon name="add-circle-outline"></ion-icon> Submit</button>
-              </div>
-              <div class="col-12 col-md-2 d-grid">
-                <button class="btn btn-outline-secondary" type="button" id="resetBtn">Reset</button>
-              </div>
-              <div class="col-12 small text-muted" id="formMessage"></div>
-            </form>
-          </div>
-        </section>
-
-        <!-- Filters -->
-        <section class="card shadow-sm mb-3">
-          <div class="card-body d-flex flex-wrap gap-2 align-items-end">
-            <div>
-              <label class="form-label small">Status</label>
-              <select id="filterStatus" class="form-select">
-                <option value="">All</option>
-                <option>Pending</option><option>In Progress</option><option>Completed</option><option>Cancelled</option>
-              </select>
+        <!-- Filters & Actions -->
+        <section class="filters-wrap mb-3">
+          <div class="d-flex flex-wrap gap-2 align-items-center">
+            <select id="filterStatus" class="form-select" style="max-width: 200px;">
+              <option value="">All status</option>
+              <option>Pending</option><option>In Progress</option><option>Completed</option><option>Cancelled</option>
+            </select>
+            <select id="filterPriority" class="form-select" style="max-width: 200px;">
+              <option value="">All priority</option>
+              <option>Low</option><option>Normal</option><option>High</option>
+            </select>
+            <button class="btn btn-white border shadow-sm fw-medium px-3" id="applyFilters">Filter</button>
+            <button class="btn btn-link text-decoration-none text-muted p-0" id="refreshBtn">Refresh</button>
+            <div class="ms-auto d-flex align-items-center gap-2">
+              <button class="btn btn-violet" id="exportCsv"><ion-icon name="download-outline"></ion-icon> Export CSV</button>
+              <button class="btn btn-primary d-flex align-items-center gap-2" type="button" data-bs-toggle="modal" data-bs-target="#addRequestModal">
+                <ion-icon name="add-circle-outline"></ion-icon><span>Add Request</span>
+              </button>
             </div>
-            <div>
-              <label class="form-label small">Priority</label>
-              <select id="filterPriority" class="form-select">
-                <option value="">All</option>
-                <option>Low</option><option>Normal</option><option>High</option>
-              </select>
-            </div>
-            <button class="btn btn-outline-secondary" id="applyFilters">Apply</button>
-            <button class="btn btn-outline-secondary" id="refreshBtn">Refresh</button>
-            <button class="btn btn-violet" id="exportCsv"><ion-icon name="download-outline"></ion-icon> Export CSV</button>
           </div>
         </section>
 
         <!-- Table -->
-        <section class="card shadow-sm">
-          <div class="card-body">
-            <h5 class="mb-3">Requests</h5>
+        <section class="card-table">
             <div class="table-responsive">
-              <table class="table align-middle">
+              <table class="table table-custom mb-0 align-middle">
                 <thead class="sticky-th">
                   <tr>
                     <th>ID</th>
@@ -396,11 +392,62 @@ $done    = (int)$pdo->query("SELECT COUNT(*) FROM maintenance_requests WHERE sta
                 </tbody>
               </table>
             </div>
-            <div id="tableMsg" class="small text-muted mt-2"></div>
-          </div>
+            <div class="d-flex justify-content-between align-items-center p-3 border-top bg-light bg-opacity-50">
+              <div id="tableMsg" class="small text-muted"></div>
+            </div>
         </section>
+        </div>
 
       </div><!-- /main -->
+    </div>
+  </div>
+
+  <!-- Add Request Modal -->
+  <div id="addRequestModal" class="modal fade" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <form id="addForm" enctype="multipart/form-data">
+          <div class="modal-header">
+            <h5 class="modal-title">Add Maintenance Request</h5>
+            <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+          </div>
+          <div class="modal-body row g-2">
+            <div class="col-12 col-md-6">
+              <label class="form-label text-label">Asset</label>
+              <input class="form-control" name="asset_name" id="asset_name" placeholder="Asset name or ID" required>
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label text-label">Priority</label>
+              <select class="form-select" name="priority" id="priority">
+                <option value="Normal" selected>Normal</option>
+                <option value="Low">Low</option>
+                <option value="High">High</option>
+              </select>
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label text-label">Reported by</label>
+              <input class="form-control" name="reported_by" id="reported_by" placeholder="Name">
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label text-label">Assign to</label>
+              <select class="form-select" name="assigned_to" id="assigned_to"><option value="">-- Select technician --</option></select>
+            </div>
+            <div class="col-12">
+              <label class="form-label text-label">Issue description</label>
+              <textarea class="form-control" name="description" id="description" required></textarea>
+            </div>
+            <div class="col-12">
+              <label class="form-label text-label">Attachment</label>
+              <input class="form-control" type="file" name="attachment" id="attachment" accept="image/*,.pdf,.doc,.docx">
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-outline-secondary" type="button" id="resetBtn">Reset</button>
+            <button class="btn btn-violet" type="submit"><ion-icon name="add-circle-outline"></ion-icon> Submit</button>
+          </div>
+          <div class="small text-muted px-3 pb-2" id="formMessage"></div>
+        </form>
+      </div>
     </div>
   </div>
 
@@ -559,7 +606,12 @@ document.getElementById('addForm').addEventListener('submit',async e=>{
   const res=await api('add',f,true);
   document.getElementById('formMessage').textContent =
     (res.success ? 'Added' : (res.msg || 'Error')) + (res.detail ? ` — ${res.detail}` : '');
-  if(res.success){ e.target.reset(); fetchList(); }
+  if(res.success){
+    e.target.reset();
+    fetchList();
+    const m = bootstrap.Modal.getInstance(document.getElementById('addRequestModal'));
+    if (m) m.hide();
+  }
 });
 document.getElementById('resetBtn').addEventListener('click',()=>document.getElementById('addForm').reset());
 
