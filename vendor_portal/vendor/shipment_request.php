@@ -159,6 +159,7 @@ const API = {
 
 const $ = (s)=>document.querySelector(s);
 const esc = (s)=>String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;"}[c]));
+let submitting = false;
 
 async function fetchJSON(url, opts={}){
   const res = await fetch(url, {credentials:'same-origin', ...opts});
@@ -202,7 +203,15 @@ async function loadPOs(){
 
 document.getElementById('reqForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
+  if (submitting) return;
+  submitting = true;
   const fd = new FormData(e.currentTarget);
+  const submitBtn = e.currentTarget.querySelector('button[type="submit"]');
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.dataset.original = submitBtn.innerHTML;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span> Submitting...';
+  }
   try{
     const res = await fetchJSON(API.create, {method:'POST', body:fd});
     toast('Shipment request submitted');
@@ -210,6 +219,12 @@ document.getElementById('reqForm').addEventListener('submit', async (e)=>{
     await loadPOs();
   }catch(err){
     toast(err.message || 'Failed', 'danger');
+  } finally {
+    submitting = false;
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.innerHTML = submitBtn.dataset.original || '<ion-icon name="paper-plane-outline" class="me-1"></ion-icon> Submit Request';
+    }
   }
 });
 

@@ -2,6 +2,11 @@
 require_once __DIR__ . "/includes/config.php";
 require_once __DIR__ . "/includes/auth.php";
 
+if (!empty($_SESSION['otp_pending']) && empty($_SESSION['user'])) {
+    header('Location: ' . rtrim(BASE_URL, '/') . '/auth/verify_otp.php');
+    exit();
+}
+
 if (!empty($_SESSION["user"]) && empty($_GET['err'])) {
     $role   = strtolower($_SESSION['user']['role'] ?? '');
     $vendSt = strtolower($_SESSION['user']['vendor_status'] ?? '');

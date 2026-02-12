@@ -530,9 +530,6 @@ if ($role === 'vendor') {
         <ion-icon name="paper-plane-outline"></ion-icon><span>Shipment Requests</span>
       </a>
 
-      <a class="nav-link<?= a('messages') ?>" href="<?= u('vendor_portal/vendor/messages.php') ?>">
-        <ion-icon name="chatbubbles-outline"></ion-icon><span>Messages</span>
-      </a>
       <a class="nav-link<?= a('notifications') ?>" href="<?= u('vendor_portal/vendor/notifications.php') ?>">
         <ion-icon name="notifications-outline"></ion-icon><span>Notifications</span>
       </a>

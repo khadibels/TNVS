@@ -682,8 +682,11 @@ function updateFocusSaveButton(){
   if (!btn) return;
   const locId = getSelectedFocusLocationId();
   const currentDest = Number(currentShipmentData?.destination_id || 0);
-  const canSave = locId > 0 && locId !== currentDest;
+  const shipmentStatus = String(currentShipmentData?.status || '').trim().toLowerCase();
+  const isDelivered = shipmentStatus === 'delivered';
+  const canSave = !isDelivered && locId > 0 && locId !== currentDest;
   btn.disabled = !canSave;
+  btn.classList.toggle('d-none', isDelivered);
 }
 
 async function populateFocusOptions(shipment){
@@ -1189,6 +1192,12 @@ document.getElementById('mapFocusSel')?.addEventListener('change', ()=>{
 document.getElementById('mapApplyToBtn')?.addEventListener('click', async ()=>{
   const locId = getSelectedFocusLocationId();
   if (!locId || !currentShipment.id) return;
+  const shipmentStatus = String(currentShipmentData?.status || '').trim().toLowerCase();
+  if (shipmentStatus === 'delivered') {
+    toast('Delivered shipments can no longer change destination.', 'warning');
+    updateFocusSaveButton();
+    return;
+  }
   const btn = document.getElementById('mapApplyToBtn');
   if (btn) btn.disabled = true;
   try {

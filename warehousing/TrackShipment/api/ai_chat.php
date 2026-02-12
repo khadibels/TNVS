@@ -28,10 +28,20 @@ function table_exists(PDO $pdo, string $schema, string $table): bool {
   return (bool)$st->fetchColumn();
 }
 
+function column_exists(PDO $pdo, string $schema, string $table, string $column): bool {
+  $st = $pdo->prepare("SELECT 1 FROM information_schema.columns WHERE table_schema=? AND table_name=? AND column_name=? LIMIT 1");
+  $st->execute([$schema, $table, $column]);
+  return (bool)$st->fetchColumn();
+}
+
 function fetch_rows(PDO $pdo, string $sql, array $params = []): array {
-  $st = $pdo->prepare($sql);
-  $st->execute($params);
-  return $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+  try {
+    $st = $pdo->prepare($sql);
+    $st->execute($params);
+    return $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
+  } catch (Throwable $e) {
+    return [];
+  }
 }
 
 function db_overview(PDO $pdo, string $schema, int $limit = 8): array {
@@ -207,6 +217,44 @@ function openai_compat_generate(
   return null;
 }
 
+function openai_compat_list_models(string $baseUrl, string $apiKey): array {
+  $url = rtrim($baseUrl, '/') . '/models';
+  $headers = ['Authorization: Bearer ' . $apiKey];
+  if (function_exists('curl_init')) {
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+      CURLOPT_RETURNTRANSFER => true,
+      CURLOPT_TIMEOUT => 10,
+      CURLOPT_HTTPHEADER => $headers,
+    ]);
+    $resp = curl_exec($ch);
+    $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    curl_close($ch);
+    if ($resp !== false && $code >= 200 && $code < 300) {
+      $j = json_decode($resp, true);
+      $rows = $j['data'] ?? [];
+      $names = [];
+      foreach ($rows as $r) $names[] = (string)($r['id'] ?? '');
+      return array_values(array_filter($names));
+    }
+    return [];
+  }
+  $ctx = stream_context_create([
+    'http' => [
+      'method' => 'GET',
+      'header' => "Authorization: Bearer {$apiKey}\r\n",
+      'timeout' => 10
+    ]
+  ]);
+  $resp = @file_get_contents($url, false, $ctx);
+  if ($resp === false) return [];
+  $j = json_decode($resp, true);
+  $rows = $j['data'] ?? [];
+  $names = [];
+  foreach ($rows as $r) $names[] = (string)($r['id'] ?? '');
+  return array_values(array_filter($names));
+}
+
 function fallback_reply(string $q, array $context, ?array $shipment): string {
   $qLower = strtolower($q);
 
@@ -237,13 +285,18 @@ function fallback_reply(string $q, array $context, ?array $shipment): string {
     return "I can read the live database. Latest shipment is {$ref} with status {$status}.";
   }
 
-  return "I can access the live database, but the AI model is unavailable right now. Please ask for a specific record, count, or summary and I will return direct data.";
+  return "I can access live system data. Ask for a specific record, count, or summary and I will return the result directly.";
 }
 
 try {
   require_login("json");
 
   if (($_GET['action'] ?? '') === 'health') {
+    $provider = strtolower(trim((string)(defined('AI_PROVIDER') ? AI_PROVIDER : 'ollama')));
+    $apiUrl = defined('AI_API_URL') ? trim((string)AI_API_URL) : '';
+    $apiKey = defined('AI_API_KEY') ? trim((string)AI_API_KEY) : '';
+    if ($provider === 'groq' && $apiUrl === '') $apiUrl = 'https://api.groq.com/openai/v1';
+
     $probe = [
       'ok' => true,
       'time' => date('c'),
@@ -260,10 +313,12 @@ try {
         'error' => null,
       ],
       'ai_provider' => [
-        'provider' => defined('AI_PROVIDER') ? AI_PROVIDER : 'ollama',
-        'api_url' => defined('AI_API_URL') ? AI_API_URL : '',
-        'api_key_set' => !empty(defined('AI_API_KEY') ? AI_API_KEY : ''),
+        'provider' => $provider,
+        'api_url' => $apiUrl,
+        'api_key_set' => !empty($apiKey),
         'chat_model' => defined('AI_CHAT_MODEL') ? AI_CHAT_MODEL : (defined('OLLAMA_MODEL') ? OLLAMA_MODEL : ''),
+        'reachable' => false,
+        'models' => [],
       ],
     ];
 
@@ -286,6 +341,14 @@ try {
       $probe['ollama']['models'] = array_values($models);
     } else {
       $probe['ollama']['error'] = 'Could not reach Ollama tags endpoint from this server.';
+    }
+
+    if (in_array($provider, ['groq', 'openai_compat'], true) && $apiUrl !== '' && $apiKey !== '') {
+      $remoteModels = openai_compat_list_models($apiUrl, $apiKey);
+      if ($remoteModels) {
+        $probe['ai_provider']['reachable'] = true;
+        $probe['ai_provider']['models'] = array_slice($remoteModels, 0, 20);
+      }
     }
 
     echo json_encode($probe);
@@ -423,7 +486,13 @@ try {
   if ($plt instanceof PDO) {
     $context['schema']['plt'] = list_tables($plt, DB_PLT_NAME, 8);
     if (preg_match('/\b(project|plt)\b/i', $q) && table_exists($plt, DB_PLT_NAME, 'plt_projects')) {
-      $context['data']['projects_recent'] = fetch_rows($plt, "SELECT id, name, status, start_date, end_date FROM plt_projects ORDER BY id DESC LIMIT 5");
+      $endCol = column_exists($plt, DB_PLT_NAME, 'plt_projects', 'end_date') ? 'end_date'
+        : (column_exists($plt, DB_PLT_NAME, 'plt_projects', 'due_date') ? 'due_date' : null);
+      $endSel = $endCol ? $endCol : "NULL AS end_date";
+      $context['data']['projects_recent'] = fetch_rows(
+        $plt,
+        "SELECT id, name, status, start_date, {$endSel} FROM plt_projects ORDER BY id DESC LIMIT 5"
+      );
     }
   }
 
