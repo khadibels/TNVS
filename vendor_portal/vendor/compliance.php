@@ -39,6 +39,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $catalog_category = trim($_POST['catalog_category'] ?? '');
     $receipt_category = trim($_POST['receipt_category'] ?? '');
     $website_link     = trim($_POST['website_link'] ?? '');
+    $vendorCols       = [];
+
+    try {
+        $colSt = $proc->prepare("
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = DATABASE()
+              AND table_name = 'vendors'
+        ");
+        $colSt->execute();
+        $vendorCols = array_fill_keys($colSt->fetchAll(PDO::FETCH_COLUMN), true);
+    } catch (Throwable $e) { $vendorCols = []; }
 
     $set    = ['categories = :cats'];
     $params = [':cats' => $categories, ':id' => $vendorId];
@@ -69,8 +81,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (move_uploaded_file($tmp, $abs)) {
             @chmod($abs, 0644);
-            $set[] = "$col = :$col";
-            $params[":$col"] = $fname;
+            if (isset($vendorCols[$col])) {
+                $set[] = "$col = :$col";
+                $params[":$col"] = $fname;
+            }
 
             try {
                 $docType = $field === 'receipt' ? 'delivery_receipt' : $field;
