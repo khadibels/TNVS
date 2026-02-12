@@ -48,14 +48,49 @@ function otp_send_email(string $email, string $name, string $otpCode): bool {
         $mail->addAddress($email, $name ?: $email);
         $mail->isHTML(true);
         $mail->Subject = 'TNVS Admin Login OTP';
+        $safeCode = htmlspecialchars($otpCode, ENT_QUOTES, 'UTF-8');
+        $safeName = htmlspecialchars($name !== '' ? $name : 'Admin', ENT_QUOTES, 'UTF-8');
         $mail->Body = '
-            <div style="font-family:Arial,sans-serif;line-height:1.5">
-              <h2 style="margin:0 0 8px">Admin Login Verification</h2>
-              <p style="margin:0 0 10px">Use this one-time code to continue login:</p>
-              <div style="font-size:28px;font-weight:700;letter-spacing:4px;margin:6px 0 12px;">' . htmlspecialchars($otpCode, ENT_QUOTES) . '</div>
-              <p style="margin:0;color:#555">This code expires in 10 minutes.</p>
-            </div>';
-        $mail->AltBody = "Your TNVS admin login OTP is: {$otpCode}. It expires in 10 minutes.";
+<!doctype html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="margin:0;padding:0;background:#f5f2ff;font-family:Segoe UI,Arial,sans-serif;color:#241a47;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f2ff;padding:24px 10px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border:1px solid #e8ddff;border-radius:16px;overflow:hidden;">
+          <tr>
+            <td style="padding:18px 24px;background:linear-gradient(120deg,#6d39df,#5230c4);color:#ffffff;">
+              <div style="font-size:20px;font-weight:700;letter-spacing:.2px;">TNVS Admin Verification</div>
+              <div style="font-size:13px;opacity:.9;margin-top:4px;">Secure one-time login code</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:22px 24px;">
+              <p style="margin:0 0 10px;font-size:15px;">Hi ' . $safeName . ',</p>
+              <p style="margin:0 0 14px;font-size:15px;line-height:1.6;">Use this one-time password (OTP) to complete your admin sign-in:</p>
+              <div style="margin:0 0 14px;padding:14px 16px;border:1px dashed #bfa8f6;background:#f8f4ff;border-radius:12px;text-align:center;">
+                <span style="font-size:34px;font-weight:800;letter-spacing:8px;color:#3f2a96;">' . $safeCode . '</span>
+              </div>
+              <p style="margin:0 0 10px;font-size:14px;color:#4f4574;">This code expires in <strong>10 minutes</strong>.</p>
+              <p style="margin:0;font-size:13px;color:#6f6694;">If you did not request this login, you can safely ignore this email.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:12px 24px;background:#faf8ff;border-top:1px solid #eee5ff;font-size:12px;color:#7a71a1;">
+              TNVS Logistics 1 • ViaHale
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>';
+        $mail->AltBody = "TNVS Admin Verification\n\nYour OTP code is: {$otpCode}\nThis code expires in 10 minutes.\nIf you did not request this login, ignore this email.";
 
         return $mail->send();
     } catch (Exception $e) {
@@ -103,4 +138,3 @@ function otp_verify(PDO $pdo, int $otpId, int $userId, string $code): array {
     $pdo->prepare("UPDATE auth_login_otp SET verified_at = NOW(), consumed_at = NOW() WHERE id = ?")->execute([$otpId]);
     return [true, 'OTP verified.'];
 }
-

@@ -16,6 +16,11 @@ function is_greeting(string $q): bool {
   return in_array($q, ['hi','hello','hey','yo','good morning','good afternoon','good evening'], true);
 }
 
+function prefers_tagalog(string $q): bool {
+  $q = strtolower($q);
+  return (bool)preg_match('/\b(ano|ilan|sino|maganda|pogi|kamusta|kumusta|ba|ako|natin|dito|yung|lang|po|opo)\b/u', $q);
+}
+
 function list_tables(PDO $pdo, string $schema, int $limit = 8): array {
   $st = $pdo->prepare("SELECT table_name FROM information_schema.tables WHERE table_schema=? ORDER BY table_name LIMIT $limit");
   $st->execute([$schema]);
@@ -257,6 +262,7 @@ function openai_compat_list_models(string $baseUrl, string $apiKey): array {
 
 function fallback_reply(string $q, array $context, ?array $shipment): string {
   $qLower = strtolower($q);
+  $tl = prefers_tagalog($q);
 
   if ($shipment && preg_match('/\b(shipment|delivery|track|status|ref)\b/i', $q)) {
     $ref = (string)($shipment['ref_no'] ?? 'N/A');
@@ -264,7 +270,9 @@ function fallback_reply(string $q, array $context, ?array $shipment): string {
     $origin = (string)($shipment['origin'] ?? 'N/A');
     $destination = (string)($shipment['destination'] ?? 'N/A');
     $eta = (string)($shipment['expected_delivery'] ?? 'N/A');
-    return "Live shipment update: {$ref} is currently {$status}. Route: {$origin} to {$destination}. Expected delivery: {$eta}.";
+    return $tl
+      ? "Live update: {$ref} ay kasalukuyang {$status}. Ruta: {$origin} papuntang {$destination}. Inaasahang dating: {$eta}."
+      : "Live shipment update: {$ref} is currently {$status}. Route: {$origin} to {$destination}. Expected delivery: {$eta}.";
   }
 
   if (strpos($qLower, 'summary') !== false || strpos($qLower, 'overview') !== false || strpos($qLower, 'dashboard') !== false) {
@@ -274,7 +282,9 @@ function fallback_reply(string $q, array $context, ?array $shipment): string {
       $tableCount = (int)($ov['table_count'] ?? 0);
       $parts[] = "{$schema}: {$tableCount} tables";
     }
-    if ($parts) return "Live database overview: " . implode(' | ', $parts) . ".";
+    if ($parts) return $tl
+      ? ("Buod ng live database: " . implode(' | ', $parts) . ".")
+      : ("Live database overview: " . implode(' | ', $parts) . ".");
   }
 
   if (!empty($context['data']['shipments_recent'])) {
@@ -282,10 +292,14 @@ function fallback_reply(string $q, array $context, ?array $shipment): string {
     $first = $rows[0];
     $ref = (string)($first['ref_no'] ?? 'N/A');
     $status = (string)($first['status'] ?? 'N/A');
-    return "I can read the live database. Latest shipment is {$ref} with status {$status}.";
+    return $tl
+      ? "Nababasa ko ang live database. Pinakabagong shipment: {$ref}, status: {$status}."
+      : "I can read the live database. Latest shipment is {$ref} with status {$status}.";
   }
 
-  return "I can access live system data. Ask for a specific record, count, or summary and I will return the result directly.";
+  return $tl
+    ? "Gets. Para mas accurate, sabihin mo lang kung anong module at anong gusto mo: bilang, listahan, o status (hal. shipments, projects, suppliers, RFQs, users)."
+    : "Got it. For an accurate answer, tell me the module and request type: count, list, or status (e.g., shipments, projects, suppliers, RFQs, users).";
 }
 
 try {
@@ -362,11 +376,25 @@ try {
   $ref = trim((string)($_POST['ref_no'] ?? ''));
 
   if ($q === '') throw new Exception('Question is required');
+  $tagalog = prefers_tagalog($q);
+
+  if (preg_match('/\b(maganda|ganda)\b.*\b(ba)\b.*\b(ako)\b/u', strtolower($q)) ||
+      preg_match('/\b(am i pretty|am i beautiful)\b/i', $q)) {
+    echo json_encode([
+      'ok' => true,
+      'reply' => $tagalog
+        ? 'Oo naman, maganda ka. Confidence bagay sa iyo. Kung gusto mo, pwede rin kita tulungan sa TNVS data.'
+        : 'Yes, you are beautiful. If you want, I can also help with TNVS data.'
+    ]);
+    exit;
+  }
 
   if (is_greeting($q)) {
     echo json_encode([
       'ok' => true,
-      'reply' => 'Hello! How can I help you today? You can ask about shipments, inventory, procurement, logistics, vendors, or reports.'
+      'reply' => $tagalog
+        ? 'Hi! Ano ang kailangan mo? Pwede ka magtanong tungkol sa shipments, projects, inventory, suppliers, RFQ, at reports.'
+        : 'Hello! How can I help you today? You can ask about shipments, inventory, procurement, logistics, vendors, or reports.'
     ]);
     exit;
   }
@@ -569,6 +597,24 @@ try {
     exit;
   }
 
+  if (preg_match('/\bhow many (projects|plt projects)\b/i', $q) && $plt instanceof PDO) {
+    if (table_exists($plt, DB_PLT_NAME, 'plt_projects')) {
+      $cnt = fetch_rows(
+        $plt,
+        "SELECT COUNT(*) AS total,
+                SUM(LOWER(COALESCE(status,'')) IN ('planned','ongoing','delayed')) AS active,
+                SUM(LOWER(COALESCE(status,'')) = 'closed') AS closed
+           FROM plt_projects"
+      );
+      $total = (int)($cnt[0]['total'] ?? 0);
+      $active = (int)($cnt[0]['active'] ?? 0);
+      $closed = (int)($cnt[0]['closed'] ?? 0);
+      $reply = "We currently have {$total} projects in the system ({$active} active, {$closed} closed).";
+      echo json_encode(['ok'=>true,'reply'=>$reply,'ref_no'=>$shipment['ref_no'] ?? '']);
+      exit;
+    }
+  }
+
   if (preg_match('/\bhow many (inventory categories|item categories|categories)\b/i', $q) && $pdo instanceof PDO) {
     if (table_exists($pdo, DB_WMS_NAME, 'inventory_categories')) {
       $cnt = fetch_rows($pdo, "SELECT COUNT(*) AS total FROM inventory_categories");
@@ -664,10 +710,37 @@ try {
     }
   }
 
+  if (preg_match('/\b(list|show|what are|names of)\b.*\b(projects|plt projects)\b/i', $q) ||
+      ($isFollowupList && strpos($histText, 'projects in the system') !== false)) {
+    if ($plt instanceof PDO && table_exists($plt, DB_PLT_NAME, 'plt_projects')) {
+      $rows = fetch_rows($plt, "SELECT code, name FROM plt_projects ORDER BY id DESC LIMIT 20");
+      $names = [];
+      foreach ($rows as $r) {
+        $label = trim(((string)($r['code'] ?? '')) . ' - ' . ((string)($r['name'] ?? '')));
+        $label = trim($label, " -");
+        if ($label !== '') $names[] = $label;
+      }
+      $reply = $names ? ("Here are the projects on record: " . implode(', ', $names) . ".") : "There are no projects on record.";
+      echo json_encode(['ok'=>true,'reply'=>$reply,'ref_no'=>$shipment['ref_no'] ?? '']);
+      exit;
+    }
+  }
+
+  if (preg_match('/\b(dance|sing|joke|hugot|love advice|astrology|zodiac)\b/i', $q)) {
+    echo json_encode([
+      'ok' => true,
+      'reply' => $tagalog
+        ? 'Kaya kong makipag-chika konti, pero focus ako sa TNVS data. Tanong ka ng shipments, projects, inventory, suppliers, RFQs, o users.'
+        : 'I can do small talk, but I am focused on TNVS operations data. Ask me about shipments, projects, inventory, suppliers, RFQs, or users.'
+    ]);
+    exit;
+  }
+
   $prompt = "You are a helpful TNVS system assistant. Respond like ChatGPT: natural, concise, and non-technical. " .
             "Do NOT mention schemas, tables, JSON, arrays, or field names. " .
             "Summarize the results in plain language and bullets only if helpful. " .
-            "Never invent names, counts, or records. If data is missing, ask one short follow-up question.\n\n" .
+            "Never invent names, counts, or records. If data is missing, ask one short follow-up question. " .
+            ($tagalog ? "Reply in natural Tagalog (can mix light English) and keep it concise.\n\n" : "\n\n") .
             "Conversation so far (for context):\n" . json_encode($history, JSON_UNESCAPED_SLASHES) . "\n\n" .
             "User question: \"{$q}\"\n\n" .
             "Context data (for reference only, do not expose raw JSON):\n" . json_encode($context, JSON_UNESCAPED_SLASHES);

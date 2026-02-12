@@ -22,7 +22,7 @@ if (!$id || !$destinationId) {
 }
 
 try {
-  $st = $pdo->prepare("SELECT id, origin_id, destination_id, ref_no FROM shipments WHERE id=? LIMIT 1");
+  $st = $pdo->prepare("SELECT id, origin_id, destination_id, ref_no, status FROM shipments WHERE id=? LIMIT 1");
   $st->execute([$id]);
   $row = $st->fetch(PDO::FETCH_ASSOC);
   if (!$row) {
@@ -67,4 +67,10 @@ try {
   http_response_code(500);
   echo json_encode(["ok"=>false,"err"=>"Failed to update destination"]);
 }
+  $status = strtolower(trim((string)($row['status'] ?? '')));
+  if ($status === 'delivered') {
+    http_response_code(422);
+    echo json_encode(["ok"=>false,"err"=>"Delivered shipments can no longer change destination"]);
+    exit;
+  }
 
