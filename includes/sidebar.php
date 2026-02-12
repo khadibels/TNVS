@@ -48,13 +48,11 @@
       <?php
         $warehousingChildren = ['inventory','stock','shipments','warehouse_categories'];
         $procurementChildren = ['vm_suppliers','po_rfq','po_quotes','po_pos'];
-        $pltChildren         = ['projects','tracker','delivery'];
         $almsChildren        = ['assettracker','requests','repair'];
         $docsChildren        = ['documents','logistics'];
 
         $isWarehousingOpen = a_any($warehousingChildren);
         $isProcurementOpen = a_any($procurementChildren);
-        $isPltOpen         = a_any($pltChildren);
         $isAlmsOpen        = a_any($almsChildren);
         $isDocsOpen        = a_any($docsChildren);
       ?>
@@ -118,32 +116,6 @@
       </div>
 
       <a
-        class="nav-link d-flex align-items-center justify-content-between module-parent<?= $isPltOpen ? ' active is-open' : '' ?>"
-        data-bs-toggle="collapse"
-        data-bs-target="#adminPlt"
-        href="#"
-        role="button"
-        aria-expanded="<?= $isPltOpen ? 'true' : 'false' ?>"
-        aria-controls="adminPlt"
-      >
-        <span class="module-title">Project Logistics &amp; Tracking</span>
-        <ion-icon class="module-chevron" name="chevron-forward-outline"></ion-icon>
-      </a>
-      <div class="collapse module-collapse<?= $isPltOpen ? ' show' : '' ?>" id="adminPlt">
-        <nav class="nav flex-column px-2 mb-3">
-          <a class="nav-link<?= a('projects') ?>" href="<?= u('PLT/projectTracking.php') ?>">
-            <ion-icon name="briefcase-outline"></ion-icon><span>Project Tracking</span>
-          </a>
-          <a class="nav-link<?= a('tracker') ?>" href="<?= u('PLT/shipmentTracker.php') ?>">
-            <ion-icon name="trail-sign-outline"></ion-icon><span>Shipment Tracker</span>
-          </a>
-          <a class="nav-link<?= a('delivery') ?>" href="<?= u('PLT/deliverySchedule.php') ?>">
-            <ion-icon name="calendar-outline"></ion-icon><span>Delivery Schedule</span>
-          </a>
-        </nav>
-      </div>
-
-      <a
         class="nav-link d-flex align-items-center justify-content-between module-parent<?= $isAlmsOpen ? ' active is-open' : '' ?>"
         data-bs-toggle="collapse"
         data-bs-target="#adminAlms"
@@ -200,7 +172,7 @@
         </a>
 
         <?php
-    $settingsChildren = ['settings_access','settings_locations','settings_categories','settings_departments'];
+    $settingsChildren = ['settings_access','settings_account'];
     $isSettingsOpen = a_any($settingsChildren) || $active === 'settings';
   ?>
   <a
@@ -221,14 +193,8 @@
       <a class="nav-link sub-link<?= a('settings_access') ?>" href="<?= u('all-modules-admin-access/accessControl.php') ?>">
         <ion-icon name="lock-closed-outline"></ion-icon><span>Access Control</span>
       </a>
-      <a class="nav-link sub-link<?= a('settings_locations') ?>" href="<?= u('all-modules-admin-access/locations.php') ?>">
-        <ion-icon name="location-outline"></ion-icon><span>Warehouse Locations</span>
-      </a>
-      <a class="nav-link sub-link<?= a('settings_categories') ?>" href="<?= u('all-modules-admin-access/categories.php') ?>">
-        <ion-icon name="pricetags-outline"></ion-icon><span>Inventory Categories</span>
-      </a>
-      <a class="nav-link sub-link<?= a('settings_departments') ?>" href="<?= u('all-modules-admin-access/departments.php') ?>">
-        <ion-icon name="business-outline"></ion-icon><span>Departments</span>
+      <a class="nav-link sub-link<?= a('settings_account') ?>" href="<?= u('all-modules-admin-access/accountSettings.php') ?>">
+        <ion-icon name="person-circle-outline"></ion-icon><span>Account Settings</span>
       </a>
     </div>
   </div>

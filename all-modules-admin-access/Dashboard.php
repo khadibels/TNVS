@@ -52,6 +52,12 @@ function qall(?PDO $pdo = null, string $sql = '', array $bind = []) {
     return $st->fetchAll(PDO::FETCH_ASSOC) ?: [];
   } catch (Throwable $e) { return []; }
 }
+function first_existing_col(?PDO $pdo, string $table, array $candidates): ?string {
+  foreach ($candidates as $c) {
+    if (column_exists($pdo, $table, $c)) return $c;
+  }
+  return null;
+}
 
 /* -------------------- CURRENT USER (optional) -------------------- */
 $userName = "Admin";
@@ -165,13 +171,19 @@ if ($sw_hasShip) {
 =============================================================== */
 $hasProcDB = $procPdo instanceof PDO;
 
-$poHeaderTbl = null; $poItemTbl = null;
+$poHeaderTbl = null; $poItemTbl = null; $vendorTbl = null; $rfqTbl = null; $quoteTbl = null;
 if ($hasProcDB) {
   if (table_exists($procPdo,'pos'))                $poHeaderTbl = 'pos';
   elseif (table_exists($procPdo,'purchase_orders'))$poHeaderTbl = 'purchase_orders';
 
   if (table_exists($procPdo,'po_items'))                 $poItemTbl='po_items';
   elseif (table_exists($procPdo,'purchase_order_items')) $poItemTbl='purchase_order_items';
+
+  if (table_exists($procPdo,'vendors'))      $vendorTbl = 'vendors';
+  elseif (table_exists($procPdo,'suppliers'))$vendorTbl = 'suppliers';
+
+  if (table_exists($procPdo,'rfqs')) $rfqTbl = 'rfqs';
+  if (table_exists($procPdo,'quotes')) $quoteTbl = 'quotes';
 }
 
 $poDateCol = null;
@@ -179,14 +191,53 @@ if ($poHeaderTbl) foreach (['issue_date','order_date','created_at','date'] as $c
 $poTotalCol = null;
 if ($poHeaderTbl) foreach (['total','total_amount','grand_total'] as $c) { if (column_exists($procPdo,$poHeaderTbl,$c)) { $poTotalCol=$c; break; } }
 
-$hasSup = $hasProcDB && table_exists($procPdo,'suppliers');
-$hasRFQ = $hasProcDB && table_exists($procPdo,'rfqs');
+$hasSup = $vendorTbl !== null;
+$hasRFQ = $rfqTbl !== null;
+$hasQuote = $quoteTbl !== null;
 $hasPR  = $hasProcDB && table_exists($procPdo,'procurement_requests');
+$prfStatusCol = $rfqTbl ? first_existing_col($procPdo, $rfqTbl, ['status']) : null;
+$prfDueCol = $rfqTbl ? first_existing_col($procPdo, $rfqTbl, ['due_at','deadline','due_date']) : null;
+$prfCreatedCol = $rfqTbl ? first_existing_col($procPdo, $rfqTbl, ['created_at','issued_at','date']) : null;
+$prfNoCol = $rfqTbl ? first_existing_col($procPdo, $rfqTbl, ['rfq_no','code','id']) : null;
+$prfTitleCol = $rfqTbl ? first_existing_col($procPdo, $rfqTbl, ['title','name','description']) : null;
+
+$pqStatusCol = $quoteTbl ? first_existing_col($procPdo, $quoteTbl, ['status']) : null;
+$pqTotalCol = $quoteTbl ? first_existing_col($procPdo, $quoteTbl, ['total','amount','grand_total']) : null;
+$pqCreatedCol = $quoteTbl ? first_existing_col($procPdo, $quoteTbl, ['created_at','submitted_at','date']) : null;
+$pqRfqCol = $quoteTbl ? first_existing_col($procPdo, $quoteTbl, ['rfq_id']) : null;
+$pqVendorCol = $quoteTbl ? first_existing_col($procPdo, $quoteTbl, ['vendor_id','supplier_id']) : null;
+
+$pvStatusCol = $vendorTbl ? first_existing_col($procPdo, $vendorTbl, ['status','is_active']) : null;
+$pvNameCol = $vendorTbl ? first_existing_col($procPdo, $vendorTbl, ['company_name','name']) : null;
+$pvEmailCol = $vendorTbl ? first_existing_col($procPdo, $vendorTbl, ['email']) : null;
 
 /* KPIs */
-$pr_activeSuppliers = $hasSup ? (int)fetch_val($procPdo,"SELECT COUNT(*) FROM suppliers WHERE IFNULL(is_active,1)=1") : 0;
-$pr_openRFQs        = $hasRFQ ? (int)fetch_val($procPdo,"SELECT COUNT(*) FROM rfqs WHERE status IN ('open','sent','pending','draft')") : 0;
+$pr_totalSuppliers  = $hasSup ? (int)fetch_val($procPdo,"SELECT COUNT(*) FROM `$vendorTbl`") : 0;
+$pr_activeSuppliers = $hasSup
+  ? (int)fetch_val(
+      $procPdo,
+      $pvStatusCol === 'is_active'
+        ? "SELECT COUNT(*) FROM `$vendorTbl` WHERE IFNULL(is_active,1)=1"
+        : ($pvStatusCol === 'status'
+            ? "SELECT COUNT(*) FROM `$vendorTbl` WHERE LOWER(IFNULL(status,'')) IN ('approved','active')"
+            : "SELECT COUNT(*) FROM `$vendorTbl`")
+    )
+  : 0;
+$pr_totalRFQs       = $hasRFQ ? (int)fetch_val($procPdo,"SELECT COUNT(*) FROM `$rfqTbl`") : 0;
+$pr_openRFQs        = $hasRFQ
+  ? (int)fetch_val($procPdo, $prfStatusCol
+      ? "SELECT COUNT(*) FROM `$rfqTbl` WHERE LOWER(IFNULL(`$prfStatusCol`,'')) IN ('open','sent','pending','draft')"
+      : "SELECT COUNT(*) FROM `$rfqTbl`")
+  : 0;
+$pr_totalQuotes     = $hasQuote ? (int)fetch_val($procPdo,"SELECT COUNT(*) FROM `$quoteTbl`") : 0;
+$pr_pendingQuotes   = $hasQuote
+  ? (int)fetch_val($procPdo, $pqStatusCol
+      ? "SELECT COUNT(*) FROM `$quoteTbl` WHERE LOWER(IFNULL(`$pqStatusCol`,'')) IN ('submitted','pending','under_review','for_review','draft')"
+      : "SELECT COUNT(*) FROM `$quoteTbl`")
+  : 0;
+$pr_totalPOs        = ($poHeaderTbl) ? (int)fetch_val($procPdo,"SELECT COUNT(*) FROM `$poHeaderTbl`") : 0;
 $pr_openPOs         = ($poHeaderTbl) ? (int)fetch_val($procPdo,"SELECT COUNT(*) FROM `$poHeaderTbl` WHERE LOWER(IFNULL(status,'')) IN ('draft','approved','ordered','partially_received')") : 0;
+$pr_closedPOs       = ($poHeaderTbl) ? (int)fetch_val($procPdo,"SELECT COUNT(*) FROM `$poHeaderTbl` WHERE LOWER(IFNULL(status,'')) IN ('received','closed','cancelled')") : 0;
 $pr_pendingPRs      = $hasPR ? (int)fetch_val($procPdo,"SELECT COUNT(*) FROM procurement_requests WHERE status IN ('pending','for_approval','approved','submitted')") : 0;
 
 $pr_spendThisMonth = 0.0;
@@ -271,6 +322,62 @@ if ($hasSup && $poHeaderTbl && $poDateCol) {
     $rows = qall($procPdo,$sql);
     foreach($rows as $r){ $pr_topSupLabels[]=$r['name']; $pr_topSupAmts[]=(float)$r['amt']; }
   }
+}
+
+// Recent procurement records for admin overview
+$pr_recentRFQs = [];
+if ($hasRFQ) {
+  $select = "id";
+  $select .= $prfNoCol ? ", `$prfNoCol` AS rfq_no" : ", id AS rfq_no";
+  $select .= $prfTitleCol ? ", `$prfTitleCol` AS rfq_title" : ", '' AS rfq_title";
+  $select .= $prfStatusCol ? ", `$prfStatusCol` AS rfq_status" : ", '' AS rfq_status";
+  $select .= $prfDueCol ? ", `$prfDueCol` AS rfq_due" : ", NULL AS rfq_due";
+  $select .= $prfCreatedCol ? ", `$prfCreatedCol` AS rfq_created" : ", NOW() AS rfq_created";
+  $pr_recentRFQs = qall($procPdo, "SELECT $select FROM `$rfqTbl` ORDER BY id DESC LIMIT 8");
+}
+
+$pr_recentQuotes = [];
+if ($hasQuote) {
+  $qSelect = "q.id";
+  $qSelect .= $pqTotalCol ? ", q.`$pqTotalCol` AS quote_total" : ", 0 AS quote_total";
+  $qSelect .= $pqStatusCol ? ", q.`$pqStatusCol` AS quote_status" : ", '' AS quote_status";
+  $qSelect .= $pqCreatedCol ? ", q.`$pqCreatedCol` AS quote_created" : ", NOW() AS quote_created";
+  $qSelect .= $pqRfqCol ? ", q.`$pqRfqCol` AS quote_rfq_id" : ", NULL AS quote_rfq_id";
+  $qSelect .= $pqVendorCol ? ", q.`$pqVendorCol` AS quote_vendor_id" : ", NULL AS quote_vendor_id";
+  $joins = "";
+  if ($hasRFQ && $pqRfqCol) {
+    $rfqLabel = $prfNoCol ? "r.`$prfNoCol`" : "r.id";
+    $qSelect .= ", $rfqLabel AS rfq_no";
+    $joins .= " LEFT JOIN `$rfqTbl` r ON r.id = q.`$pqRfqCol`";
+  } else {
+    $qSelect .= ", '' AS rfq_no";
+  }
+  if ($hasSup && $pqVendorCol && $pvNameCol) {
+    $qSelect .= ", v.`$pvNameCol` AS vendor_name";
+    $joins .= " LEFT JOIN `$vendorTbl` v ON v.id = q.`$pqVendorCol`";
+  } else {
+    $qSelect .= ", '' AS vendor_name";
+  }
+  $pr_recentQuotes = qall($procPdo, "SELECT $qSelect FROM `$quoteTbl` q $joins ORDER BY q.id DESC LIMIT 8");
+}
+
+$pr_recentPOs = [];
+if ($poHeaderTbl) {
+  $poNoCol = first_existing_col($procPdo, $poHeaderTbl, ['po_no','code','reference_no']);
+  $poVendorCol = first_existing_col($procPdo, $poHeaderTbl, ['vendor_id','supplier_id']);
+  $poSelect = "p.id";
+  $poSelect .= $poNoCol ? ", p.`$poNoCol` AS po_no" : ", p.id AS po_no";
+  $poSelect .= ", p.`status` AS po_status";
+  $poSelect .= $poDateCol ? ", p.`$poDateCol` AS po_date" : ", NOW() AS po_date";
+  $poSelect .= $poTotalCol ? ", p.`$poTotalCol` AS po_total" : ", 0 AS po_total";
+  $poJoin = "";
+  if ($hasSup && $poVendorCol && $pvNameCol) {
+    $poSelect .= ", v.`$pvNameCol` AS vendor_name";
+    $poJoin .= " LEFT JOIN `$vendorTbl` v ON v.id = p.`$poVendorCol`";
+  } else {
+    $poSelect .= ", '' AS vendor_name";
+  }
+  $pr_recentPOs = qall($procPdo, "SELECT $poSelect FROM `$poHeaderTbl` p $poJoin ORDER BY p.id DESC LIMIT 8");
 }
 
 /* ================================================================
@@ -570,19 +677,27 @@ $plt_hasAtRiskData = !empty($plt_atRisk);
       <div class="row g-3 mb-3">
         <div class="col-6 col-md-3"><div class="card shadow-sm kpi-card h-100"><div class="card-body d-flex gap-3 align-items-center">
           <div class="icon-wrap bg-primary-subtle"><ion-icon name="people-outline"></ion-icon></div>
-          <div><div class="text-muted small">Active Suppliers</div><div class="h4 m-0"><?= number_format($pr_activeSuppliers) ?></div></div>
+          <div><div class="text-muted small">Suppliers (Active / Total)</div><div class="h4 m-0"><?= number_format($pr_activeSuppliers) ?> / <?= number_format($pr_totalSuppliers) ?></div></div>
         </div></div></div>
         <div class="col-6 col-md-3"><div class="card shadow-sm kpi-card h-100"><div class="card-body d-flex gap-3 align-items-center">
           <div class="icon-wrap bg-info-subtle"><ion-icon name="mail-open-outline"></ion-icon></div>
-          <div><div class="text-muted small">Open RFQs</div><div class="h4 m-0"><?= number_format($pr_openRFQs) ?></div></div>
+          <div><div class="text-muted small">RFQs (Open / Total)</div><div class="h4 m-0"><?= number_format($pr_openRFQs) ?> / <?= number_format($pr_totalRFQs) ?></div></div>
         </div></div></div>
         <div class="col-6 col-md-3"><div class="card shadow-sm kpi-card h-100"><div class="card-body d-flex gap-3 align-items-center">
           <div class="icon-wrap bg-warning-subtle"><ion-icon name="document-text-outline"></ion-icon></div>
-          <div><div class="text-muted small">Open POs</div><div class="h4 m-0"><?= number_format($pr_openPOs) ?></div></div>
+          <div><div class="text-muted small">POs (Open / Total)</div><div class="h4 m-0"><?= number_format($pr_openPOs) ?> / <?= number_format($pr_totalPOs) ?></div></div>
         </div></div></div>
         <div class="col-6 col-md-3"><div class="card shadow-sm kpi-card h-100"><div class="card-body d-flex gap-3 align-items-center">
           <div class="icon-wrap bg-success-subtle"><ion-icon name="cash-outline"></ion-icon></div>
           <div><div class="text-muted small">Spend (This Month)</div><div class="h4 m-0">₱<?= number_format($pr_spendThisMonth,2) ?></div></div>
+        </div></div></div>
+        <div class="col-6 col-md-3"><div class="card shadow-sm kpi-card h-100"><div class="card-body d-flex gap-3 align-items-center">
+          <div class="icon-wrap bg-violet-subtle"><ion-icon name="reader-outline"></ion-icon></div>
+          <div><div class="text-muted small">Quotations (Pending / Total)</div><div class="h4 m-0"><?= number_format($pr_pendingQuotes) ?> / <?= number_format($pr_totalQuotes) ?></div></div>
+        </div></div></div>
+        <div class="col-6 col-md-3"><div class="card shadow-sm kpi-card h-100"><div class="card-body d-flex gap-3 align-items-center">
+          <div class="icon-wrap bg-secondary-subtle"><ion-icon name="checkmark-done-outline"></ion-icon></div>
+          <div><div class="text-muted small">Closed POs</div><div class="h4 m-0"><?= number_format($pr_closedPOs) ?></div></div>
         </div></div></div>
       </div>
 
@@ -608,6 +723,83 @@ $plt_hasAtRiskData = !empty($plt_atRisk);
         </div></div></div>
       </div>
       <?php endif; ?>
+
+      <div class="row g-3 mb-4">
+        <div class="col-12 col-lg-4">
+          <div class="card shadow-sm h-100">
+            <div class="card-body">
+              <h6 class="mb-2 d-flex align-items-center gap-2"><ion-icon name="mail-open-outline"></ion-icon> Recent RFQs</h6>
+              <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                  <thead><tr><th>RFQ #</th><th>Title</th><th>Due</th><th>Status</th></tr></thead>
+                  <tbody>
+                    <?php if (!$pr_recentRFQs): ?>
+                      <tr><td colspan="4" class="text-muted text-center py-3">No RFQ data</td></tr>
+                    <?php else: foreach ($pr_recentRFQs as $r): ?>
+                      <tr>
+                        <td class="fw-semibold"><?= htmlspecialchars((string)($r['rfq_no'] ?? ('RFQ-'.$r['id']))) ?></td>
+                        <td><?= htmlspecialchars((string)($r['rfq_title'] ?? '—')) ?></td>
+                        <td><?= htmlspecialchars((string)($r['rfq_due'] ?? '—')) ?></td>
+                        <td><span class="badge bg-secondary badge-status"><?= htmlspecialchars(ucfirst(str_replace('_', ' ', (string)($r['rfq_status'] ?? 'n/a')))) ?></span></td>
+                      </tr>
+                    <?php endforeach; endif; ?>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12 col-lg-4">
+          <div class="card shadow-sm h-100">
+            <div class="card-body">
+              <h6 class="mb-2 d-flex align-items-center gap-2"><ion-icon name="newspaper-outline"></ion-icon> Recent Quotations</h6>
+              <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                  <thead><tr><th>ID</th><th>RFQ</th><th>Vendor</th><th>Total</th></tr></thead>
+                  <tbody>
+                    <?php if (!$pr_recentQuotes): ?>
+                      <tr><td colspan="4" class="text-muted text-center py-3">No quotation data</td></tr>
+                    <?php else: foreach ($pr_recentQuotes as $q): ?>
+                      <tr>
+                        <td class="fw-semibold">Q-<?= (int)$q['id'] ?></td>
+                        <td><?= htmlspecialchars((string)($q['rfq_no'] ?? '—')) ?></td>
+                        <td><?= htmlspecialchars((string)($q['vendor_name'] ?? '—')) ?></td>
+                        <td>₱<?= number_format((float)($q['quote_total'] ?? 0), 2) ?></td>
+                      </tr>
+                    <?php endforeach; endif; ?>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12 col-lg-4">
+          <div class="card shadow-sm h-100">
+            <div class="card-body">
+              <h6 class="mb-2 d-flex align-items-center gap-2"><ion-icon name="document-text-outline"></ion-icon> Recent Purchase Orders</h6>
+              <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                  <thead><tr><th>PO #</th><th>Vendor</th><th>Status</th><th>Total</th></tr></thead>
+                  <tbody>
+                    <?php if (!$pr_recentPOs): ?>
+                      <tr><td colspan="4" class="text-muted text-center py-3">No PO data</td></tr>
+                    <?php else: foreach ($pr_recentPOs as $p): ?>
+                      <tr>
+                        <td class="fw-semibold"><?= htmlspecialchars((string)($p['po_no'] ?? ('PO-'.$p['id']))) ?></td>
+                        <td><?= htmlspecialchars((string)($p['vendor_name'] ?? '—')) ?></td>
+                        <td><span class="badge bg-secondary badge-status"><?= htmlspecialchars(ucfirst(str_replace('_', ' ', (string)($p['po_status'] ?? 'n/a')))) ?></span></td>
+                        <td>₱<?= number_format((float)($p['po_total'] ?? 0), 2) ?></td>
+                      </tr>
+                    <?php endforeach; endif; ?>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <!-- ===================== PLT ===================== -->
       <h5 class="section-title d-flex align-items-center gap-2"><ion-icon name="trail-sign-outline"></ion-icon> PLT</h5>

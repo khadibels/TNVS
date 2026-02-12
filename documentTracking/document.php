@@ -12,6 +12,8 @@ $active  = 'documents';
 
 if (function_exists('db')) {
     $pdo = db('docs');  
+    $procPdo = db('proc');
+    $pltPdo  = db('plt');
 } else {
     $dsn = "mysql:host=" . DB_HOST . ";dbname=logi_docs;charset=utf8mb4";
     $pdo = new PDO($dsn, DB_USER, DB_PASS, [
@@ -76,6 +78,21 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS document_activity (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
 function h($s){ return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8'); }
+function table_exists_in_schema(PDO $pdo, string $schema, string $table): bool {
+    try {
+        $st = $pdo->prepare("SELECT 1 FROM information_schema.tables WHERE table_schema = ? AND table_name = ? LIMIT 1");
+        $st->execute([$schema, $table]);
+        return (bool)$st->fetchColumn();
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+function first_value(array $row, array $keys, $default = null) {
+    foreach ($keys as $k) {
+        if (array_key_exists($k, $row) && $row[$k] !== null && $row[$k] !== '') return $row[$k];
+    }
+    return $default;
+}
 
 // CSRF token
 if (empty($_SESSION['csrf_token'])) { $_SESSION['csrf_token'] = bin2hex(random_bytes(16)); }
@@ -269,26 +286,146 @@ $filterStatus = $_GET['status'] ?? '';
 $filterType = $_GET['type'] ?? '';
 $filterQ = trim($_GET['q'] ?? '');
 $filterExp = $_GET['exp'] ?? ''; // soon, expired
-$params=[]; $where=[];
-if ($filterStatus !== '') { $where[]='d.status = :st'; $params[':st']=$filterStatus; }
-if ($filterType !== '') { $where[]='d.doc_type = :tp'; $params[':tp']=$filterType; }
-if ($filterQ !== '') { $where[]='(d.title LIKE :q OR d.doc_code LIKE :q OR a.name LIKE :q OR d.trip_ref LIKE :q)'; $params[':q']='%'.$filterQ.'%'; }
-if ($filterExp === 'soon') { $where[]='d.expiration_date IS NOT NULL AND d.expiration_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY)'; }
-if ($filterExp === 'expired') { $where[]='d.expiration_date IS NOT NULL AND d.expiration_date < CURDATE()'; }
-$w = $where ? ('WHERE '.implode(' AND ',$where)) : '';
+$docsStmt = $pdo->query("SELECT d.*, a.name AS asset_name, DATEDIFF(d.expiration_date, CURDATE()) AS days_to_expiry FROM documents d LEFT JOIN assets a ON d.asset_id=a.id ORDER BY d.updated_at DESC, d.id DESC LIMIT 1000");
+$docsLocal = $docsStmt ? ($docsStmt->fetchAll() ?: []) : [];
+$allDocs = [];
+foreach ($docsLocal as $d) {
+    $d['source_module'] = 'Document Tracking';
+    $d['is_external'] = 0;
+    $d['external_url'] = null;
+    $allDocs[] = $d;
+}
 
-$docsStmt = $pdo->prepare("SELECT d.*, a.name AS asset_name, DATEDIFF(d.expiration_date, CURDATE()) AS days_to_expiry FROM documents d LEFT JOIN assets a ON d.asset_id=a.id $w ORDER BY d.updated_at DESC, d.id DESC LIMIT 1000");
-$docsStmt->execute($params);
-$docs = $docsStmt->fetchAll();
+if (($procPdo ?? null) instanceof PDO && defined('DB_PROC_NAME') && table_exists_in_schema($procPdo, DB_PROC_NAME, 'vendor_documents')) {
+    $hasVendors = table_exists_in_schema($procPdo, DB_PROC_NAME, 'vendors');
+    $sql = "SELECT vd.*, " . ($hasVendors ? "v.company_name AS vendor_name " : "NULL AS vendor_name ") .
+           "FROM vendor_documents vd " . ($hasVendors ? "LEFT JOIN vendors v ON v.id = vd.vendor_id " : "") .
+           "ORDER BY vd.created_at DESC, vd.id DESC LIMIT 1000";
+    $rows = $procPdo->query($sql)->fetchAll(PDO::FETCH_ASSOC) ?: [];
+    foreach ($rows as $r) {
+        $status = ucfirst(strtolower((string)($r['status'] ?? 'submitted')));
+        $createdAt = (string)first_value($r, ['reviewed_at', 'created_at'], date('Y-m-d H:i:s'));
+        $title = trim((string)first_value($r, ['vendor_name'], 'Vendor') . ' - ' . (string)first_value($r, ['doc_type'], 'Document'));
+        $allDocs[] = [
+            'id' => (int)($r['id'] ?? 0),
+            'title' => $title,
+            'doc_type' => (string)first_value($r, ['doc_type'], 'Vendor Document'),
+            'doc_code' => (string)first_value($r, ['category'], ''),
+            'asset_id' => null,
+            'asset_name' => (string)first_value($r, ['vendor_name'], 'Vendor'),
+            'trip_ref' => null,
+            'status' => $status,
+            'issue_date' => substr((string)first_value($r, ['created_at'], ''), 0, 10),
+            'expiration_date' => null,
+            'version' => 1,
+            'file_path' => (string)first_value($r, ['file_path'], ''),
+            'tags' => (string)first_value($r, ['category'], ''),
+            'created_by' => 'vendor_portal',
+            'verified_by' => null,
+            'approved_by' => null,
+            'created_at' => (string)first_value($r, ['created_at'], $createdAt),
+            'updated_at' => $createdAt,
+            'days_to_expiry' => null,
+            'source_module' => 'Vendor Portal',
+            'is_external' => 1,
+            'external_url' => (string)first_value($r, ['url'], ''),
+        ];
+    }
+}
 
-// Stats
-$totalDocs = (int)$pdo->query("SELECT COUNT(*) FROM documents")->fetchColumn();
-$pending = (int)$pdo->query("SELECT COUNT(*) FROM documents WHERE status IN ('Draft','Submitted','Verified')")->fetchColumn();
-$expiringSoon = (int)$pdo->query("SELECT COUNT(*) FROM documents WHERE expiration_date IS NOT NULL AND expiration_date <= DATE_ADD(CURDATE(), INTERVAL 30 DAY) AND expiration_date >= CURDATE()")->fetchColumn();
-$expired = (int)$pdo->query("SELECT COUNT(*) FROM documents WHERE expiration_date IS NOT NULL AND expiration_date < CURDATE() ")->fetchColumn();
+if (($pltPdo ?? null) instanceof PDO && defined('DB_PLT_NAME') && table_exists_in_schema($pltPdo, DB_PLT_NAME, 'plt_documents')) {
+    try {
+        $rows = $pltPdo->query("SELECT * FROM plt_documents ORDER BY id DESC LIMIT 1000")->fetchAll(PDO::FETCH_ASSOC) ?: [];
+        foreach ($rows as $r) {
+            $createdAt = (string)first_value($r, ['updated_at', 'created_at', 'uploaded_at'], date('Y-m-d H:i:s'));
+            $title = (string)first_value($r, ['title', 'name', 'doc_name', 'doc_type'], 'PLT Document');
+            $allDocs[] = [
+                'id' => (int)($r['id'] ?? 0),
+                'title' => $title,
+                'doc_type' => (string)first_value($r, ['doc_type', 'type', 'document_type'], 'Project Document'),
+                'doc_code' => (string)first_value($r, ['doc_code', 'code', 'reference_no', 'ref_no'], ''),
+                'asset_id' => null,
+                'asset_name' => null,
+                'trip_ref' => (string)first_value($r, ['shipment_no', 'shipment_id', 'project_id'], ''),
+                'status' => (string)first_value($r, ['status'], 'Submitted'),
+                'issue_date' => substr((string)first_value($r, ['issue_date', 'created_at', 'uploaded_at'], ''), 0, 10),
+                'expiration_date' => (string)first_value($r, ['expiration_date', 'expiry_date'], ''),
+                'version' => (int)first_value($r, ['version'], 1),
+                'file_path' => (string)first_value($r, ['file_path', 'path'], ''),
+                'tags' => '',
+                'created_by' => 'plt',
+                'verified_by' => null,
+                'approved_by' => null,
+                'created_at' => (string)first_value($r, ['created_at', 'uploaded_at'], $createdAt),
+                'updated_at' => $createdAt,
+                'days_to_expiry' => null,
+                'source_module' => 'PLT',
+                'is_external' => 1,
+                'external_url' => (string)first_value($r, ['url'], ''),
+            ];
+        }
+    } catch (Throwable $e) {
+        // ignore PLT document fetch errors
+    }
+}
+
+$docs = array_values(array_filter($allDocs, function(array $d) use ($filterStatus, $filterType, $filterQ, $filterExp): bool {
+    $status = strtolower(trim((string)($d['status'] ?? '')));
+    $type = strtolower(trim((string)($d['doc_type'] ?? '')));
+    $qhay = strtolower(
+        (string)($d['title'] ?? '') . ' ' .
+        (string)($d['doc_code'] ?? '') . ' ' .
+        (string)($d['asset_name'] ?? '') . ' ' .
+        (string)($d['trip_ref'] ?? '') . ' ' .
+        (string)($d['source_module'] ?? '')
+    );
+
+    if ($filterStatus !== '' && $status !== strtolower(trim($filterStatus))) return false;
+    if ($filterType !== '' && $type !== strtolower(trim($filterType))) return false;
+    if ($filterQ !== '' && strpos($qhay, strtolower($filterQ)) === false) return false;
+
+    $exp = (string)($d['expiration_date'] ?? '');
+    if ($filterExp === 'expired') {
+        if ($exp === '' || strtotime($exp) >= strtotime(date('Y-m-d'))) return false;
+    }
+    if ($filterExp === 'soon') {
+        if ($exp === '') return false;
+        $days = (int)floor((strtotime($exp) - strtotime(date('Y-m-d'))) / 86400);
+        if ($days < 0 || $days > 30) return false;
+    }
+    return true;
+}));
+
+usort($docs, function(array $a, array $b): int {
+    $at = strtotime((string)($a['updated_at'] ?? $a['created_at'] ?? '1970-01-01'));
+    $bt = strtotime((string)($b['updated_at'] ?? $b['created_at'] ?? '1970-01-01'));
+    return $bt <=> $at;
+});
+
+// Stats (global across all fetched sources)
+$totalDocs = count($allDocs);
+$pending = 0;
+$expiringSoon = 0;
+$expired = 0;
+foreach ($allDocs as $d) {
+    $s = strtolower(trim((string)($d['status'] ?? '')));
+    if (in_array($s, ['draft', 'submitted', 'verified', 'pending'], true)) $pending++;
+    $exp = (string)($d['expiration_date'] ?? '');
+    if ($exp !== '') {
+        $days = (int)floor((strtotime($exp) - strtotime(date('Y-m-d'))) / 86400);
+        if ($days < 0) $expired++;
+        if ($days >= 0 && $days <= 30) $expiringSoon++;
+    }
+}
 
 $docTypes = ['Transport Manifest','Delivery Receipt','Vehicle Registration','Driver ID','Permit','Insurance','Other'];
 $statuses = ['Draft','Submitted','Verified','Approved','Rejected','Archived'];
+foreach ($allDocs as $d) {
+    $t = trim((string)($d['doc_type'] ?? ''));
+    if ($t !== '' && !in_array($t, $docTypes, true)) $docTypes[] = $t;
+    $s = trim((string)($d['status'] ?? ''));
+    if ($s !== '' && !in_array($s, $statuses, true)) $statuses[] = $s;
+}
 
 // Fetch assets for linking
 $assets = $pdo->query("SELECT id, name FROM assets ORDER BY name ASC")->fetchAll();
@@ -313,6 +450,24 @@ $userRole = $_SESSION["user"]["role"] ?? "Document Controller";
   <script src="../js/sidebar-toggle.js"></script>
 
   <style>
+    :root {
+      --slate-50: #f8fafc;
+      --slate-100: #f1f5f9;
+      --slate-200: #e2e8f0;
+      --slate-600: #475569;
+      --slate-800: #1e293b;
+    }
+    body { background-color: var(--slate-50); }
+    .text-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.6px; font-weight: 700; color: #94a3b8; margin-bottom: 2px; }
+    .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; margin-bottom: 1.25rem; }
+    .stat-card { background: white; border: 1px solid var(--slate-200); border-radius: 1rem; padding: 1.15rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+    .stat-icon { width: 44px; height: 44px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 1.35rem; margin-bottom: .75rem; }
+    .card-table { border: 1px solid var(--slate-200); border-radius: 1rem; background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.05); overflow: hidden; }
+    .table-custom thead th { font-size: .75rem; text-transform: uppercase; letter-spacing: .5px; color: var(--slate-600); background: var(--slate-50); border-bottom: 1px solid var(--slate-200); font-weight: 600; padding: 1rem 1.1rem; white-space: nowrap; }
+    .table-custom tbody td { padding: 1rem 1.1rem; border-bottom: 1px solid var(--slate-100); font-size: .95rem; color: var(--slate-800); vertical-align: top; }
+    .table-custom tr:hover td { background-color: #f8fafc; }
+    .toolbar-card { border: 1px solid var(--slate-200); border-radius: 1rem; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.05); }
+    .btn-tight { white-space: nowrap; }
     /* extra badges for statuses */
     .badge.s-draft{background:#e5e7eb;color:#374151}
     .badge.s-submitted{background:#dbeafe;color:#1d4ed8}
@@ -325,8 +480,7 @@ $userRole = $_SESSION["user"]["role"] ?? "Document Controller";
     .a-soon{background:#fef3c7;color:#92400e}
     .form-inline-gap > * { margin-right:.5rem; margin-bottom:.5rem; }
     .form-inline-gap > *:last-child{ margin-right:0; }
-    .table thead th { white-space: nowrap; }
-    .table td { vertical-align: top; }
+    .source-pill { display:inline-block; padding: 2px 8px; border-radius: 999px; font-size: .74rem; background:#eef2ff; color:#3730a3; }
   </style>
 </head>
 <body class="saas-page">
@@ -363,10 +517,10 @@ $userRole = $_SESSION["user"]["role"] ?? "Document Controller";
         </div>
 
         <!-- KPI Cards -->
-        <div class="row g-3 mb-3">
+        <div class="stats-row">
           <div class="col-6 col-md-3">
-            <div class="card shadow-sm h-100">
-              <div class="card-body d-flex align-items-center gap-3">
+            <div class="stat-card h-100">
+              <div class="d-flex align-items-center gap-3">
                 <div class="rounded-3 p-2 bg-primary-subtle">
                   <ion-icon name="documents-outline" style="font-size:20px"></ion-icon>
                 </div>
@@ -378,8 +532,8 @@ $userRole = $_SESSION["user"]["role"] ?? "Document Controller";
             </div>
           </div>
           <div class="col-6 col-md-3">
-            <div class="card shadow-sm h-100">
-              <div class="card-body d-flex align-items-center gap-3">
+            <div class="stat-card h-100">
+              <div class="d-flex align-items-center gap-3">
                 <div class="rounded-3 p-2 bg-warning-subtle">
                   <ion-icon name="time-outline" style="font-size:20px"></ion-icon>
                 </div>
@@ -391,8 +545,8 @@ $userRole = $_SESSION["user"]["role"] ?? "Document Controller";
             </div>
           </div>
           <div class="col-6 col-md-3">
-            <div class="card shadow-sm h-100">
-              <div class="card-body d-flex align-items-center gap-3">
+            <div class="stat-card h-100">
+              <div class="d-flex align-items-center gap-3">
                 <div class="rounded-3 p-2 bg-info-subtle">
                   <ion-icon name="alert-circle-outline" style="font-size:20px"></ion-icon>
                 </div>
@@ -404,8 +558,8 @@ $userRole = $_SESSION["user"]["role"] ?? "Document Controller";
             </div>
           </div>
           <div class="col-6 col-md-3">
-            <div class="card shadow-sm h-100">
-              <div class="card-body d-flex align-items-center gap-3">
+            <div class="stat-card h-100">
+              <div class="d-flex align-items-center gap-3">
                 <div class="rounded-3 p-2 bg-danger-subtle">
                   <ion-icon name="skull-outline" style="font-size:20px"></ion-icon>
                 </div>
@@ -419,7 +573,7 @@ $userRole = $_SESSION["user"]["role"] ?? "Document Controller";
         </div>
 
         <!-- Filters & Export -->
-        <section class="card shadow-sm mb-3">
+        <section class="toolbar-card mb-3">
           <div class="card-body">
             <form method="get" class="row g-2 align-items-end">
               <div class="col-12 col-md-3">
@@ -467,7 +621,7 @@ $userRole = $_SESSION["user"]["role"] ?? "Document Controller";
         </section>
 
         <!-- Create New Document -->
-        <section class="card shadow-sm mb-3">
+        <section class="toolbar-card mb-3">
           <div class="card-body">
             <h5 class="mb-3">Add Document</h5>
             <form method="POST" enctype="multipart/form-data" class="row g-2">
@@ -534,7 +688,7 @@ $userRole = $_SESSION["user"]["role"] ?? "Document Controller";
         </section>
 
         <!-- Documents Table -->
-        <section class="card shadow-sm">
+        <section class="card-table">
           <div class="card-body">
             <div class="d-flex justify-content-between align-items-center mb-3">
               <h5 class="mb-0">Documents</h5>
@@ -542,10 +696,11 @@ $userRole = $_SESSION["user"]["role"] ?? "Document Controller";
             </div>
 
             <div class="table-responsive">
-              <table class="table align-middle">
+              <table class="table table-custom align-middle mb-0">
                 <thead>
                   <tr>
                     <th>ID</th>
+                    <th>Source</th>
                     <th>Title / Code / Tags</th>
                     <th>Type</th>
                     <th>Linked</th>
@@ -557,12 +712,13 @@ $userRole = $_SESSION["user"]["role"] ?? "Document Controller";
                 </thead>
                 <tbody>
                   <?php if (!count($docs)): ?>
-                    <tr><td colspan="8" class="text-center py-4 text-muted">No documents found.</td></tr>
+                    <tr><td colspan="9" class="text-center py-4 text-muted">No documents found.</td></tr>
                   <?php endif; ?>
 
                   <?php foreach ($docs as $d): ?>
                   <tr>
                     <td class="text-muted">#<?= (int)$d['id'] ?></td>
+                    <td><span class="source-pill"><?= h($d['source_module'] ?? 'Document Tracking') ?></span></td>
 
                     <td>
                       <div class="fw-semibold"><?= h($d['title']) ?></div>
@@ -599,16 +755,25 @@ $userRole = $_SESSION["user"]["role"] ?? "Document Controller";
                     </td>
 
                     <td>
-                      <?php if ($d['file_path']): ?>
+                      <?php if (!empty($d['is_external']) && !empty($d['external_url'])): ?>
+                        <a class="btn btn-sm btn-outline-secondary btn-tight" href="<?= h($d['external_url']) ?>" target="_blank" rel="noopener">
+                          <ion-icon name="link-outline"></ion-icon> Open Link
+                        </a>
+                      <?php elseif ($d['file_path'] && empty($d['is_external'])): ?>
                         <a class="btn btn-sm btn-outline-secondary" href="?action=download&id=<?= (int)$d['id'] ?>">
                           <ion-icon name="download-outline"></ion-icon> Download
                         </a>
+                      <?php elseif ($d['file_path'] && !empty($d['is_external'])): ?>
+                        <span class="text-muted"><?= h(basename((string)$d['file_path'])) ?></span>
                       <?php else: ?>
                         <span class="text-muted">No file</span>
                       <?php endif; ?>
                     </td>
 
                     <td class="text-end">
+                      <?php if (!empty($d['is_external'])): ?>
+                        <span class="text-muted small">Read-only (source module)</span>
+                      <?php else: ?>
                       <button class="btn btn-sm btn-outline-primary me-1" onclick="toggleEdit(<?= (int)$d['id'] ?>)">
                         <ion-icon name="create-outline"></ion-icon> Edit
                       </button>
@@ -663,12 +828,14 @@ $userRole = $_SESSION["user"]["role"] ?? "Document Controller";
                           <ion-icon name="trash-outline"></ion-icon> Delete
                         </button>
                       </form>
+                      <?php endif; ?>
                     </td>
                   </tr>
 
                   <!-- Inline Edit Row -->
+                  <?php if (empty($d['is_external'])): ?>
                   <tr id="edit-<?= (int)$d['id'] ?>" style="display:none;background:#f6f8ff">
-                    <td colspan="8">
+                    <td colspan="9">
                       <form method="POST" class="row g-2 align-items-end">
                         <input type="hidden" name="op" value="update">
                         <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
@@ -735,6 +902,7 @@ $userRole = $_SESSION["user"]["role"] ?? "Document Controller";
                       </form>
                     </td>
                   </tr>
+                  <?php endif; ?>
                   <?php endforeach; ?>
                 </tbody>
               </table>

@@ -285,10 +285,75 @@ function status_badge_class(string $s): string {
   <script src="../js/sidebar-toggle.js"></script>
 
   <style>
-    .kpi .card-body{display:flex;align-items:center;gap:.75rem}
-    .kpi .icon-wrap{width:42px;height:42px;display:flex;align-items:center;justify-content:center;border-radius:12px}
-    .filter-row .form-label{font-size:.8rem;color:#6b7280}
-    .edit-row{background:#f7f9ff}
+    :root {
+      --slate-50: #f8fafc;
+      --slate-100: #f1f5f9;
+      --slate-200: #e2e8f0;
+      --slate-600: #475569;
+      --slate-800: #1e293b;
+    }
+    body { background-color: var(--slate-50); }
+    .text-label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.6px;
+      font-weight: 700;
+      color: #94a3b8;
+      margin-bottom: 2px;
+    }
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 1.25rem;
+    }
+    .stat-card {
+      background: #fff;
+      border: 1px solid var(--slate-200);
+      border-radius: 1rem;
+      padding: 1.2rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    }
+    .stat-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size: 1.3rem;
+      margin-bottom: .8rem;
+    }
+    .card-table {
+      border: 1px solid var(--slate-200);
+      border-radius: 1rem;
+      background: #fff;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      overflow: hidden;
+    }
+    .table-custom thead th {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--slate-600);
+      background: var(--slate-50);
+      border-bottom: 1px solid var(--slate-200);
+      font-weight: 600;
+      padding: 1rem 1.25rem;
+      white-space: nowrap;
+    }
+    .table-custom tbody td {
+      padding: 0.95rem 1.25rem;
+      border-bottom: 1px solid var(--slate-100);
+      font-size: 0.95rem;
+      color: var(--slate-800);
+      vertical-align: middle;
+    }
+    .table-custom tbody tr:last-child td { border-bottom: none; }
+    .table-custom tbody tr:hover td { background-color: #f8fafc; }
+    .filters-wrap .form-label { font-size: 0.8rem; color: #64748b; margin-bottom: 4px; }
+    .edit-row{ background:#f7f9ff; }
+    .add-form { border: 1px solid var(--slate-200); border-radius: 1rem; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
   </style>
 </head>
 <body class="saas-page">
@@ -323,59 +388,35 @@ function status_badge_class(string $s): string {
         </div>
       </div>
 
+      <div class="px-4 pb-5">
       <!-- KPI cards -->
-      <div class="row g-3 mb-3">
-        <div class="col-6 col-md-3">
-          <div class="card shadow-sm kpi h-100">
-            <div class="card-body">
-              <div class="icon-wrap bg-primary-subtle"><ion-icon name="construct-outline"></ion-icon></div>
-              <div>
-                <div class="text-muted small">Total Repairs</div>
-                <div class="h4 m-0"><?= (int)$totalRepairs ?></div>
-              </div>
-            </div>
-          </div>
+      <section class="stats-row">
+        <div class="stat-card">
+          <div class="stat-icon bg-primary bg-opacity-10 text-primary"><ion-icon name="construct-outline"></ion-icon></div>
+          <div class="text-label">Total Repairs</div>
+          <div class="fs-3 fw-bold text-dark mt-1"><?= (int)$totalRepairs ?></div>
         </div>
-        <div class="col-6 col-md-3">
-          <div class="card shadow-sm kpi h-100">
-            <div class="card-body">
-              <div class="icon-wrap bg-warning-subtle"><ion-icon name="time-outline"></ion-icon></div>
-              <div>
-                <div class="text-muted small">Open Repairs</div>
-                <div class="h4 m-0"><?= (int)$openRepairs ?></div>
-              </div>
-            </div>
-          </div>
+        <div class="stat-card">
+          <div class="stat-icon bg-warning bg-opacity-10 text-warning"><ion-icon name="time-outline"></ion-icon></div>
+          <div class="text-label">Open Repairs</div>
+          <div class="fs-3 fw-bold text-dark mt-1"><?= (int)$openRepairs ?></div>
         </div>
-        <div class="col-6 col-md-3">
-          <div class="card shadow-sm kpi h-100">
-            <div class="card-body">
-              <div class="icon-wrap bg-success-subtle"><ion-icon name="card-outline"></ion-icon></div>
-              <div>
-                <div class="text-muted small">Total Cost</div>
-                <div class="h4 m-0">₱<?= money_fmt($totalCost) ?></div>
-              </div>
-            </div>
-          </div>
+        <div class="stat-card">
+          <div class="stat-icon bg-success bg-opacity-10 text-success"><ion-icon name="card-outline"></ion-icon></div>
+          <div class="text-label">Total Cost</div>
+          <div class="fs-3 fw-bold text-dark mt-1">₱<?= money_fmt($totalCost) ?></div>
         </div>
-        <div class="col-6 col-md-3">
-          <div class="card shadow-sm kpi h-100">
-            <div class="card-body">
-              <div class="icon-wrap bg-info-subtle"><ion-icon name="hourglass-outline"></ion-icon></div>
-              <div>
-                <div class="text-muted small">Downtime (h)</div>
-                <div class="h4 m-0"><?= money_fmt($totalDowntime) ?></div>
-              </div>
-            </div>
-          </div>
+        <div class="stat-card">
+          <div class="stat-icon bg-info bg-opacity-10 text-info"><ion-icon name="hourglass-outline"></ion-icon></div>
+          <div class="text-label">Downtime (h)</div>
+          <div class="fs-3 fw-bold text-dark mt-1"><?= money_fmt($totalDowntime) ?></div>
         </div>
-      </div>
+      </section>
 
       <!-- Filters + Export -->
-      <div class="card shadow-sm mb-3">
-        <div class="card-body filter-row">
-          <div class="row g-2 align-items-end">
-            <div class="col-12 col-md-2">
+      <section class="filters-wrap mb-3">
+          <div class="d-flex flex-wrap gap-2 align-items-end">
+            <div style="min-width:180px;">
               <label class="form-label">Status</label>
               <select id="f_status" class="form-select">
                 <option value="">All</option>
@@ -384,123 +425,42 @@ function status_badge_class(string $s): string {
                 <?php endforeach; ?>
               </select>
             </div>
-            <div class="col-6 col-md-2">
+            <div style="min-width:160px;">
               <label class="form-label">From</label>
               <input id="f_from" type="date" class="form-control" value="<?= h($filterFrom) ?>">
             </div>
-            <div class="col-6 col-md-2">
+            <div style="min-width:160px;">
               <label class="form-label">To</label>
               <input id="f_to" type="date" class="form-control" value="<?= h($filterTo) ?>">
             </div>
-            <div class="col-12 col-md-4">
+            <div class="flex-grow-1" style="min-width:260px;">
               <label class="form-label">Search</label>
               <input id="f_q" class="form-control" placeholder="Description / Asset / Plate / Provider" value="<?= h($filterQ) ?>">
             </div>
-            <div class="col-12 col-md-2 d-grid d-md-flex justify-content-md-end">
-              <button class="btn btn-outline-primary me-md-2" onclick="applyFilters()">
-                <ion-icon name="filter-outline"></ion-icon> Apply
+            <button class="btn btn-white border shadow-sm fw-medium px-3" onclick="applyFilters()">
+              Filter
+            </button>
+            <a class="btn btn-link text-decoration-none text-muted p-0" href="repair.php">Reset</a>
+            <div class="ms-auto d-flex align-items-center gap-2">
+              <button class="btn btn-primary d-flex align-items-center gap-2" type="button" data-bs-toggle="modal" data-bs-target="#addRepairModal">
+                <ion-icon name="add-circle-outline"></ion-icon><span>Add Repair</span>
               </button>
               <a class="btn btn-violet" href="?action=export&status=<?= h($filterStatus) ?>&from=<?= h($filterFrom) ?>&to=<?= h($filterTo) ?>&q=<?= urlencode($filterQ) ?>">
                 <ion-icon name="download-outline"></ion-icon> Export
               </a>
-            </div>
+            </div>  
           </div>
-        </div>
-      </div>
-
-      <!-- Add repair -->
-      <div class="card shadow-sm mb-3">
-        <div class="card-body">
-          <h6 class="mb-3">Add Repair</h6>
-          <form method="POST" class="row g-2 align-items-end">
-            <input type="hidden" name="op" value="add">
-            <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-
-            <div class="col-12 col-md-3">
-              <label class="form-label">Asset</label>
-              <select name="asset_id" class="form-select" required>
-                <option value="">Select Asset</option>
-                <?php foreach($assets as $a): ?>
-                  <option value="<?= (int)$a['id'] ?>" <?= ($filterAssetId==$a['id'])?'selected':'' ?>><?= h($a['name']) ?></option>
-                <?php endforeach; ?>
-              </select>
-            </div>
-
-            <div class="col-6 col-md-2">
-              <label class="form-label">Date</label>
-              <input type="date" name="repair_date" class="form-control" required>
-            </div>
-
-            <div class="col-6 col-md-2">
-              <label class="form-label">Type</label>
-              <input type="text" name="maintenance_type" class="form-control" placeholder="Preventive / …">
-            </div>
-
-            <div class="col-6 col-md-2">
-              <label class="form-label">Technician</label>
-              <input type="text" name="technician" class="form-control" placeholder="Tech/Shop">
-            </div>
-
-            <div class="col-6 col-md-2">
-              <label class="form-label">Status</label>
-              <select name="status" class="form-select">
-                <?php foreach ($statuses as $s): ?>
-                  <option <?= $s==='Reported'?'selected':'' ?>><?= h($s) ?></option>
-                <?php endforeach; ?>
-              </select>
-            </div>
-
-            <div class="col-6 col-md-2">
-              <label class="form-label">Cost</label>
-              <input type="number" step="0.01" name="cost" class="form-control" required>
-            </div>
-
-            <div class="col-6 col-md-2">
-              <label class="form-label">Odometer (km)</label>
-              <input type="number" name="odometer_km" class="form-control">
-            </div>
-
-            <div class="col-6 col-md-2">
-              <label class="form-label">Downtime (h)</label>
-              <input type="number" step="0.1" name="downtime_hours" class="form-control">
-            </div>
-
-            <div class="col-6 col-md-2">
-              <label class="form-label">Vehicle Plate</label>
-              <input type="text" name="tnvs_vehicle_plate" class="form-control" placeholder="ABC-1234">
-            </div>
-
-            <div class="col-6 col-md-2">
-              <label class="form-label">Provider</label>
-              <input type="text" name="tnvs_provider" class="form-control" placeholder="TNVS">
-            </div>
-
-            <div class="col-12 col-md-4">
-              <label class="form-label">Description</label>
-              <input type="text" name="description" class="form-control" placeholder="Issue / work done" required>
-            </div>
-
-            <div class="col-12 col-md-4">
-              <label class="form-label">Notes</label>
-              <textarea name="notes" rows="1" class="form-control" placeholder="(optional)"></textarea>
-            </div>
-
-            <div class="col-12 col-md-2 d-grid">
-              <button class="btn btn-violet"><ion-icon name="add-circle-outline"></ion-icon> Add</button>
-            </div>
-          </form>
-        </div>
-      </div>
+      </section>
 
       <!-- Table -->
-      <div class="card shadow-sm">
-        <div class="card-body">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <h5 class="m-0">Repair Logs</h5>
+      <section class="card-table">
+          <div class="d-flex justify-content-between align-items-center p-3 border-bottom bg-light bg-opacity-50">
+            <h5 class="m-0 fw-semibold">Repair Logs</h5>
+            <span class="small text-muted"><?= count($repairs) ?> records</span>
           </div>
 
           <div class="table-responsive">
-            <table class="table align-middle">
+            <table class="table table-custom mb-0 align-middle">
               <thead>
                 <tr>
                   <th>ID</th>
@@ -518,6 +478,11 @@ function status_badge_class(string $s): string {
                 </tr>
               </thead>
               <tbody>
+              <?php if (!$repairs): ?>
+                <tr>
+                  <td colspan="12" class="text-center py-4 text-muted">No repair logs found.</td>
+                </tr>
+              <?php endif; ?>
               <?php foreach ($repairs as $r): ?>
                 <tr>
                   <td><?= (int)$r['id'] ?></td>
@@ -535,7 +500,23 @@ function status_badge_class(string $s): string {
                   <td><?= h($r['downtime_hours']) ?></td>
                   <td><?= h($r['description']) ?></td>
                   <td class="text-end">
-                    <button class="btn btn-sm btn-outline-secondary me-1" onclick="toggleEdit(<?= (int)$r['id'] ?>)">
+                    <button
+                      class="btn btn-sm btn-outline-secondary me-1"
+                      type="button"
+                      data-id="<?= (int)$r['id'] ?>"
+                      data-asset-id="<?= (int)$r['asset_id'] ?>"
+                      data-repair-date="<?= h($r['repair_date']) ?>"
+                      data-maintenance-type="<?= h($r['maintenance_type']) ?>"
+                      data-technician="<?= h($r['technician']) ?>"
+                      data-status="<?= h($r['status']) ?>"
+                      data-cost="<?= h($r['cost']) ?>"
+                      data-odometer-km="<?= h($r['odometer_km']) ?>"
+                      data-downtime-hours="<?= h($r['downtime_hours']) ?>"
+                      data-tnvs-vehicle-plate="<?= h($r['tnvs_vehicle_plate']) ?>"
+                      data-tnvs-provider="<?= h($r['tnvs_provider']) ?>"
+                      data-description="<?= h($r['description']) ?>"
+                      data-notes="<?= h($r['notes']) ?>"
+                      onclick="openRepairEditor(this)">
                       <ion-icon name="create-outline"></ion-icon> Edit
                     </button>
                     <form method="POST" class="d-inline" onsubmit="return confirm('Delete this repair log?')">
@@ -548,105 +529,185 @@ function status_badge_class(string $s): string {
                     </form>
                   </td>
                 </tr>
-
-                <!-- inline edit row -->
-                <tr id="edit-<?= (int)$r['id'] ?>" class="edit-row" style="display:none">
-                  <td colspan="12">
-                    <form method="POST" class="row g-2 align-items-end">
-                      <input type="hidden" name="op" value="update">
-                      <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-                      <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
-
-                      <div class="col-12 col-md-3">
-                        <label class="form-label">Asset</label>
-                        <select name="asset_id" class="form-select" required>
-                          <?php foreach($assets as $a): ?>
-                            <option value="<?= (int)$a['id'] ?>" <?= $r['asset_id']==$a['id']?'selected':'' ?>><?= h($a['name']) ?></option>
-                          <?php endforeach; ?>
-                        </select>
-                      </div>
-
-                      <div class="col-6 col-md-2">
-                        <label class="form-label">Date</label>
-                        <input type="date" name="repair_date" class="form-control" value="<?= h($r['repair_date']) ?>" required>
-                      </div>
-
-                      <div class="col-6 col-md-2">
-                        <label class="form-label">Type</label>
-                        <input type="text" name="maintenance_type" class="form-control" value="<?= h($r['maintenance_type']) ?>">
-                      </div>
-
-                      <div class="col-6 col-md-2">
-                        <label class="form-label">Technician</label>
-                        <input type="text" name="technician" class="form-control" value="<?= h($r['technician']) ?>">
-                      </div>
-
-                      <div class="col-6 col-md-2">
-                        <label class="form-label">Status</label>
-                        <select name="status" class="form-select">
-                          <?php foreach ($statuses as $s): ?>
-                            <option <?= $r['status']===$s?'selected':'' ?>><?= h($s) ?></option>
-                          <?php endforeach; ?>
-                        </select>
-                      </div>
-
-                      <div class="col-6 col-md-2">
-                        <label class="form-label">Cost</label>
-                        <input type="number" step="0.01" name="cost" class="form-control" value="<?= h($r['cost']) ?>" required>
-                      </div>
-
-                      <div class="col-6 col-md-2">
-                        <label class="form-label">Odometer (km)</label>
-                        <input type="number" name="odometer_km" class="form-control" value="<?= h($r['odometer_km']) ?>">
-                      </div>
-
-                      <div class="col-6 col-md-2">
-                        <label class="form-label">Downtime (h)</label>
-                        <input type="number" step="0.1" name="downtime_hours" class="form-control" value="<?= h($r['downtime_hours']) ?>">
-                      </div>
-
-                      <div class="col-6 col-md-2">
-                        <label class="form-label">Vehicle Plate</label>
-                        <input type="text" name="tnvs_vehicle_plate" class="form-control" value="<?= h($r['tnvs_vehicle_plate']) ?>">
-                      </div>
-
-                      <div class="col-6 col-md-2">
-                        <label class="form-label">Provider</label>
-                        <input type="text" name="tnvs_provider" class="form-control" value="<?= h($r['tnvs_provider']) ?>">
-                      </div>
-
-                      <div class="col-12 col-md-4">
-                        <label class="form-label">Description</label>
-                        <input type="text" name="description" class="form-control" value="<?= h($r['description']) ?>" required>
-                      </div>
-
-                      <div class="col-12 col-md-4">
-                        <label class="form-label">Notes</label>
-                        <textarea name="notes" rows="1" class="form-control"><?= h($r['notes']) ?></textarea>
-                      </div>
-
-                      <div class="col-12 col-md-2 d-grid">
-                        <button class="btn btn-primary"><ion-icon name="save-outline"></ion-icon> Save</button>
-                      </div>
-                      <div class="col-12 col-md-2 d-grid">
-                        <button class="btn btn-outline-secondary" type="button" onclick="toggleEdit(<?= (int)$r['id'] ?>)">
-                          <ion-icon name="close-outline"></ion-icon> Cancel
-                        </button>
-                      </div>
-                    </form>
-                  </td>
-                </tr>
               <?php endforeach; ?>
               </tbody>
             </table>
           </div>
-
-        </div>
+      </section>
       </div>
 
     </div><!-- /main-content -->
   </div><!-- /row -->
 </div><!-- /container -->
+
+<!-- Add Repair Modal -->
+<div id="addRepairModal" class="modal fade" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <form method="POST">
+        <div class="modal-header">
+          <h5 class="modal-title">Add Repair Log</h5>
+          <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+        </div>
+        <div class="modal-body row g-2">
+          <input type="hidden" name="op" value="add">
+          <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+
+          <div class="col-12 col-md-4">
+            <label class="form-label text-label">Asset</label>
+            <select name="asset_id" class="form-select" required>
+              <option value="">Select Asset</option>
+              <?php foreach($assets as $a): ?>
+                <option value="<?= (int)$a['id'] ?>" <?= ($filterAssetId==$a['id'])?'selected':'' ?>><?= h($a['name']) ?></option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+          <div class="col-6 col-md-4">
+            <label class="form-label text-label">Date</label>
+            <input type="date" name="repair_date" class="form-control" required>
+          </div>
+          <div class="col-6 col-md-4">
+            <label class="form-label text-label">Type</label>
+            <input type="text" name="maintenance_type" class="form-control" placeholder="Preventive / Corrective">
+          </div>
+          <div class="col-6 col-md-4">
+            <label class="form-label text-label">Technician</label>
+            <input type="text" name="technician" class="form-control" placeholder="Tech/Shop">
+          </div>
+          <div class="col-6 col-md-4">
+            <label class="form-label text-label">Status</label>
+            <select name="status" class="form-select">
+              <?php foreach ($statuses as $s): ?>
+                <option <?= $s==='Reported'?'selected':'' ?>><?= h($s) ?></option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+          <div class="col-6 col-md-4">
+            <label class="form-label text-label">Cost</label>
+            <input type="number" step="0.01" name="cost" class="form-control" required>
+          </div>
+          <div class="col-6 col-md-4">
+            <label class="form-label text-label">Odometer (km)</label>
+            <input type="number" name="odometer_km" class="form-control">
+          </div>
+          <div class="col-6 col-md-4">
+            <label class="form-label text-label">Downtime (h)</label>
+            <input type="number" step="0.1" name="downtime_hours" class="form-control">
+          </div>
+          <div class="col-6 col-md-4">
+            <label class="form-label text-label">Vehicle Plate</label>
+            <input type="text" name="tnvs_vehicle_plate" class="form-control" placeholder="ABC-1234">
+          </div>
+          <div class="col-6 col-md-4">
+            <label class="form-label text-label">Provider</label>
+            <input type="text" name="tnvs_provider" class="form-control" placeholder="TNVS">
+          </div>
+          <div class="col-12">
+            <label class="form-label text-label">Description</label>
+            <input type="text" name="description" class="form-control" placeholder="Issue / work done" required>
+          </div>
+          <div class="col-12">
+            <label class="form-label text-label">Notes</label>
+            <textarea name="notes" rows="2" class="form-control" placeholder="(optional)"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Close</button>
+          <button class="btn btn-violet" type="submit"><ion-icon name="add-circle-outline"></ion-icon> Save Repair</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Repair Modal -->
+<div id="editRepairModal" class="modal fade" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <form method="POST" id="editRepairForm">
+        <div class="modal-header">
+          <h5 class="modal-title">Update Repair <span id="editRepairIdLabel" class="text-muted"></span></h5>
+          <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+        </div>
+        <div class="modal-body row g-2">
+          <input type="hidden" name="op" value="update">
+          <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+          <input type="hidden" name="id" id="edit_id">
+
+          <div class="col-12 col-md-4">
+            <label class="form-label text-label">Asset</label>
+            <select name="asset_id" id="edit_asset_id" class="form-select" required>
+              <?php foreach($assets as $a): ?>
+                <option value="<?= (int)$a['id'] ?>"><?= h($a['name']) ?></option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+          <div class="col-6 col-md-4">
+            <label class="form-label text-label">Date</label>
+            <input type="date" name="repair_date" id="edit_repair_date" class="form-control" required>
+          </div>
+          <div class="col-6 col-md-4">
+            <label class="form-label text-label">Type</label>
+            <input type="text" name="maintenance_type" id="edit_maintenance_type" class="form-control">
+          </div>
+          <div class="col-6 col-md-4">
+            <label class="form-label text-label">Technician</label>
+            <input type="text" name="technician" id="edit_technician" class="form-control">
+          </div>
+          <div class="col-6 col-md-4">
+            <label class="form-label text-label">Status</label>
+            <select name="status" id="edit_status" class="form-select">
+              <?php foreach ($statuses as $s): ?>
+                <option><?= h($s) ?></option>
+              <?php endforeach; ?>
+            </select>
+          </div>
+          <div class="col-6 col-md-4">
+            <label class="form-label text-label">Cost</label>
+            <input type="number" step="0.01" name="cost" id="edit_cost" class="form-control" required>
+          </div>
+          <div class="col-6 col-md-4">
+            <label class="form-label text-label">Odometer (km)</label>
+            <input type="number" name="odometer_km" id="edit_odometer_km" class="form-control">
+          </div>
+          <div class="col-6 col-md-4">
+            <label class="form-label text-label">Downtime (h)</label>
+            <input type="number" step="0.1" name="downtime_hours" id="edit_downtime_hours" class="form-control">
+          </div>
+          <div class="col-6 col-md-4">
+            <label class="form-label text-label">Vehicle Plate</label>
+            <input type="text" name="tnvs_vehicle_plate" id="edit_tnvs_vehicle_plate" class="form-control">
+          </div>
+          <div class="col-6 col-md-4">
+            <label class="form-label text-label">Provider</label>
+            <input type="text" name="tnvs_provider" id="edit_tnvs_provider" class="form-control">
+          </div>
+          <div class="col-12">
+            <label class="form-label text-label">Description</label>
+            <input type="text" name="description" id="edit_description" class="form-control" required>
+          </div>
+          <div class="col-12">
+            <label class="form-label text-label">Notes</label>
+            <textarea name="notes" id="edit_notes" rows="2" class="form-control"></textarea>
+          </div>
+        </div>
+        <div class="modal-footer d-flex justify-content-between">
+          <button class="btn btn-danger" type="button" onclick="submitRepairDelete()"><ion-icon name="trash-outline"></ion-icon> Delete</button>
+          <div class="d-flex gap-2">
+            <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Close</button>
+            <button class="btn btn-violet" type="submit"><ion-icon name="save-outline"></ion-icon> Save Changes</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<form method="POST" id="deleteRepairForm" class="d-none" onsubmit="return confirm('Delete this repair log?')">
+  <input type="hidden" name="op" value="delete">
+  <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+  <input type="hidden" name="id" id="delete_id">
+</form>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 <script src="../js/profile-dropdown.js"></script>
@@ -663,10 +724,27 @@ function applyFilters(){
   if (q) url.searchParams.set('q', q); else url.searchParams.delete('q');
   window.location.href = url.toString();
 }
-function toggleEdit(id){
-  const el = document.getElementById('edit-'+id);
-  if (!el) return;
-  el.style.display = (el.style.display==='none' || !el.style.display) ? 'table-row' : 'none';
+function openRepairEditor(btn){
+  const d = btn.dataset;
+  document.getElementById('editRepairIdLabel').textContent = '#' + (d.id || '');
+  document.getElementById('edit_id').value = d.id || '';
+  document.getElementById('delete_id').value = d.id || '';
+  document.getElementById('edit_asset_id').value = d.assetId || '';
+  document.getElementById('edit_repair_date').value = d.repairDate || '';
+  document.getElementById('edit_maintenance_type').value = d.maintenanceType || '';
+  document.getElementById('edit_technician').value = d.technician || '';
+  document.getElementById('edit_status').value = d.status || 'Reported';
+  document.getElementById('edit_cost').value = d.cost || 0;
+  document.getElementById('edit_odometer_km').value = d.odometerKm || '';
+  document.getElementById('edit_downtime_hours').value = d.downtimeHours || '';
+  document.getElementById('edit_tnvs_vehicle_plate').value = d.tnvsVehiclePlate || '';
+  document.getElementById('edit_tnvs_provider').value = d.tnvsProvider || '';
+  document.getElementById('edit_description').value = d.description || '';
+  document.getElementById('edit_notes').value = d.notes || '';
+  new bootstrap.Modal(document.getElementById('editRepairModal')).show();
+}
+function submitRepairDelete(){
+  document.getElementById('deleteRepairForm').submit();
 }
 window.addEventListener('storage', function(e){ if (e.key === 'repairs_changed') { window.location.reload(); } });
 </script>
