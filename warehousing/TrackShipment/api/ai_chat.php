@@ -416,9 +416,32 @@ try {
     }
   }
   $histText = strtolower(json_encode($history, JSON_UNESCAPED_SLASHES));
+  $isFollowupList = preg_match('/\b(what are those|who are those|those|specify those|list them|yes please|please|go ahead)\b/i', $q);
+
+  // History-aware follow-up: "who are those?" after user count
+  if ($isFollowupList && strpos($histText, 'users in the system') !== false) {
+    if ($auth instanceof PDO && table_exists($auth, DB_AUTH_NAME, 'users')) {
+      $rows = fetch_rows($auth, "SELECT name FROM users ORDER BY id ASC LIMIT 20");
+      $names = array_values(array_filter(array_map(fn($r)=>trim((string)$r['name']), $rows)));
+      $reply = $names ? ("Here are the users on record: " . implode(', ', $names) . ".") : "There are no users on record.";
+      echo json_encode(['ok'=>true,'reply'=>$reply,'ref_no'=>$shipment['ref_no'] ?? '']);
+      exit;
+    }
+  }
+
+  // History-aware follow-up: "who are those?" after supplier count
+  if ($isFollowupList && strpos($histText, 'suppliers in the system') !== false) {
+    if ($proc instanceof PDO && table_exists($proc, DB_PROC_NAME, 'vendors')) {
+      $rows = fetch_rows($proc, "SELECT company_name FROM vendors ORDER BY id ASC LIMIT 20");
+      $names = array_values(array_filter(array_map(fn($r)=>trim((string)$r['company_name']), $rows)));
+      $reply = $names ? ("Here are the suppliers on record: " . implode(', ', $names) . ".") : "There are no suppliers on record.";
+      echo json_encode(['ok'=>true,'reply'=>$reply,'ref_no'=>$shipment['ref_no'] ?? '']);
+      exit;
+    }
+  }
 
   if (preg_match('/\b(list|show|what are|specify)\b.*\b(inventory categories|item categories|categories)\b/i', $q) ||
-      (preg_match('/\b(what are those|specify those|list them|yes please|please)\b/i', $q) && strpos($histText, 'inventory categories') !== false)) {
+      ($isFollowupList && strpos($histText, 'inventory categories') !== false)) {
     if ($pdo instanceof PDO && table_exists($pdo, DB_WMS_NAME, 'inventory_categories')) {
       $rows = fetch_rows($pdo, "SELECT name FROM inventory_categories ORDER BY name");
       $names = array_values(array_filter(array_map(fn($r)=>trim((string)$r['name']), $rows)));
@@ -428,7 +451,7 @@ try {
     }
   }
 
-  if ((preg_match('/\b(yes please|please|go ahead|list them)\b/i', $q) && strpos($histText, 'users') !== false) ||
+  if (($isFollowupList && strpos($histText, 'users') !== false) ||
       preg_match('/\b(list|show|what are)\b.*\busers\b/i', $q)) {
     if ($auth instanceof PDO && table_exists($auth, DB_AUTH_NAME, 'users')) {
       $rows = fetch_rows($auth, "SELECT name FROM users ORDER BY id ASC LIMIT 20");
@@ -440,7 +463,7 @@ try {
   }
 
   if (preg_match('/\b(list|show|what are)\b.*\b(suppliers|vendors)\b/i', $q) ||
-      (preg_match('/\b(yes please|please|list them)\b/i', $q) && strpos($histText, 'suppliers') !== false)) {
+      ($isFollowupList && strpos($histText, 'suppliers') !== false)) {
     if ($proc instanceof PDO && table_exists($proc, DB_PROC_NAME, 'vendors')) {
       $rows = fetch_rows($proc, "SELECT company_name FROM vendors ORDER BY id ASC LIMIT 20");
       $names = array_values(array_filter(array_map(fn($r)=>trim((string)$r['company_name']), $rows)));

@@ -241,6 +241,9 @@
         <a class="nav-link<?= a('shipments') ?>" href="<?= u('warehousing/TrackShipment/shipmentTracking.php') ?>">
           <ion-icon name="paper-plane-outline"></ion-icon><span>Track Shipments</span>
         </a>
+        <a class="nav-link<?= a('locations') ?>" href="<?= u('warehousing/warehouseSettings.php#tabLoc') ?>">
+          <ion-icon name="location-outline"></ion-icon><span>Warehouse Locations</span>
+        </a>
         <a class="nav-link<?= a('reports') ?>" href="<?= u('warehousing/warehouseReports.php') ?>">
           <ion-icon name="file-tray-stacked-outline"></ion-icon><span>Reports</span>
         </a>

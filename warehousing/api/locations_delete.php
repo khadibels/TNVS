@@ -4,7 +4,7 @@ require_once __DIR__."/../../includes/auth.php";
 require_once __DIR__."/../../includes/db.php";
 
 require_login("json");
-require_role(["admin"], "json");
+require_role(["admin", "manager"], "json");
 header("Content-Type: application/json; charset=utf-8");
 
 $pdo = db('wms');

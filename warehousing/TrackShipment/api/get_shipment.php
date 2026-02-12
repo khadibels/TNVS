@@ -20,17 +20,23 @@ function col_exists(PDO $pdo, string $t, string $c): bool {
 $label = col_exists($pdo,'warehouse_locations','name') ? 'name'
        : (col_exists($pdo,'warehouse_locations','label') ? 'label' : 'name');
 $code  = col_exists($pdo,'warehouse_locations','code') ? 'code' : null;
+$hasLat = col_exists($pdo, 'warehouse_locations', 'latitude');
+$hasLng = col_exists($pdo, 'warehouse_locations', 'longitude');
 
 $originExpr = $code ? "CONCAT_WS(' - ', o.$code, o.$label)" : "o.$label";
 $destExpr   = $code ? "CONCAT_WS(' - ', d.$code, d.$label)" : "d.$label";
+$originLatSel = ($hasLat && $hasLng) ? "o.latitude AS origin_latitude, o.longitude AS origin_longitude," : "NULL AS origin_latitude, NULL AS origin_longitude,";
+$destLatSel = ($hasLat && $hasLng) ? "d.latitude AS destination_latitude, d.longitude AS destination_longitude," : "NULL AS destination_latitude, NULL AS destination_longitude,";
 
 $hdr = $pdo->prepare("
-  SELECT s.id, s.ref_no, s.status, s.carrier,
+  SELECT s.id, s.ref_no, s.origin_id, s.destination_id, s.status, s.carrier,
          DATE_FORMAT(s.expected_pickup,'%Y-%m-%d')   AS expected_pickup,
          DATE_FORMAT(s.expected_delivery,'%Y-%m-%d') AS expected_delivery,
          s.contact_name, s.contact_phone, s.notes,
          $originExpr AS origin,
          $destExpr   AS destination,
+         $originLatSel
+         $destLatSel
          o.address   AS origin_address,
          d.address   AS destination_address
     FROM shipments s
