@@ -88,5 +88,15 @@ defined('DB_DOCS_PASS') || define('DB_DOCS_PASS', cfg_env('DB_DOCS_PASS', DB_PAS
 defined('OLLAMA_URL')   || define('OLLAMA_URL', cfg_env('OLLAMA_URL', 'http://localhost:11434'));
 defined('OLLAMA_MODEL') || define('OLLAMA_MODEL', cfg_env('OLLAMA_MODEL', 'llama3:latest'));
 
+// ===================== Hosted AI provider (no local Ollama required) =====================
+// Supported values:
+// - ollama (default)
+// - groq
+// - openai_compat (OpenAI-compatible /chat/completions endpoints)
+defined('AI_PROVIDER')   || define('AI_PROVIDER', cfg_env('AI_PROVIDER', 'ollama'));
+defined('AI_API_URL')    || define('AI_API_URL', cfg_env('AI_API_URL', ''));
+defined('AI_API_KEY')    || define('AI_API_KEY', cfg_env('AI_API_KEY', ''));
+defined('AI_CHAT_MODEL') || define('AI_CHAT_MODEL', cfg_env('AI_CHAT_MODEL', OLLAMA_MODEL));
+
 // ===================== AI / NLP (Java CoreNLP Server) =====================
 defined('CORENLP_URL') || define('CORENLP_URL', 'http://localhost:9000');

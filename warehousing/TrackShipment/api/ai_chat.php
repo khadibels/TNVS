@@ -140,6 +140,73 @@ function ollama_list_models(array $bases): array {
   return [];
 }
 
+function openai_compat_generate(
+  string $baseUrl,
+  string $apiKey,
+  string $model,
+  string $prompt,
+  string &$err
+): ?string {
+  $err = '';
+  $url = rtrim($baseUrl, '/') . '/chat/completions';
+  $payload = [
+    'model' => $model,
+    'messages' => [
+      ['role' => 'system', 'content' => 'You are a helpful TNVS assistant.'],
+      ['role' => 'user', 'content' => $prompt],
+    ],
+    'temperature' => 0.2,
+  ];
+  $json = json_encode($payload);
+  $headers = [
+    'Content-Type: application/json',
+    'Authorization: Bearer ' . $apiKey,
+  ];
+
+  if (function_exists('curl_init')) {
+    $ch = curl_init($url);
+    curl_setopt_array($ch, [
+      CURLOPT_POST => true,
+      CURLOPT_HTTPHEADER => $headers,
+      CURLOPT_POSTFIELDS => $json,
+      CURLOPT_RETURNTRANSFER => true,
+      CURLOPT_TIMEOUT => 18
+    ]);
+    $resp = curl_exec($ch);
+    $code = (int)curl_getinfo($ch, CURLINFO_HTTP_CODE);
+    $cerr = curl_error($ch);
+    curl_close($ch);
+    if ($resp !== false && $code >= 200 && $code < 300) {
+      $j = json_decode($resp, true);
+      $msg = trim((string)($j['choices'][0]['message']['content'] ?? ''));
+      if ($msg !== '') return $msg;
+      $err = 'Empty completion payload';
+      return null;
+    }
+    $err = $cerr ?: ("HTTP $code from $url");
+    return null;
+  }
+
+  $ctx = stream_context_create([
+    'http' => [
+      'method' => 'POST',
+      'header' => "Content-Type: application/json\r\nAuthorization: Bearer {$apiKey}\r\n",
+      'content' => $json,
+      'timeout' => 18
+    ]
+  ]);
+  $resp = @file_get_contents($url, false, $ctx);
+  if ($resp !== false) {
+    $j = json_decode($resp, true);
+    $msg = trim((string)($j['choices'][0]['message']['content'] ?? ''));
+    if ($msg !== '') return $msg;
+    $err = 'Empty completion payload';
+    return null;
+  }
+  $err = "No response from $url";
+  return null;
+}
+
 function fallback_reply(string $q, array $context, ?array $shipment): string {
   $qLower = strtolower($q);
 
@@ -191,6 +258,12 @@ try {
         'reachable' => false,
         'models' => [],
         'error' => null,
+      ],
+      'ai_provider' => [
+        'provider' => defined('AI_PROVIDER') ? AI_PROVIDER : 'ollama',
+        'api_url' => defined('AI_API_URL') ? AI_API_URL : '',
+        'api_key_set' => !empty(defined('AI_API_KEY') ? AI_API_KEY : ''),
+        'chat_model' => defined('AI_CHAT_MODEL') ? AI_CHAT_MODEL : (defined('OLLAMA_MODEL') ? OLLAMA_MODEL : ''),
       ],
     ];
 
@@ -389,7 +462,13 @@ try {
   }
 
   $ollamaUrl = defined('OLLAMA_URL') ? OLLAMA_URL : 'http://localhost:11434';
-  $model = defined('OLLAMA_MODEL') ? OLLAMA_MODEL : 'llama3.1';
+  $provider = strtolower(trim((string)(defined('AI_PROVIDER') ? AI_PROVIDER : 'ollama')));
+  $model = defined('AI_CHAT_MODEL') ? AI_CHAT_MODEL : (defined('OLLAMA_MODEL') ? OLLAMA_MODEL : 'llama3:latest');
+  $apiUrl = defined('AI_API_URL') ? trim((string)AI_API_URL) : '';
+  $apiKey = defined('AI_API_KEY') ? trim((string)AI_API_KEY) : '';
+  if ($provider === 'groq' && $apiUrl === '') {
+    $apiUrl = 'https://api.groq.com/openai/v1';
+  }
 
   // Direct, accurate answers for common count questions
   if (preg_match('/\bhow many (suppliers|vendors)\b/i', $q)) {
@@ -526,28 +605,34 @@ try {
 
   $reply = null;
   $aiErr = '';
-  $candidates = array_unique([
-    rtrim($ollamaUrl, '/'),
-    'http://127.0.0.1:11434',
-    'http://localhost:11434',
-  ]);
-  $payload = [
-    'model' => $model,
-    'prompt' => $prompt,
-    'stream' => false
-  ];
-  $reply = ollama_generate($payload, $candidates, $aiErr);
+  if (in_array($provider, ['groq', 'openai_compat'], true) && $apiUrl !== '' && $apiKey !== '') {
+    $reply = openai_compat_generate($apiUrl, $apiKey, $model, $prompt, $aiErr);
+  }
 
   if (!$reply) {
-    $models = array_filter(ollama_list_models($candidates));
-    if ($models) {
-      $preferred = '';
-      foreach ($models as $m) {
-        if (stripos($m, 'llama3') === 0) { $preferred = $m; break; }
+    $candidates = array_unique([
+      rtrim($ollamaUrl, '/'),
+      'http://127.0.0.1:11434',
+      'http://localhost:11434',
+    ]);
+    $payload = [
+      'model' => $model,
+      'prompt' => $prompt,
+      'stream' => false
+    ];
+    $reply = ollama_generate($payload, $candidates, $aiErr);
+
+    if (!$reply) {
+      $models = array_filter(ollama_list_models($candidates));
+      if ($models) {
+        $preferred = '';
+        foreach ($models as $m) {
+          if (stripos($m, 'llama3') === 0) { $preferred = $m; break; }
+        }
+        if ($preferred === '') $preferred = $models[0];
+        $payload['model'] = $preferred;
+        $reply = ollama_generate($payload, $candidates, $aiErr);
       }
-      if ($preferred === '') $preferred = $models[0];
-      $payload['model'] = $preferred;
-      $reply = ollama_generate($payload, $candidates, $aiErr);
     }
   }
 

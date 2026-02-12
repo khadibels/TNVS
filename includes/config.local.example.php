@@ -27,3 +27,10 @@ define('DB_DOCS_NAME', 'logi_docs');
 // If unavailable, ai_chat.php now falls back to direct DB-based replies.
 define('OLLAMA_URL', 'http://127.0.0.1:11434');
 define('OLLAMA_MODEL', 'llama3:latest');
+
+// Hosted AI provider (recommended for shared hosting).
+// Set AI_PROVIDER to 'groq' or 'openai_compat' to bypass local Ollama.
+// define('AI_PROVIDER', 'groq');
+// define('AI_API_URL', 'https://api.groq.com/openai/v1');
+// define('AI_API_KEY', 'gsk_...');
+// define('AI_CHAT_MODEL', 'llama-3.1-8b-instant');
