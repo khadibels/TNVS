@@ -166,10 +166,7 @@
 
       <hr class="mx-3 my-2">
 
-      <nav class="nav flex-column px-2 mb-4">
-        <a class="nav-link<?= a('reports') ?>" href="<?= u('reports/globalReports.php') ?>">
-          <ion-icon name="bar-chart-outline"></ion-icon><span>Reports</span>
-        </a>
+      
 
         <?php
     $settingsChildren = ['settings_access','settings_account'];

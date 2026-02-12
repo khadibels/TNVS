@@ -587,6 +587,67 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   .requirement-card .form-check-input {
     margin-left: -1.6rem;
   }
+  .wizard-shell {
+    border: 1px solid var(--border-color);
+    border-radius: 18px;
+    overflow: hidden;
+    background: #fff;
+  }
+  .wizard-visual {
+    background:
+      radial-gradient(120% 80% at 0% 0%, #efe9ff 0%, rgba(239,233,255,0) 70%),
+      linear-gradient(180deg, #fbf9ff 0%, #f4efff 100%);
+    border-right: 1px solid var(--border-color);
+  }
+  .visual-photo {
+    border-radius: 16px;
+    height: 220px;
+    background:
+      linear-gradient(135deg, rgba(101,50,201,.2), rgba(124,59,255,.2)),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='240' viewBox='0 0 400 240'%3E%3Cg fill='none' stroke='%237c3bff' stroke-opacity='.35'%3E%3Cpath d='M15 190h370'/%3E%3Cpath d='M40 155c20-22 45-32 75-32s56 11 77 33 47 33 77 33 56-11 76-33'/%3E%3Ccircle cx='95' cy='104' r='18'/%3E%3Crect x='180' y='74' width='82' height='70' rx='8'/%3E%3Cpath d='M325 170l40-40 20 20-40 40z'/%3E%3C/g%3E%3C/svg%3E") center/cover no-repeat;
+    border: 1px solid rgba(101,50,201,.2);
+    margin-bottom: 1rem;
+  }
+  .visual-points { padding-left: 1rem; margin: 0; color: var(--text-muted); }
+  .visual-points li { margin-bottom: .4rem; }
+  .wizard-steps {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: .5rem;
+  }
+  .step-pill {
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    padding: .5rem .75rem;
+    font-size: .82rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-align: center;
+    background: #fff;
+  }
+  .step-pill.active {
+    background: var(--brand-light);
+    color: var(--brand-deep);
+    border-color: #ccb8ff;
+  }
+  .wizard-page { min-height: 420px; }
+  .wizard-nav {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: .75rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid #eee;
+  }
+  .wizard-nav .right-actions { display:flex; gap:.5rem; }
+  @media (max-width: 991.98px) {
+    .wizard-visual { border-right: 0; border-bottom: 1px solid var(--border-color); }
+    .wizard-page { min-height: 0; }
+    .wizard-nav { flex-direction: column; align-items: stretch; }
+    .wizard-nav .right-actions { width:100%; }
+    .wizard-nav .right-actions .btn { width:100%; }
+  }
   </style>
 </head>
 <body class="vendor-saas">
@@ -624,213 +685,225 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
               </div>
             <?php endif; ?>
 
-            <form method="post" enctype="multipart/form-data" class="needs-validation" novalidate>
+            <form method="post" enctype="multipart/form-data" class="needs-validation" id="vendorRegForm" novalidate>
               <input type="hidden" name="csrf" value="<?= htmlspecialchars($_SESSION['csrf']) ?>">
 
-              <div class="row g-4 split-form">
-                <div class="col-12 col-lg-6 form-section">
-                  <div class="section-card h-100">
+              <div class="wizard-shell row g-0">
+                <div class="col-12 col-lg-4 wizard-visual p-4 p-lg-5">
+                  <img src="<?= BASE_URL ?>img/logo.png" class="brand-logo" alt="TNVS Logo">
+                  <div class="visual-photo"></div>
+                  <div class="kicker">Vendor Onboarding</div>
+                  <div class="display-brand mb-2">Partner with TNVS</div>
+                  <p class="text-muted mb-3">Complete your registration in a few quick steps. Your application will be reviewed by procurement and compliance.</p>
+                  <ul class="visual-points">
+                    <li>Step 1: Company and account details</li>
+                    <li>Step 2: Compliance and supporting documents</li>
+                    <li>Step 3: Review checklist and submit for review</li>
+                  </ul>
+                </div>
+
+                <div class="col-12 col-lg-8 p-4 p-lg-5">
+                  <div class="wizard-steps mb-4">
+                    <div class="step-pill active" data-step-indicator="1">Page 1: Company</div>
+                    <div class="step-pill" data-step-indicator="2">Page 2: Documents</div>
+                    <div class="step-pill" data-step-indicator="3">Page 3: Review</div>
+                  </div>
+
+                  <div class="wizard-page" data-step="1">
                     <div class="section-title mt-0">Account & Company Details</div>
-
-                  <div class="row g-3">
-                    <div class="col-12">
-                      <label for="company_name" class="form-label">Company Name <span class="text-danger">*</span></label>
-                      <div class="input-group">
-                        <span class="input-group-text"><ion-icon name="business-outline"></ion-icon></span>
-                        <input type="text" name="company_name" id="company_name" class="form-control" required value="<?= htmlspecialchars($vals['company_name']) ?>" placeholder="e.g., ABC Trading Corp.">
-                        <div class="invalid-feedback">Company name is required.</div>
+                    <div class="row g-3">
+                      <div class="col-12">
+                        <label for="company_name" class="form-label">Company Name <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                          <span class="input-group-text"><ion-icon name="business-outline"></ion-icon></span>
+                          <input type="text" name="company_name" id="company_name" class="form-control" required value="<?= htmlspecialchars($vals['company_name']) ?>" placeholder="e.g., ABC Trading Corp.">
+                          <div class="invalid-feedback">Company name is required.</div>
+                        </div>
                       </div>
-                    </div>
 
-                    <div class="col-12 col-md-6">
-                      <label for="contact_person" class="form-label">Contact Person <span class="text-danger">*</span></label>
-                      <div class="input-group">
-                        <span class="input-group-text"><ion-icon name="person-outline"></ion-icon></span>
-                        <input type="text" name="contact_person" id="contact_person" class="form-control" required value="<?= htmlspecialchars($vals['contact_person']) ?>" placeholder="Full Name">
-                        <div class="invalid-feedback">Contact person is required.</div>
+                      <div class="col-12 col-md-6">
+                        <label for="contact_person" class="form-label">Contact Person <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                          <span class="input-group-text"><ion-icon name="person-outline"></ion-icon></span>
+                          <input type="text" name="contact_person" id="contact_person" class="form-control" required value="<?= htmlspecialchars($vals['contact_person']) ?>" placeholder="Full Name">
+                          <div class="invalid-feedback">Contact person is required.</div>
+                        </div>
                       </div>
-                    </div>
 
-                    <div class="col-12 col-md-6">
-                      <label for="phone" class="form-label">Phone</label>
-                      <div class="input-group">
-                        <span class="input-group-text"><ion-icon name="call-outline"></ion-icon></span>
-                        <input type="tel" name="phone" id="phone" class="form-control" value="<?= htmlspecialchars($vals['phone']) ?>" placeholder="e.g., +63 9xx xxx xxxx">
+                      <div class="col-12 col-md-6">
+                        <label for="phone" class="form-label">Phone</label>
+                        <div class="input-group">
+                          <span class="input-group-text"><ion-icon name="call-outline"></ion-icon></span>
+                          <input type="tel" name="phone" id="phone" class="form-control" value="<?= htmlspecialchars($vals['phone']) ?>" placeholder="e.g., +63 9xx xxx xxxx">
+                        </div>
                       </div>
-                    </div>
 
-                    <div class="col-12 col-md-6">
-                      <label for="email" class="form-label">Email <span class="text-danger">*</span></label>
-                      <div class="input-group">
-                        <span class="input-group-text"><ion-icon name="mail-outline"></ion-icon></span>
-                        <input type="email" name="email" id="email" class="form-control" required value="<?= htmlspecialchars($vals['email']) ?>" placeholder="business@example.com">
-                        <div class="invalid-feedback">A valid email is required.</div>
+                      <div class="col-12 col-md-6">
+                        <label for="email" class="form-label">Email <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                          <span class="input-group-text"><ion-icon name="mail-outline"></ion-icon></span>
+                          <input type="email" name="email" id="email" class="form-control" required value="<?= htmlspecialchars($vals['email']) ?>" placeholder="business@example.com">
+                          <div class="invalid-feedback">A valid email is required.</div>
+                        </div>
                       </div>
-                    </div>
 
-                    <div class="col-12 col-md-6">
-                      <label for="password" class="form-label d-flex justify-content-between align-items-center">
-                        <span>Password <span class="text-danger">*</span></span>
-                        <a href="#" class="toggle-pass" id="togglePass">Show</a>
-                      </label>
-                      <div class="input-group">
-                        <span class="input-group-text"><ion-icon name="lock-closed-outline"></ion-icon></span>
-                        <input type="password" name="password" id="password" class="form-control" minlength="8" required autocomplete="new-password" placeholder="At least 8 characters">
-                        <div class="invalid-feedback">Password must be at least 8 characters.</div>
+                      <div class="col-12 col-md-6">
+                        <label for="password" class="form-label d-flex justify-content-between align-items-center">
+                          <span>Password <span class="text-danger">*</span></span>
+                          <a href="#" class="toggle-pass" id="togglePass">Show</a>
+                        </label>
+                        <div class="input-group">
+                          <span class="input-group-text"><ion-icon name="lock-closed-outline"></ion-icon></span>
+                          <input type="password" name="password" id="password" class="form-control" minlength="8" required autocomplete="new-password" placeholder="At least 8 characters">
+                          <div class="invalid-feedback">Password must be at least 8 characters.</div>
+                        </div>
                       </div>
-                    </div>
 
-                    <div class="col-12">
-                      <label for="address" class="form-label">Address</label>
-                      <textarea name="address" id="address" class="form-control" rows="2" placeholder="Street, City, Province, Zip Code"><?= htmlspecialchars($vals['address']) ?></textarea>
-                    </div>
+                      <div class="col-12">
+                        <label for="address" class="form-label">Address</label>
+                        <textarea name="address" id="address" class="form-control" rows="2" placeholder="Street, City, Province, Zip Code"><?= htmlspecialchars($vals['address']) ?></textarea>
+                      </div>
 
-                    <div class="col-12">
-                      <label class="form-label">Profile Photo (Optional, max 2MB)</label>
-                      <label class="file-input-wrapper">
-                        <input type="file" name="profile_photo" accept="image/png, image/jpeg, image/gif, image/webp" onchange="document.getElementById('file-name').textContent = this.files[0] ? this.files[0].name : 'Click or drag file to upload';">
-                        <span class="file-input-text" id="file-name">
-                            <ion-icon name="cloud-upload-outline"></ion-icon>
-                            Click or drag file to upload
-                        </span>
-                      </label>
-                      <small class="form-text text-muted d-block mt-1">Accepted formats: JPG, PNG, GIF, WEBP.</small>
+                      <div class="col-12">
+                        <label class="form-label">Profile Photo (Optional, max 2MB)</label>
+                        <label class="file-input-wrapper">
+                          <input type="file" name="profile_photo" accept="image/png, image/jpeg, image/gif, image/webp" onchange="document.getElementById('file-name').textContent = this.files[0] ? this.files[0].name : 'Click or drag file to upload';">
+                          <span class="file-input-text" id="file-name">
+                              <ion-icon name="cloud-upload-outline"></ion-icon>
+                              Click or drag file to upload
+                          </span>
+                        </label>
+                        <small class="form-text text-muted d-block mt-1">Accepted formats: JPG, PNG, GIF, WEBP.</small>
+                      </div>
                     </div>
                   </div>
-                  </div>
-                </div>
 
-                <div class="col-12 col-lg-6 form-section">
-                  <div class="section-card h-100">
+                  <div class="wizard-page d-none" data-step="2">
                     <div class="section-title mt-0">Compliance / KYC Documents</div>
+                    <div class="mb-3">
+                      <label class="form-label">Product / Service Categories (comma-separated)</label>
+                      <input type="text" name="categories" class="form-control" value="<?= htmlspecialchars($vals['categories']) ?>" placeholder="e.g., IT Services, Office Supplies, Logistics">
+                      <small class="form-text text-muted d-block mt-1">List the main categories of goods/services you offer.</small>
+                    </div>
 
-                  <div class="mb-3">
-                    <label class="form-label">Product / Service Categories (comma-separated)</label>
-                    <input type="text" name="categories" class="form-control"
-                           value="<?= htmlspecialchars($vals['categories']) ?>" placeholder="e.g., IT Services, Office Supplies, Logistics">
-                    <small class="form-text text-muted d-block mt-1">List the main categories of goods/services you offer.</small>
+                    <div class="row g-3">
+                      <div class="col-md-6">
+                        <label class="form-label">DTI / SEC Registration (PDF / Image)</label>
+                        <input type="file" name="dti" class="form-control" accept=".pdf,.png,.jpg,.jpeg">
+                        <small class="form-text text-muted d-block mt-1">Required for legal verification.</small>
+                      </div>
+                      <div class="col-md-6">
+                        <label class="form-label">BIR / TIN Certificate</label>
+                        <input type="file" name="bir" class="form-control" accept=".pdf,.png,.jpg,.jpeg">
+                        <small class="form-text text-muted d-block mt-1">Required for tax compliance.</small>
+                      </div>
+                      <div class="col-md-6">
+                        <label class="form-label">Business Permit</label>
+                        <input type="file" name="permit" class="form-control" accept=".pdf,.png,.jpg,.jpeg">
+                        <small class="form-text text-muted d-block mt-1">Mayor's Permit / Business Permit.</small>
+                      </div>
+                      <div class="col-md-6">
+                        <label class="form-label">Bank Certificate (Optional)</label>
+                        <input type="file" name="bank" class="form-control" accept=".pdf,.png,.jpg,.jpeg">
+                        <small class="form-text text-muted d-block mt-1">Under business name.</small>
+                      </div>
+                      <div class="col-md-12">
+                        <label class="form-label">Product Catalog (Required)</label>
+                        <input type="file" name="catalog" class="form-control" accept=".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.csv">
+                        <small class="form-text text-muted d-block mt-1">Upload your product list / catalog (PDF, Excel, or image).</small>
+                      </div>
+                      <div class="col-md-6">
+                        <label class="form-label">Catalog Category</label>
+                        <select name="catalog_category" class="form-select">
+                          <option value="">Select category</option>
+                          <?php foreach ($catOptions as $c): ?>
+                            <option value="<?= htmlspecialchars($c) ?>"><?= htmlspecialchars($c) ?></option>
+                          <?php endforeach; ?>
+                        </select>
+                      </div>
+                      <div class="col-md-6">
+                        <label class="form-label">Website / Online Store Link (Optional)</label>
+                        <input type="url" name="website_link" class="form-control" placeholder="https://">
+                        <small class="form-text text-muted d-block mt-1">Optional if you already uploaded a catalog.</small>
+                      </div>
+                      <div class="col-md-6">
+                        <label class="form-label">Delivery Receipt / Invoice (Optional)</label>
+                        <input type="file" name="receipt" class="form-control" accept=".pdf,.png,.jpg,.jpeg">
+                      </div>
+                      <div class="col-md-6">
+                        <label class="form-label">Receipt Category</label>
+                        <select name="receipt_category" class="form-select">
+                          <option value="">Select category</option>
+                          <?php foreach ($catOptions as $c): ?>
+                            <option value="<?= htmlspecialchars($c) ?>"><?= htmlspecialchars($c) ?></option>
+                          <?php endforeach; ?>
+                        </select>
+                      </div>
+                    </div>
                   </div>
 
-                  <div class="row g-3">
-                    <div class="col-md-6">
-                      <label class="form-label">DTI / SEC Registration (PDF / Image)</label>
-                      <input type="file" name="dti" class="form-control" accept=".pdf,.png,.jpg,.jpeg">
-                      <small class="form-text text-muted d-block mt-1">Required for legal verification.</small>
-                    </div>
+                  <div class="wizard-page d-none" data-step="3">
+                    <div class="section-title mt-0">Vendor Requirements & Contract</div>
+                    <p class="text-muted small mb-3">
+                      Please review and confirm that your company meets the following requirements. Confirmation is required before submission.
+                    </p>
 
-                    <div class="col-md-6">
-                      <label class="form-label">BIR / TIN Certificate</label>
-                      <input type="file" name="bir" class="form-control" accept=".pdf,.png,.jpg,.jpeg">
-                      <small class="form-text text-muted d-block mt-1">Required for tax compliance.</small>
-                    </div>
-
-                    <div class="col-md-6">
-                      <label class="form-label">Business Permit</label>
-                      <input type="file" name="permit" class="form-control" accept=".pdf,.png,.jpg,.jpeg">
-                      <small class="form-text text-muted d-block mt-1">Mayor's Permit / Business Permit.</small>
-                    </div>
-
-                    <div class="col-md-6">
-                      <label class="form-label">Bank Certificate (Optional)</label>
-                      <input type="file" name="bank" class="form-control" accept=".pdf,.png,.jpg,.jpeg">
-                      <small class="form-text text-muted d-block mt-1">Under business name.</small>
-                    </div>
-
-                    <div class="col-md-12">
-                      <label class="form-label">Product Catalog (Required)</label>
-                      <input type="file" name="catalog" class="form-control" accept=".pdf,.png,.jpg,.jpeg,.xlsx,.xls,.csv">
-                      <small class="form-text text-muted d-block mt-1">Upload your product list / catalog (PDF, Excel, or image).</small>
-                    </div>
-                    <div class="col-md-6">
-                      <label class="form-label">Catalog Category</label>
-                      <select name="catalog_category" class="form-select">
-                        <option value="">Select category</option>
-                        <?php foreach ($catOptions as $c): ?>
-                          <option value="<?= htmlspecialchars($c) ?>"><?= htmlspecialchars($c) ?></option>
+                    <div class="card requirement-card mb-4">
+                      <div class="card-body py-3">
+                        <div class="requirement-header">
+                          <div class="fw-semibold">Checklist</div>
+                          <div class="form-check m-0">
+                            <input class="form-check-input" type="checkbox" id="selectAllRequirements">
+                            <label class="form-check-label small" for="selectAllRequirements">Select all</label>
+                          </div>
+                        </div>
+                        <?php foreach ($requirementFields as $key => $label): ?>
+                          <div class="form-check mb-2">
+                            <input class="form-check-input" type="checkbox"
+                                   id="<?= htmlspecialchars($key) ?>"
+                                   name="<?= htmlspecialchars($key) ?>"
+                                   <?= !empty($_POST[$key]) ? 'checked' : '' ?>>
+                            <label class="form-check-label small" for="<?= htmlspecialchars($key) ?>">
+                              <ion-icon name="checkmark-circle-outline" class="text-success me-1"></ion-icon>
+                              <?= htmlspecialchars($label) ?>
+                            </label>
+                          </div>
                         <?php endforeach; ?>
-                      </select>
+                      </div>
                     </div>
-                    <div class="col-md-6">
-                      <label class="form-label">Website / Online Store Link (Optional)</label>
-                      <input type="url" name="website_link" class="form-control" placeholder="https://">
-                      <small class="form-text text-muted d-block mt-1">Optional if you already uploaded a catalog.</small>
-                    </div>
-                    <div class="col-md-6">
-                      <label class="form-label">Delivery Receipt / Invoice (Optional)</label>
-                      <input type="file" name="receipt" class="form-control" accept=".pdf,.png,.jpg,.jpeg">
-                    </div>
-                    <div class="col-md-6">
-                      <label class="form-label">Receipt Category</label>
-                      <select name="receipt_category" class="form-select">
-                        <option value="">Select category</option>
-                        <?php foreach ($catOptions as $c): ?>
-                          <option value="<?= htmlspecialchars($c) ?>"><?= htmlspecialchars($c) ?></option>
-                        <?php endforeach; ?>
-                      </select>
-                    </div>
-                  </div>
-                  </div>
-                </div>
-              </div>
 
-              <hr class="soft-hr" />
-
-              <div class="section-title">Vendor Requirements & Contract</div>
-              <p class="text-muted small mb-3">
-                Please review and confirm that your company meets the following requirements. Confirmation is **required** to submit your application for review.
-              </p>
-
-              <div class="card requirement-card mb-4">
-                <div class="card-body py-3">
-                  <div class="requirement-header">
-                    <div class="fw-semibold">Checklist</div>
-                    <div class="form-check m-0">
-                      <input class="form-check-input" type="checkbox" id="selectAllRequirements">
-                      <label class="form-check-label small" for="selectAllRequirements">Select all</label>
-                    </div>
-                  </div>
-                  <?php foreach ($requirementFields as $key => $label): ?>
-                    <div class="form-check mb-2">
-                      <input class="form-check-input" type="checkbox"
-                             id="<?= htmlspecialchars($key) ?>"
-                             name="<?= htmlspecialchars($key) ?>"
-                             <?= !empty($_POST[$key]) ? 'checked' : '' ?>>
-                      <label class="form-check-label small" for="<?= htmlspecialchars($key) ?>">
-                        <ion-icon name="checkmark-circle-outline" class="text-success me-1"></ion-icon>
-                        <?= htmlspecialchars($label) ?>
+                    <div class="form-check">
+                      <input class="form-check-input" type="checkbox" id="terms" name="terms"
+                             <?= !empty($_POST['terms']) ? 'checked' : '' ?> aria-describedby="termsHelp">
+                      <label class="form-check-label" for="terms">
+                        I have read and agree to the
+                        <a href="<?= BASE_URL ?>vendor_portal/vendor/contract_policy.php" target="_blank" class="fw-semibold" style="color: var(--brand-deep);">
+                          TNVS Vendor Contract &amp; Privacy Policy
+                        </a>.
                       </label>
+                      <div class="invalid-feedback">You must agree to the contract and policy before submitting.</div>
                     </div>
-                  <?php endforeach; ?>
+
+                    <div class="form-check mt-3">
+                      <input class="form-check-input" type="checkbox" id="agree" required>
+                      <label class="form-check-label fw-semibold" for="agree">
+                        I confirm the information provided is accurate and complete.
+                      </label>
+                      <div class="invalid-feedback">You must confirm the accuracy of your information to continue.</div>
+                    </div>
+                  </div>
+
+                  <div class="wizard-nav">
+                    <a href="../../login.php" class="btn btn-link text-muted" style="text-decoration:none;">Already have an account? Login here.</a>
+                    <div class="right-actions">
+                      <button type="button" class="btn btn-outline-dark d-none" id="prevStepBtn">Back</button>
+                      <button type="button" class="btn btn-brand" id="nextStepBtn">Next Page</button>
+                      <button type="submit" name="action" value="submit" class="btn btn-brand d-none" id="submitStepBtn">
+                        <ion-icon name="paper-plane-outline"></ion-icon> Submit for Review
+                      </button>
+                    </div>
+                  </div>
                 </div>
-              </div>
-
-              <div class="form-check">
-                <input class="form-check-input" type="checkbox" id="terms" name="terms"
-                       <?= !empty($_POST['terms']) ? 'checked' : '' ?> aria-describedby="termsHelp">
-                <label class="form-check-label" for="terms">
-                  I have read and agree to the
-                  <a href="<?= BASE_URL ?>vendor_portal/vendor/contract_policy.php" target="_blank" class="fw-semibold" style="color: var(--brand-deep);">
-                    TNVS Vendor Contract &amp; Privacy Policy
-                  </a>.
-                </label>
-                <div class="invalid-feedback">You must agree to the contract and policy before submitting.</div>
-              </div>
-
-              <div class="form-check mt-3">
-                <input class="form-check-input" type="checkbox" id="agree" required>
-                <label class="form-check-label fw-semibold" for="agree">
-                  I confirm the information provided is **accurate and complete**.
-                </label>
-                <div class="invalid-feedback">You must confirm the accuracy of your information to continue.</div>
-              </div>
-
-              <div class="form-actions mt-4">
-                <button type="submit" name="action" value="submit" class="btn btn-brand btn-lg">
-                  <ion-icon name="paper-plane-outline"></ion-icon> Submit for Review
-                </button>
-                <a href="../../login.php" class="btn btn-link text-muted" style="text-decoration: none;">
-                  Already have an account? Login here.
-                </a>
               </div>
             </form>
           <?php endif; ?>
@@ -844,7 +917,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       'use strict';
     
       const form = document.querySelector('.needs-validation');
-      const submitBtn = document.querySelector('button[name="action"][value="submit"]');
 
       Array.from(document.querySelectorAll('.needs-validation')).forEach(f => {
         f.addEventListener('submit', event => {
@@ -869,6 +941,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
           f.classList.add('was-validated');
         }, false);
       });
+
+      const pages = Array.from(document.querySelectorAll('.wizard-page'));
+      const stepIndicators = Array.from(document.querySelectorAll('[data-step-indicator]'));
+      const prevBtn = document.getElementById('prevStepBtn');
+      const nextBtn = document.getElementById('nextStepBtn');
+      const submitBtn = document.getElementById('submitStepBtn');
+      let currentStep = 1;
+
+      function showStep(step) {
+        currentStep = Math.max(1, Math.min(3, step));
+        pages.forEach((page) => {
+          const pageStep = Number(page.getAttribute('data-step') || 1);
+          page.classList.toggle('d-none', pageStep !== currentStep);
+        });
+        stepIndicators.forEach((el) => {
+          el.classList.toggle('active', Number(el.getAttribute('data-step-indicator')) === currentStep);
+        });
+        if (prevBtn) prevBtn.classList.toggle('d-none', currentStep === 1);
+        if (nextBtn) nextBtn.classList.toggle('d-none', currentStep === 3);
+        if (submitBtn) submitBtn.classList.toggle('d-none', currentStep !== 3);
+      }
+
+      function validateCurrentStep() {
+        const page = document.querySelector(`.wizard-page[data-step="${currentStep}"]`);
+        if (!page) return true;
+        let isValid = true;
+        const controls = Array.from(page.querySelectorAll('input, select, textarea')).filter(el => !el.disabled && el.type !== 'hidden');
+        controls.forEach((el) => {
+          const valid = el.checkValidity();
+          if (!valid) isValid = false;
+          el.classList.toggle('is-invalid', !valid);
+        });
+        if (!isValid) {
+          form.classList.add('was-validated');
+        }
+        return isValid;
+      }
+
+      if (nextBtn) {
+        nextBtn.addEventListener('click', () => {
+          if (!validateCurrentStep()) return;
+          showStep(currentStep + 1);
+        });
+      }
+
+      if (prevBtn) {
+        prevBtn.addEventListener('click', () => showStep(currentStep - 1));
+      }
+
+      showStep(1);
 
       // Toggle Password Visibility
       const toggle = document.getElementById('togglePass');

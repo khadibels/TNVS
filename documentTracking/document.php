@@ -481,6 +481,10 @@ $userRole = $_SESSION["user"]["role"] ?? "Document Controller";
     .form-inline-gap > * { margin-right:.5rem; margin-bottom:.5rem; }
     .form-inline-gap > *:last-child{ margin-right:0; }
     .source-pill { display:inline-block; padding: 2px 8px; border-radius: 999px; font-size: .74rem; background:#eef2ff; color:#3730a3; }
+    .kpi-label { color: #64748b; font-size: .95rem; line-height: 1.2; }
+    .kpi-value { font-size: 2rem; line-height: 1.05; font-weight: 700; color:#1e293b; margin-top: 4px; }
+    .actions-menu .dropdown-toggle::after { display:none; }
+    .actions-menu .btn { white-space: nowrap; }
   </style>
 </head>
 <body class="saas-page">
@@ -518,55 +522,39 @@ $userRole = $_SESSION["user"]["role"] ?? "Document Controller";
 
         <!-- KPI Cards -->
         <div class="stats-row">
-          <div class="col-6 col-md-3">
-            <div class="stat-card h-100">
-              <div class="d-flex align-items-center gap-3">
-                <div class="rounded-3 p-2 bg-primary-subtle">
-                  <ion-icon name="documents-outline" style="font-size:20px"></ion-icon>
-                </div>
-                <div>
-                  <div class="text-muted small">Total Documents</div>
-                  <div class="h4 m-0"><?= (int)$totalDocs ?></div>
-                </div>
+          <div class="stat-card">
+            <div class="d-flex align-items-center gap-3">
+              <div class="rounded-3 p-2 bg-primary-subtle"><ion-icon name="documents-outline" style="font-size:20px"></ion-icon></div>
+              <div>
+                <div class="kpi-label">Total Documents</div>
+                <div class="kpi-value"><?= (int)$totalDocs ?></div>
               </div>
             </div>
           </div>
-          <div class="col-6 col-md-3">
-            <div class="stat-card h-100">
-              <div class="d-flex align-items-center gap-3">
-                <div class="rounded-3 p-2 bg-warning-subtle">
-                  <ion-icon name="time-outline" style="font-size:20px"></ion-icon>
-                </div>
-                <div>
-                  <div class="text-muted small">Pending</div>
-                  <div class="h4 m-0"><?= (int)$pending ?></div>
-                </div>
+          <div class="stat-card">
+            <div class="d-flex align-items-center gap-3">
+              <div class="rounded-3 p-2 bg-warning-subtle"><ion-icon name="time-outline" style="font-size:20px"></ion-icon></div>
+              <div>
+                <div class="kpi-label">Pending</div>
+                <div class="kpi-value"><?= (int)$pending ?></div>
               </div>
             </div>
           </div>
-          <div class="col-6 col-md-3">
-            <div class="stat-card h-100">
-              <div class="d-flex align-items-center gap-3">
-                <div class="rounded-3 p-2 bg-info-subtle">
-                  <ion-icon name="alert-circle-outline" style="font-size:20px"></ion-icon>
-                </div>
-                <div>
-                  <div class="text-muted small">Expiring (30d)</div>
-                  <div class="h4 m-0"><?= (int)$expiringSoon ?></div>
-                </div>
+          <div class="stat-card">
+            <div class="d-flex align-items-center gap-3">
+              <div class="rounded-3 p-2 bg-info-subtle"><ion-icon name="alert-circle-outline" style="font-size:20px"></ion-icon></div>
+              <div>
+                <div class="kpi-label">Expiring (30d)</div>
+                <div class="kpi-value"><?= (int)$expiringSoon ?></div>
               </div>
             </div>
           </div>
-          <div class="col-6 col-md-3">
-            <div class="stat-card h-100">
-              <div class="d-flex align-items-center gap-3">
-                <div class="rounded-3 p-2 bg-danger-subtle">
-                  <ion-icon name="skull-outline" style="font-size:20px"></ion-icon>
-                </div>
-                <div>
-                  <div class="text-muted small">Expired</div>
-                  <div class="h4 m-0"><?= (int)$expired ?></div>
-                </div>
+          <div class="stat-card">
+            <div class="d-flex align-items-center gap-3">
+              <div class="rounded-3 p-2 bg-danger-subtle"><ion-icon name="skull-outline" style="font-size:20px"></ion-icon></div>
+              <div>
+                <div class="kpi-label">Expired</div>
+                <div class="kpi-value"><?= (int)$expired ?></div>
               </div>
             </div>
           </div>
@@ -611,79 +599,15 @@ $userRole = $_SESSION["user"]["role"] ?? "Document Controller";
               </div>
             </form>
 
-            <div class="d-flex justify-content-end mt-2">
+            <div class="d-flex justify-content-end gap-2 mt-2">
+              <button class="btn btn-violet btn-sm" type="button" data-bs-toggle="modal" data-bs-target="#addDocumentModal">
+                <ion-icon name="add-circle-outline"></ion-icon> Add Document
+              </button>
               <a class="btn btn-outline-secondary btn-sm"
                  href="?action=export&status=<?= h($filterStatus) ?>&type=<?= h($filterType) ?>&q=<?= urlencode($filterQ) ?>&exp=<?= h($filterExp) ?>">
                 <ion-icon name="download-outline"></ion-icon> Export CSV
               </a>
             </div>
-          </div>
-        </section>
-
-        <!-- Create New Document -->
-        <section class="toolbar-card mb-3">
-          <div class="card-body">
-            <h5 class="mb-3">Add Document</h5>
-            <form method="POST" enctype="multipart/form-data" class="row g-2">
-              <input type="hidden" name="op" value="create">
-              <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-
-              <div class="col-12 col-md-4">
-                <label class="form-label small text-muted">Title</label>
-                <input class="form-control" name="title" placeholder="Title" required>
-              </div>
-
-              <div class="col-12 col-md-3">
-                <label class="form-label small text-muted">Type</label>
-                <select name="doc_type" class="form-select" required>
-                  <option value="">Select…</option>
-                  <?php foreach ($docTypes as $t): ?><option><?= h($t) ?></option><?php endforeach; ?>
-                </select>
-              </div>
-
-              <div class="col-12 col-md-2">
-                <label class="form-label small text-muted">Document Code</label>
-                <input class="form-control" name="doc_code" placeholder="Code">
-              </div>
-
-              <div class="col-12 col-md-3">
-                <label class="form-label small text-muted">Attach Asset</label>
-                <select name="asset_id" class="form-select">
-                  <option value="">None</option>
-                  <?php foreach ($assets as $a): ?><option value="<?= (int)$a['id'] ?>"><?= h($a['name']) ?></option><?php endforeach; ?>
-                </select>
-              </div>
-
-              <div class="col-12 col-md-2">
-                <label class="form-label small text-muted">Trip Ref</label>
-                <input class="form-control" name="trip_ref" placeholder="Trip Ref">
-              </div>
-
-              <div class="col-6 col-md-2">
-                <label class="form-label small text-muted">Issue Date</label>
-                <input type="date" class="form-control" name="issue_date">
-              </div>
-
-              <div class="col-6 col-md-2">
-                <label class="form-label small text-muted">Expiration Date</label>
-                <input type="date" class="form-control" name="expiration_date">
-              </div>
-
-              <div class="col-12 col-md-3">
-                <label class="form-label small text-muted">Tags</label>
-                <input class="form-control" name="tags" placeholder="comma,separated">
-              </div>
-
-              <div class="col-12 col-md-3">
-                <label class="form-label small text-muted">File</label>
-                <input type="file" name="file" class="form-control" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx">
-              </div>
-
-              <div class="col-12 col-md-2 d-grid">
-                <label class="form-label small text-muted">&nbsp;</label>
-                <button class="btn btn-violet"><ion-icon name="add-circle-outline"></ion-icon> Add</button>
-              </div>
-            </form>
           </div>
         </section>
 
@@ -774,135 +698,76 @@ $userRole = $_SESSION["user"]["role"] ?? "Document Controller";
                       <?php if (!empty($d['is_external'])): ?>
                         <span class="text-muted small">Read-only (source module)</span>
                       <?php else: ?>
-                      <button class="btn btn-sm btn-outline-primary me-1" onclick="toggleEdit(<?= (int)$d['id'] ?>)">
-                        <ion-icon name="create-outline"></ion-icon> Edit
-                      </button>
-
-                      <?php if ($d['status']==='Submitted'): ?>
-                        <form method="POST" class="d-inline">
-                          <input type="hidden" name="op" value="verify">
-                          <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-                          <input type="hidden" name="id" value="<?= (int)$d['id'] ?>">
-                          <button class="btn btn-sm btn-outline-secondary me-1">
-                            <ion-icon name="shield-checkmark-outline"></ion-icon> Verify
-                          </button>
-                        </form>
-                      <?php endif; ?>
-
-                      <?php if ($d['status']==='Submitted' || $d['status']==='Verified'): ?>
-                        <form method="POST" class="d-inline">
-                          <input type="hidden" name="op" value="approve">
-                          <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-                          <input type="hidden" name="id" value="<?= (int)$d['id'] ?>">
-                          <button class="btn btn-sm btn-success me-1">
-                            <ion-icon name="checkmark-circle-outline"></ion-icon> Approve
-                          </button>
-                        </form>
-                      <?php endif; ?>
-
-                      <?php if ($d['status']!=='Approved'): ?>
-                        <form method="POST" class="d-inline" onsubmit="return confirm('Reject this document?')">
-                          <input type="hidden" name="op" value="reject">
-                          <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-                          <input type="hidden" name="id" value="<?= (int)$d['id'] ?>">
-                          <button class="btn btn-sm btn-outline-danger me-1">
-                            <ion-icon name="close-circle-outline"></ion-icon> Reject
-                          </button>
-                        </form>
-                      <?php endif; ?>
-
-                      <form method="POST" enctype="multipart/form-data" class="d-inline align-middle">
-                        <input type="hidden" name="op" value="new_version">
-                        <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-                        <input type="hidden" name="id" value="<?= (int)$d['id'] ?>">
-                        <input type="file" name="vfile" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx" class="form-control form-control-sm d-inline-block mb-1" style="max-width:200px">
-                        <input name="vnotes" class="form-control form-control-sm d-inline-block mb-1" placeholder="Version notes" style="max-width:160px">
-                        <button class="btn btn-sm btn-outline-dark me-1"><ion-icon name="cloud-upload-outline"></ion-icon> Upload v+</button>
-                      </form>
-
-                      <form method="POST" class="d-inline" onsubmit="return confirm('Delete this document?')">
-                        <input type="hidden" name="op" value="delete">
-                        <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-                        <input type="hidden" name="id" value="<?= (int)$d['id'] ?>">
-                        <button class="btn btn-sm btn-outline-danger">
-                          <ion-icon name="trash-outline"></ion-icon> Delete
+                      <div class="d-flex justify-content-end gap-1 actions-menu">
+                        <button
+                          class="btn btn-sm btn-outline-primary"
+                          type="button"
+                          data-id="<?= (int)$d['id'] ?>"
+                          data-title="<?= h($d['title']) ?>"
+                          data-doc-type="<?= h($d['doc_type']) ?>"
+                          data-doc-code="<?= h($d['doc_code']) ?>"
+                          data-asset-id="<?= (int)($d['asset_id'] ?? 0) ?>"
+                          data-trip-ref="<?= h($d['trip_ref']) ?>"
+                          data-issue-date="<?= h($d['issue_date']) ?>"
+                          data-expiration-date="<?= h($d['expiration_date']) ?>"
+                          data-tags="<?= h($d['tags']) ?>"
+                          data-status="<?= h($d['status']) ?>"
+                          onclick="openDocEditor(this)">
+                          <ion-icon name="create-outline"></ion-icon>
                         </button>
-                      </form>
+                        <button class="btn btn-sm btn-outline-dark" type="button" onclick="openVersionModal(<?= (int)$d['id'] ?>)">
+                          <ion-icon name="cloud-upload-outline"></ion-icon>
+                        </button>
+                        <div class="dropdown">
+                          <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <ion-icon name="ellipsis-horizontal"></ion-icon>
+                          </button>
+                          <ul class="dropdown-menu dropdown-menu-end">
+                            <?php if ($d['status']==='Submitted'): ?>
+                            <li>
+                              <form method="POST" class="px-2 py-1">
+                                <input type="hidden" name="op" value="verify">
+                                <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+                                <input type="hidden" name="id" value="<?= (int)$d['id'] ?>">
+                                <button class="dropdown-item" type="submit"><ion-icon name="shield-checkmark-outline"></ion-icon> Verify</button>
+                              </form>
+                            </li>
+                            <?php endif; ?>
+                            <?php if ($d['status']==='Submitted' || $d['status']==='Verified'): ?>
+                            <li>
+                              <form method="POST" class="px-2 py-1">
+                                <input type="hidden" name="op" value="approve">
+                                <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+                                <input type="hidden" name="id" value="<?= (int)$d['id'] ?>">
+                                <button class="dropdown-item" type="submit"><ion-icon name="checkmark-circle-outline"></ion-icon> Approve</button>
+                              </form>
+                            </li>
+                            <?php endif; ?>
+                            <?php if ($d['status']!=='Approved'): ?>
+                            <li>
+                              <form method="POST" class="px-2 py-1" onsubmit="return confirm('Reject this document?')">
+                                <input type="hidden" name="op" value="reject">
+                                <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+                                <input type="hidden" name="id" value="<?= (int)$d['id'] ?>">
+                                <button class="dropdown-item text-danger" type="submit"><ion-icon name="close-circle-outline"></ion-icon> Reject</button>
+                              </form>
+                            </li>
+                            <?php endif; ?>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                              <form method="POST" class="px-2 py-1" onsubmit="return confirm('Delete this document?')">
+                                <input type="hidden" name="op" value="delete">
+                                <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+                                <input type="hidden" name="id" value="<?= (int)$d['id'] ?>">
+                                <button class="dropdown-item text-danger" type="submit"><ion-icon name="trash-outline"></ion-icon> Delete</button>
+                              </form>
+                            </li>
+                          </ul>
+                        </div>
+                      </div>
                       <?php endif; ?>
                     </td>
                   </tr>
-
-                  <!-- Inline Edit Row -->
-                  <?php if (empty($d['is_external'])): ?>
-                  <tr id="edit-<?= (int)$d['id'] ?>" style="display:none;background:#f6f8ff">
-                    <td colspan="9">
-                      <form method="POST" class="row g-2 align-items-end">
-                        <input type="hidden" name="op" value="update">
-                        <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
-                        <input type="hidden" name="id" value="<?= (int)$d['id'] ?>">
-
-                        <div class="col-12 col-md-4">
-                          <label class="form-label small text-muted">Title</label>
-                          <input class="form-control" name="title" value="<?= h($d['title']) ?>" required>
-                        </div>
-
-                        <div class="col-12 col-md-3">
-                          <label class="form-label small text-muted">Type</label>
-                          <select name="doc_type" class="form-select" required>
-                            <?php foreach ($docTypes as $t): ?><option <?= ($d['doc_type']===$t?'selected':'') ?>><?= h($t) ?></option><?php endforeach; ?>
-                          </select>
-                        </div>
-
-                        <div class="col-12 col-md-2">
-                          <label class="form-label small text-muted">Document Code</label>
-                          <input class="form-control" name="doc_code" value="<?= h($d['doc_code']) ?>">
-                        </div>
-
-                        <div class="col-12 col-md-3">
-                          <label class="form-label small text-muted">Attach Asset</label>
-                          <select name="asset_id" class="form-select">
-                            <option value="">None</option>
-                            <?php foreach ($assets as $a): ?>
-                              <option value="<?= (int)$a['id'] ?>" <?= $d['asset_id']==$a['id']?'selected':'' ?>><?= h($a['name']) ?></option>
-                            <?php endforeach; ?>
-                          </select>
-                        </div>
-
-                        <div class="col-6 col-md-2">
-                          <label class="form-label small text-muted">Trip Ref</label>
-                          <input class="form-control" name="trip_ref" value="<?= h($d['trip_ref']) ?>">
-                        </div>
-
-                        <div class="col-6 col-md-2">
-                          <label class="form-label small text-muted">Issue Date</label>
-                          <input type="date" class="form-control" name="issue_date" value="<?= h($d['issue_date']) ?>">
-                        </div>
-
-                        <div class="col-6 col-md-2">
-                          <label class="form-label small text-muted">Expiration Date</label>
-                          <input type="date" class="form-control" name="expiration_date" value="<?= h($d['expiration_date']) ?>">
-                        </div>
-
-                        <div class="col-12 col-md-3">
-                          <label class="form-label small text-muted">Tags</label>
-                          <input class="form-control" name="tags" value="<?= h($d['tags']) ?>">
-                        </div>
-
-                        <div class="col-12 col-md-2">
-                          <label class="form-label small text-muted">Status</label>
-                          <select name="status" class="form-select">
-                            <?php foreach ($statuses as $s): ?><option <?= ($d['status']===$s?'selected':'') ?>><?= h($s) ?></option><?php endforeach; ?>
-                          </select>
-                        </div>
-
-                        <div class="col-12 col-md-3 d-flex gap-2">
-                          <button class="btn btn-primary"><ion-icon name="save-outline"></ion-icon> Save</button>
-                          <button class="btn btn-outline-secondary" type="button" onclick="toggleEdit(<?= (int)$d['id'] ?>)"><ion-icon name="close-outline"></ion-icon> Cancel</button>
-                        </div>
-                      </form>
-                    </td>
-                  </tr>
-                  <?php endif; ?>
                   <?php endforeach; ?>
                 </tbody>
               </table>
@@ -915,13 +780,191 @@ $userRole = $_SESSION["user"]["role"] ?? "Document Controller";
     </div>
   </div>
 
+  <!-- Add Document Modal -->
+  <div id="addDocumentModal" class="modal fade" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <form method="POST" enctype="multipart/form-data">
+          <div class="modal-header">
+            <h5 class="modal-title">Add Document</h5>
+            <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+          </div>
+          <div class="modal-body row g-2">
+            <input type="hidden" name="op" value="create">
+            <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+
+            <div class="col-12 col-md-6">
+              <label class="form-label text-label">Title</label>
+              <input class="form-control" name="title" placeholder="Title" required>
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label text-label">Type</label>
+              <select name="doc_type" class="form-select" required>
+                <option value="">Select…</option>
+                <?php foreach ($docTypes as $t): ?><option><?= h($t) ?></option><?php endforeach; ?>
+              </select>
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label text-label">Document Code</label>
+              <input class="form-control" name="doc_code" placeholder="Code">
+            </div>
+            <div class="col-12 col-md-4">
+              <label class="form-label text-label">Attach Asset</label>
+              <select name="asset_id" class="form-select">
+                <option value="">None</option>
+                <?php foreach ($assets as $a): ?><option value="<?= (int)$a['id'] ?>"><?= h($a['name']) ?></option><?php endforeach; ?>
+              </select>
+            </div>
+            <div class="col-6 col-md-4">
+              <label class="form-label text-label">Trip Ref</label>
+              <input class="form-control" name="trip_ref" placeholder="Trip Ref">
+            </div>
+            <div class="col-6 col-md-4">
+              <label class="form-label text-label">Tags</label>
+              <input class="form-control" name="tags" placeholder="comma,separated">
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label text-label">Issue Date</label>
+              <input type="date" class="form-control" name="issue_date">
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label text-label">Expiration Date</label>
+              <input type="date" class="form-control" name="expiration_date">
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label text-label">File</label>
+              <input type="file" name="file" class="form-control" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx">
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Close</button>
+            <button class="btn btn-violet" type="submit"><ion-icon name="add-circle-outline"></ion-icon> Save Document</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Document Modal -->
+  <div id="editDocumentModal" class="modal fade" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+      <div class="modal-content">
+        <form method="POST">
+          <div class="modal-header">
+            <h5 class="modal-title">Edit Document <span id="editDocIdLabel" class="text-muted"></span></h5>
+            <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+          </div>
+          <div class="modal-body row g-2">
+            <input type="hidden" name="op" value="update">
+            <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+            <input type="hidden" name="id" id="edit_doc_id">
+
+            <div class="col-12 col-md-6">
+              <label class="form-label text-label">Title</label>
+              <input class="form-control" name="title" id="edit_doc_title" required>
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label text-label">Type</label>
+              <select name="doc_type" id="edit_doc_type" class="form-select" required>
+                <?php foreach ($docTypes as $t): ?><option><?= h($t) ?></option><?php endforeach; ?>
+              </select>
+            </div>
+            <div class="col-12 col-md-3">
+              <label class="form-label text-label">Document Code</label>
+              <input class="form-control" name="doc_code" id="edit_doc_code">
+            </div>
+            <div class="col-12 col-md-4">
+              <label class="form-label text-label">Attach Asset</label>
+              <select name="asset_id" id="edit_doc_asset_id" class="form-select">
+                <option value="">None</option>
+                <?php foreach ($assets as $a): ?><option value="<?= (int)$a['id'] ?>"><?= h($a['name']) ?></option><?php endforeach; ?>
+              </select>
+            </div>
+            <div class="col-6 col-md-4">
+              <label class="form-label text-label">Trip Ref</label>
+              <input class="form-control" name="trip_ref" id="edit_doc_trip_ref">
+            </div>
+            <div class="col-6 col-md-4">
+              <label class="form-label text-label">Status</label>
+              <select name="status" id="edit_doc_status" class="form-select">
+                <?php foreach ($statuses as $s): ?><option><?= h($s) ?></option><?php endforeach; ?>
+              </select>
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label text-label">Issue Date</label>
+              <input type="date" class="form-control" name="issue_date" id="edit_doc_issue_date">
+            </div>
+            <div class="col-6 col-md-3">
+              <label class="form-label text-label">Expiration Date</label>
+              <input type="date" class="form-control" name="expiration_date" id="edit_doc_expiration_date">
+            </div>
+            <div class="col-12 col-md-6">
+              <label class="form-label text-label">Tags</label>
+              <input class="form-control" name="tags" id="edit_doc_tags">
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Close</button>
+            <button class="btn btn-violet" type="submit"><ion-icon name="save-outline"></ion-icon> Save Changes</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Upload Version Modal -->
+  <div id="versionUploadModal" class="modal fade" tabindex="-1">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <form method="POST" enctype="multipart/form-data">
+          <div class="modal-header">
+            <h5 class="modal-title">Upload New Version <span id="versionDocIdLabel" class="text-muted"></span></h5>
+            <button class="btn-close" data-bs-dismiss="modal" type="button"></button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" name="op" value="new_version">
+            <input type="hidden" name="csrf" value="<?= h($csrf) ?>">
+            <input type="hidden" name="id" id="version_doc_id">
+            <div class="mb-2">
+              <label class="form-label text-label">File</label>
+              <input type="file" name="vfile" class="form-control" accept=".pdf,.png,.jpg,.jpeg,.doc,.docx,.xls,.xlsx" required>
+            </div>
+            <div>
+              <label class="form-label text-label">Version Notes</label>
+              <input type="text" name="vnotes" class="form-control" placeholder="What changed?">
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn btn-outline-secondary" type="button" data-bs-dismiss="modal">Close</button>
+            <button class="btn btn-violet" type="submit"><ion-icon name="cloud-upload-outline"></ion-icon> Upload Version</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
   <script src="../js/profile-dropdown.js"></script>
   <script>
-    function toggleEdit(id){
-      const el = document.getElementById('edit-'+id);
-      if(!el) return;
-      el.style.display = (el.style.display==='none' || !el.style.display) ? 'table-row' : 'none';
+    function openDocEditor(btn){
+      const d = btn.dataset;
+      document.getElementById('editDocIdLabel').textContent = '#' + (d.id || '');
+      document.getElementById('edit_doc_id').value = d.id || '';
+      document.getElementById('edit_doc_title').value = d.title || '';
+      document.getElementById('edit_doc_type').value = d.docType || '';
+      document.getElementById('edit_doc_code').value = d.docCode || '';
+      document.getElementById('edit_doc_asset_id').value = d.assetId || '';
+      document.getElementById('edit_doc_trip_ref').value = d.tripRef || '';
+      document.getElementById('edit_doc_issue_date').value = d.issueDate || '';
+      document.getElementById('edit_doc_expiration_date').value = d.expirationDate || '';
+      document.getElementById('edit_doc_tags').value = d.tags || '';
+      document.getElementById('edit_doc_status').value = d.status || 'Submitted';
+      new bootstrap.Modal(document.getElementById('editDocumentModal')).show();
+    }
+    function openVersionModal(id){
+      document.getElementById('version_doc_id').value = id;
+      document.getElementById('versionDocIdLabel').textContent = '#' + id;
+      new bootstrap.Modal(document.getElementById('versionUploadModal')).show();
     }
     // Auto-refresh on changes from other tabs
     window.addEventListener('storage', function(e){ if (e.key==='docs_changed') { window.location.reload(); }});
