@@ -1,0 +1,100 @@
+:root{
+  --vp-bg:#f6f7fb;
+  --vp-card:#fff;
+  --vp-border:#ece7ff;
+  --vp-shadow:0 10px 26px rgba(67,17,165,0.06);
+  --vp-primary:#6c4bff;
+  --vp-text:#2b2349;
+  --vp-muted:#6f6c80;
+}
+
+body.vendor-saas{
+  background:var(--vp-bg);
+  color:var(--vp-text);
+  --vh-text-strong: var(--vp-text);
+  --vh-text-muted: var(--vp-muted);
+  --vh-shadow-soft: var(--vp-shadow);
+}
+
+body.vendor-saas .main-content{
+  padding:1.25rem;
+}
+@media (min-width:992px){
+  body.vendor-saas .main-content{padding:2rem;}
+}
+
+body.vendor-saas .card,
+body.vendor-saas .section-card,
+body.vendor-saas .auth-card{
+  border-radius:16px;
+  border:1px solid var(--vp-border);
+  background:var(--vp-card);
+  box-shadow:var(--vp-shadow);
+}
+
+body.vendor-saas .table thead th{
+  font-size:.78rem;
+  text-transform:uppercase;
+  letter-spacing:.4px;
+}
+
+body.vendor-saas .form-control,
+body.vendor-saas .form-select,
+body.vendor-saas .input-group-text{
+  border-radius:12px;
+}
+
+body.vendor-saas .btn-primary,
+body.vendor-saas .btn-brand{
+  background:var(--vp-primary);
+  border-color:var(--vp-primary);
+}
+
+body.vendor-saas .badge{
+  border-radius:999px;
+}
+
+body.vendor-saas .page-title,
+body.vendor-saas h1,
+body.vendor-saas h2,
+body.vendor-saas h3{
+  letter-spacing:.2px;
+}
+body.vendor-saas h2.page-title{
+  font-weight:700;
+  color:var(--vp-text);
+  letter-spacing:-0.02em;
+}
+
+body.vendor-saas .section-title{
+  font-weight:700;
+}
+
+body.vendor-saas .text-muted{color:var(--vp-muted)!important;}
+
+/* Align sidebar styling with Smart Warehousing modules */
+body.vendor-saas .sidebar{
+  background:#181818;
+  color:#fff;
+  border:0;
+}
+body.vendor-saas .sidebar h6{color:#fff;}
+body.vendor-saas .sidebar a{color:#bfc7d1;}
+body.vendor-saas .sidebar a.active,
+body.vendor-saas .sidebar a:hover{
+  background: linear-gradient(90deg, #9a66ff 0%, #4311a5 100%);
+  color:#fff;
+}
+
+/* Track Inventory-aligned components */
+body.vendor-saas .stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:1.5rem;margin-bottom:2rem;}
+body.vendor-saas .stat-card{background:#fff;border:1px solid var(--vp-border);border-radius:1rem;padding:1.5rem;box-shadow:0 1px 3px rgba(0,0,0,0.05);display:flex;flex-direction:column;justify-content:space-between;transition:transform .2s;}
+body.vendor-saas .stat-card:hover{transform:translateY(-2px);box-shadow:0 4px 6px -1px rgba(0,0,0,0.1);}
+body.vendor-saas .text-label{font-size:.7rem;text-transform:uppercase;letter-spacing:.6px;font-weight:700;color:#94a3b8;margin-bottom:2px;}
+body.vendor-saas .stat-icon{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.5rem;margin-bottom:1rem;}
+body.vendor-saas .card-table{border:1px solid var(--vp-border);border-radius:1rem;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,0.05);overflow:hidden;}
+body.vendor-saas .table-custom thead th{font-size:.75rem;text-transform:uppercase;letter-spacing:.5px;color:#64748b;background:#f8fafc;border-bottom:1px solid var(--vp-border);font-weight:600;padding:1rem 1.5rem;}
+body.vendor-saas .table-custom tbody td{padding:1rem 1.5rem;border-bottom:1px solid #eef2f7;font-size:.95rem;color:#1f2937;vertical-align:middle;}
+body.vendor-saas .table-custom tr:last-child td{border-bottom:none;}
+body.vendor-saas .table-custom tr:hover td{background:#f8fafc;}
+body.vendor-saas .btn-white{background:#fff;}

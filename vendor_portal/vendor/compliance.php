@@ -140,8 +140,11 @@ $status = strtolower($vendor['status'] ?? 'draft');
   <title>Compliance / KYC | Vendor Portal</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+  <link href="<?= rtrim(BASE_URL, '/') ?>/css/style.css" rel="stylesheet" />
+  <link href="<?= rtrim(BASE_URL, '/') ?>/css/modules.css" rel="stylesheet" />
+  <link href="<?= rtrim(BASE_URL, '/') ?>/css/vendor_portal_saas.css" rel="stylesheet" />
 </head>
-<body class="bg-light">
+<body class="vendor-saas">
 <div class="container py-5">
   <div class="row justify-content-center">
     <div class="col-lg-8">

@@ -11,6 +11,7 @@ $BASE = defined('BASE_URL') ? rtrim(BASE_URL, '/') : '';
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
 <link href="<?= $BASE ?>/css/style.css" rel="stylesheet" />
 <link href="<?= $BASE ?>/css/modules.css" rel="stylesheet" />
+<link href="<?= $BASE ?>/css/vendor_portal_saas.css" rel="stylesheet" />
 <style>
   body{background:#f6f7fb}
   .page-wrap{max-width:980px;margin:40px auto;padding:0 16px}
@@ -31,7 +32,7 @@ $BASE = defined('BASE_URL') ? rtrim(BASE_URL, '/') : '';
   }
 </style>
 </head>
-<body>
+<body class="vendor-saas">
   <div class="page-wrap">
     <div class="hero mb-4">
       <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">

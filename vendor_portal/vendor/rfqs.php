@@ -40,20 +40,17 @@ function vendor_avatar_url(): string {
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
 <link href="<?= $BASE ?>/css/style.css" rel="stylesheet" />
 <link href="<?= $BASE ?>/css/modules.css" rel="stylesheet" />
+<link href="<?= $BASE ?>/css/vendor_portal_saas.css" rel="stylesheet" />
 <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
 <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
 <script src="<?= $BASE ?>/js/sidebar-toggle.js"></script>
 <style>
-  body{background:#f6f7fb}
-  .main-content{padding:1.25rem} @media(min-width:992px){.main-content{padding:2rem}}
-  .card{border-radius:16px}
   .badge-status{border-radius:999px}
-  .table thead th{font-size:.82rem;text-transform:uppercase}
   .modal-xl .modal-body{max-height:calc(100vh - 210px); overflow:auto}
   .rfq-row{cursor:pointer}
 </style>
 </head>
-<body>
+<body class="vendor-saas">
 <div class="container-fluid p-0">
   <div class="row g-0">
     <?php include __DIR__ . '/../../includes/sidebar.php'; ?>
@@ -63,64 +60,67 @@ function vendor_avatar_url(): string {
           <button class="sidebar-toggle d-lg-none btn btn-outline-secondary btn-sm" id="sidebarToggle2" aria-label="Toggle sidebar">
             <ion-icon name="menu-outline"></ion-icon>
           </button>
-          <h2 class="m-0">RFQs</h2>
+          <h2 class="m-0 d-flex align-items-center gap-2 page-title">
+            <ion-icon name="mail-open-outline"></ion-icon> RFQs
+          </h2>
         </div>
-        <div class="d-flex align-items-center gap-2">
-          <a href="<?= $BASE ?>/vendor_portal/vendor/notifications.php" class="btn btn-outline-secondary position-relative">
-            <ion-icon name="notifications-outline" class="me-1"></ion-icon> Notifications
-            <span id="notifCount" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none"></span>
-          </a>
-          <img src="<?= htmlspecialchars(vendor_avatar_url(), ENT_QUOTES) ?>" class="rounded-circle border" width="36" height="36" alt="">
-          <div class="small text-end">
-            <strong><?= htmlspecialchars($vendorName, ENT_QUOTES) ?></strong><br>
-            <span class="text-muted">vendor</span>
+        <div class="profile-menu" data-profile-menu>
+          <button class="profile-trigger" type="button" data-profile-trigger>
+            <img src="<?= htmlspecialchars(vendor_avatar_url(), ENT_QUOTES) ?>" class="rounded-circle" width="36" height="36" alt="">
+            <div class="profile-text">
+              <div class="profile-name"><?= htmlspecialchars($vendorName, ENT_QUOTES) ?></div>
+              <div class="profile-role">vendor</div>
+            </div>
+            <ion-icon class="profile-caret" name="chevron-down-outline"></ion-icon>
+          </button>
+          <div class="profile-dropdown" data-profile-dropdown role="menu">
+            <a href="<?= $BASE ?>/vendor_portal/vendor/notifications.php" role="menuitem">Notifications</a>
+            <a href="<?= u('auth/logout.php') ?>" role="menuitem">Sign out</a>
           </div>
         </div>
       </div>
 
-      <section class="card shadow-sm mb-3">
-        <div class="card-body">
-          <div class="row g-2 align-items-center">
-            <div class="col-md-5"><input id="fSearch" class="form-control" placeholder="Search RFQ No or Title…"></div>
-            <div class="col-md-3">
-              <select id="fStatus" class="form-select">
-                <option value="">All Status</option>
-                <option value="sent">Sent</option>
-                <option value="awarded">Awarded</option>
-                <option value="closed">Closed</option>
-                <option value="cancelled">Cancelled</option>
-              </select>
-            </div>
-            <div class="col-md-2">
-              <button class="btn btn-primary w-100" id="btnFilter">
-                <ion-icon name="search-outline"></ion-icon> Filter
-              </button>
-            </div>
+      <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+        <div class="flex-grow-1" style="max-width: 360px;">
+          <div class="input-group">
+            <span class="input-group-text bg-white border-end-0 text-muted"><ion-icon name="search-outline"></ion-icon></span>
+            <input id="fSearch" class="form-control border-start-0 ps-0" placeholder="Search RFQ No or Title…">
           </div>
         </div>
-      </section>
+        <select id="fStatus" class="form-select" style="max-width: 200px;">
+          <option value="">All Status</option>
+          <option value="sent">Sent</option>
+          <option value="awarded">Awarded</option>
+          <option value="closed">Closed</option>
+          <option value="cancelled">Cancelled</option>
+        </select>
+        <div class="ms-auto d-flex align-items-center gap-2">
+          <button class="btn btn-white border shadow-sm fw-medium px-3" id="btnFilter">
+            <ion-icon name="search-outline"></ion-icon> Filter
+          </button>
+          <button class="btn btn-link text-decoration-none text-muted p-0" id="btnReset">Reset</button>
+        </div>
+      </div>
 
-      <section class="card shadow-sm">
-        <div class="card-body">
-          <div class="table-responsive">
-            <table class="table align-middle mb-0">
-              <thead class="table-light">
-                <tr>
-                  <th>RFQ No</th><th>Title</th><th>Due</th>
-                  <th class="text-center">My Quotes</th><th>Status</th><th class="text-end">Action</th>
-                </tr>
-              </thead>
-              <tbody id="tblBody">
-                <tr><td colspan="6" class="text-center py-5 text-muted">Loading…</td></tr>
-              </tbody>
-            </table>
-          </div>
-          <div class="d-flex justify-content-between align-items-center mt-3">
-            <div class="small text-muted" id="pageInfo"></div>
-            <nav><ul class="pagination pagination-sm mb-0" id="pager"></ul></nav>
-          </div>
+      <div class="card-table">
+        <div class="table-responsive">
+          <table class="table table-custom mb-0 align-middle">
+            <thead>
+              <tr>
+                <th>RFQ No</th><th>Title</th><th>Due</th>
+                <th class="text-center">My Quotes</th><th>Status</th><th class="text-end">Action</th>
+              </tr>
+            </thead>
+            <tbody id="tblBody">
+              <tr><td colspan="6" class="text-center py-5 text-muted">Loading…</td></tr>
+            </tbody>
+          </table>
         </div>
-      </section>
+        <div class="d-flex justify-content-between align-items-center p-3 border-top bg-light bg-opacity-50">
+          <div class="small text-muted" id="pageInfo"></div>
+          <nav><ul class="pagination pagination-sm mb-0" id="pager"></ul></nav>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -155,6 +155,7 @@ function vendor_avatar_url(): string {
 <div class="toast-container position-fixed top-0 end-0 p-3" id="toasts" style="z-index:1080"></div>
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script src="<?= $BASE ?>/js/profile-dropdown.js"></script>
 <script>
 const VENDOR_ID = <?= (int)$VENDOR_ID ?>;
 const BASE = '<?= $BASE ?>';
@@ -256,6 +257,14 @@ document.getElementById('btnFilter').addEventListener('click', ()=>{
   state.page=1;
   state.search=$('#fSearch').value.trim();
   state.status=$('#fStatus').value;
+  loadRFQs();
+});
+document.getElementById('btnReset')?.addEventListener('click', ()=>{
+  $('#fSearch').value = '';
+  $('#fStatus').value = '';
+  state.page = 1;
+  state.search = '';
+  state.status = '';
   loadRFQs();
 });
 

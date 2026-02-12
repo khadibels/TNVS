@@ -283,6 +283,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
   <link href="<?= BASE_URL ?>css/style.css" rel="stylesheet" />
   <link href="<?= BASE_URL ?>css/modules.css" rel="stylesheet" />
+  <link href="<?= BASE_URL ?>css/vendor_portal_saas.css" rel="stylesheet" />
 
   <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
   <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
@@ -588,7 +589,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
   }
   </style>
 </head>
-<body>
+<body class="vendor-saas">
   <div class="auth-wrapper">
     <div class="card auth-card">
       <div class="row g-0">

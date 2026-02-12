@@ -40,9 +40,11 @@ function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
   <title>Vendor Status | TNVS Vendor Portal</title>
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <style>body{background:#faf9ff}.card{border-radius:16px}</style>
+  <link href="<?= rtrim(BASE_URL, '/') ?>/css/style.css" rel="stylesheet" />
+  <link href="<?= rtrim(BASE_URL, '/') ?>/css/modules.css" rel="stylesheet" />
+  <link href="<?= rtrim(BASE_URL, '/') ?>/css/vendor_portal_saas.css" rel="stylesheet" />
 </head>
-<body>
+<body class="vendor-saas">
   <div class="container py-5">
     <div class="row justify-content-center">
       <div class="col-12 col-lg-7">

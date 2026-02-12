@@ -37,41 +37,40 @@ function vendor_avatar_url(): string {
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
 <link href="<?= $BASE ?>/css/style.css" rel="stylesheet" />
 <link href="<?= $BASE ?>/css/modules.css" rel="stylesheet" />
+<link href="<?= $BASE ?>/css/vendor_portal_saas.css" rel="stylesheet" />
 <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
 <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
 <script src="<?= $BASE ?>/js/sidebar-toggle.js"></script>
 <style>
   .card{border-radius:16px}
-  .profile-menu{position:relative}
-  .profile-trigger{border:0;background:transparent;display:flex;align-items:center;gap:.6rem;padding:.2rem .4rem;border-radius:999px}
-  .profile-trigger:focus{outline:2px solid rgba(101,50,201,.25);outline-offset:2px}
-  .profile-name{font-weight:600;color:#2b2349}
-  .profile-caret{font-size:14px;color:#6f6c80}
-  .profile-dropdown{position:absolute;right:0;top:calc(100% + 10px);min-width:160px;background:#fff;border-radius:12px;box-shadow:0 14px 30px rgba(43,35,73,.12);border:1px solid #eee;display:none;z-index:10}
-  .profile-dropdown a{display:block;padding:.6rem .9rem;color:#2b2349;text-decoration:none;font-size:.9rem}
-  .profile-dropdown a:hover{background:#f4f3fb}
 </style>
 </head>
-<body class="bg-light">
+<body class="vendor-saas">
 <div class="container-fluid p-0">
   <div class="row g-0">
     <?php include __DIR__ . '/../../includes/sidebar.php'; ?>
 
     <div class="col main-content p-4">
       <div class="d-flex justify-content-between align-items-center mb-3">
-        <div class="d-flex align-items-center gap-2">
+        <div class="d-flex align-items-center gap-3">
           <button class="sidebar-toggle d-lg-none btn btn-outline-secondary btn-sm" id="sidebarToggle2">
             <ion-icon name="menu-outline"></ion-icon>
           </button>
-          <h2 class="m-0">Notifications</h2>
+          <h2 class="m-0 d-flex align-items-center gap-2 page-title">
+            <ion-icon name="notifications-outline"></ion-icon> Notifications
+          </h2>
         </div>
-        <div class="profile-menu">
-          <button class="profile-trigger" type="button" id="profileTrigger" aria-expanded="false" aria-haspopup="true">
+        <div class="profile-menu" data-profile-menu>
+          <button class="profile-trigger" type="button" data-profile-trigger>
             <img src="<?= vendor_avatar_url() ?>" class="rounded-circle" width="36" height="36" alt="">
-            <span class="profile-name"><?= htmlspecialchars($vendorName, ENT_QUOTES, 'UTF-8') ?></span>
+            <div class="profile-text">
+              <div class="profile-name"><?= htmlspecialchars($vendorName, ENT_QUOTES, 'UTF-8') ?></div>
+              <div class="profile-role">vendor</div>
+            </div>
             <ion-icon class="profile-caret" name="chevron-down-outline"></ion-icon>
           </button>
-          <div class="profile-dropdown" id="profileDropdown" role="menu" aria-labelledby="profileTrigger">
+          <div class="profile-dropdown" data-profile-dropdown role="menu">
+            <a href="<?= $BASE ?>/vendor_portal/vendor/notifications.php" role="menuitem">Notifications</a>
             <a href="<?= $BASE ?>/auth/logout.php" role="menuitem">Sign out</a>
           </div>
         </div>
@@ -144,5 +143,6 @@ if (trigger && dropdown) {
   });
 }
 </script>
+<script src="<?= $BASE ?>/js/profile-dropdown.js"></script>
 </body>
 </html>

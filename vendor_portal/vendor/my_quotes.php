@@ -40,6 +40,7 @@ function vendor_avatar_url(): string {
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
 <link href="<?= $BASE ?>/css/style.css" rel="stylesheet" />
 <link href="<?= $BASE ?>/css/modules.css" rel="stylesheet" />
+<link href="<?= $BASE ?>/css/vendor_portal_saas.css" rel="stylesheet" />
 <script type="module" src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.esm.js"></script>
 <script nomodule src="https://unpkg.com/ionicons@7.1.0/dist/ionicons/ionicons.js"></script>
 <script src="<?= $BASE ?>/js/sidebar-toggle.js"></script>
@@ -52,7 +53,7 @@ function vendor_avatar_url(): string {
   .modal-xl .modal-body{max-height:calc(100vh - 210px); overflow:auto}
 </style>
 </head>
-<body>
+<body class="vendor-saas">
 <div class="container-fluid p-0">
   <div class="row g-0">
     <?php include __DIR__ . '/../../includes/sidebar.php'; ?>
@@ -62,17 +63,22 @@ function vendor_avatar_url(): string {
           <button class="sidebar-toggle d-lg-none btn btn-outline-secondary btn-sm" id="sidebarToggle2" aria-label="Toggle sidebar">
             <ion-icon name="menu-outline"></ion-icon>
           </button>
-          <h2 class="m-0">My Quotes / Bids</h2>
+          <h2 class="m-0 d-flex align-items-center gap-2 page-title">
+            <ion-icon name="document-text-outline"></ion-icon> My Quotes / Bids
+          </h2>
         </div>
-        <div class="d-flex align-items-center gap-2">
-          <a href="<?= $BASE ?>/vendor_portal/vendor/notifications.php" class="btn btn-outline-secondary position-relative">
-            <ion-icon name="notifications-outline" class="me-1"></ion-icon> Notifications
-            <span id="notifCount" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none"></span>
-          </a>
-          <img src="<?= htmlspecialchars(vendor_avatar_url(), ENT_QUOTES) ?>" class="rounded-circle border" width="36" height="36" alt="">
-          <div class="small text-end">
-            <strong><?= htmlspecialchars($vendorName, ENT_QUOTES) ?></strong><br>
-            <span class="text-muted">vendor</span>
+        <div class="profile-menu" data-profile-menu>
+          <button class="profile-trigger" type="button" data-profile-trigger>
+            <img src="<?= htmlspecialchars(vendor_avatar_url(), ENT_QUOTES) ?>" class="rounded-circle" width="36" height="36" alt="">
+            <div class="profile-text">
+              <div class="profile-name"><?= htmlspecialchars($vendorName, ENT_QUOTES) ?></div>
+              <div class="profile-role">vendor</div>
+            </div>
+            <ion-icon class="profile-caret" name="chevron-down-outline"></ion-icon>
+          </button>
+          <div class="profile-dropdown" data-profile-dropdown role="menu">
+            <a href="<?= $BASE ?>/vendor_portal/vendor/notifications.php" role="menuitem">Notifications</a>
+            <a href="<?= u('auth/logout.php') ?>" role="menuitem">Sign out</a>
           </div>
         </div>
       </div>
@@ -307,5 +313,6 @@ async function openQuoteModal(id){
 // initial
 loadQuotes();
 </script>
+<script src="<?= $BASE ?>/js/profile-dropdown.js"></script>
 </body>
 </html>
