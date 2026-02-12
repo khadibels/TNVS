@@ -140,6 +140,39 @@ function ollama_list_models(array $bases): array {
   return [];
 }
 
+function fallback_reply(string $q, array $context, ?array $shipment): string {
+  $qLower = strtolower($q);
+
+  if ($shipment && preg_match('/\b(shipment|delivery|track|status|ref)\b/i', $q)) {
+    $ref = (string)($shipment['ref_no'] ?? 'N/A');
+    $status = (string)($shipment['status'] ?? 'N/A');
+    $origin = (string)($shipment['origin'] ?? 'N/A');
+    $destination = (string)($shipment['destination'] ?? 'N/A');
+    $eta = (string)($shipment['expected_delivery'] ?? 'N/A');
+    return "Live shipment update: {$ref} is currently {$status}. Route: {$origin} to {$destination}. Expected delivery: {$eta}.";
+  }
+
+  if (strpos($qLower, 'summary') !== false || strpos($qLower, 'overview') !== false || strpos($qLower, 'dashboard') !== false) {
+    $parts = [];
+    foreach (($context['db_overview'] ?? []) as $ov) {
+      $schema = (string)($ov['schema'] ?? 'unknown');
+      $tableCount = (int)($ov['table_count'] ?? 0);
+      $parts[] = "{$schema}: {$tableCount} tables";
+    }
+    if ($parts) return "Live database overview: " . implode(' | ', $parts) . ".";
+  }
+
+  if (!empty($context['data']['shipments_recent'])) {
+    $rows = $context['data']['shipments_recent'];
+    $first = $rows[0];
+    $ref = (string)($first['ref_no'] ?? 'N/A');
+    $status = (string)($first['status'] ?? 'N/A');
+    return "I can read the live database. Latest shipment is {$ref} with status {$status}.";
+  }
+
+  return "I can access the live database, but the AI model is unavailable right now. Please ask for a specific record, count, or summary and I will return direct data.";
+}
+
 try {
   require_login("json");
 
@@ -455,12 +488,7 @@ try {
   if (!$reply) $aiErr = $aiErr ?: 'AI server not reachable.';
 
   if (!$reply) {
-    http_response_code(503);
-    echo json_encode([
-      'ok' => false,
-      'err' => $aiErr ?: 'AI not available'
-    ]);
-    exit;
+    $reply = fallback_reply($q, $context, $shipment);
   }
 
   echo json_encode([
