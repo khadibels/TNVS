@@ -224,7 +224,7 @@ if ($errRaw !== '') {
         <button class="btn-login" type="submit">LOGIN <span class="ms-1">►</span></button>
 
         <a class="btn btn-outline-light w-100 mt-2"
-           href="<?= rtrim(BASE_URL,'/') ?>/vendor_portal/vendor/register.php">
+           href="<?= rtrim(BASE_URL,'/') ?>/landing_page.php">
           <ion-icon name="person-add-outline"></ion-icon>
           REGISTER AS VENDOR
         </a>
