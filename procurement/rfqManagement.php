@@ -101,6 +101,26 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'rfq_detail') {
   exit;
 }
 
+/* ---------- Helpers ---------- */
+function time_remaining(string $due): array {
+  $diff = strtotime($due) - time();
+  if ($diff <= 0) return ['label' => 'Expired', 'urgent' => true];
+  $days = floor($diff / 86400);
+  $hrs  = floor(($diff % 86400) / 3600);
+  if ($days > 3) return ['label' => "{$days}d {$hrs}h left", 'urgent' => false];
+  if ($days > 0) return ['label' => "{$days}d {$hrs}h left", 'urgent' => true];
+  return ['label' => "{$hrs}h left", 'urgent' => true];
+}
+
+function time_ago(string $dt): string {
+  $diff = time() - strtotime($dt);
+  if ($diff < 60) return 'Just now';
+  if ($diff < 3600) return floor($diff/60) . 'm ago';
+  if ($diff < 86400) return floor($diff/3600) . 'h ago';
+  if ($diff < 604800) return floor($diff/86400) . 'd ago';
+  return date('M j', strtotime($dt));
+}
+
 /* ---------- AJAX: Create RFQ (modal submit) ---------- */
 if (isset($_GET['ajax']) && $_GET['ajax'] === 'create_rfq' && $_SERVER['REQUEST_METHOD'] === 'POST') {
   header('Content-Type: application/json; charset=utf-8');
@@ -139,10 +159,23 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'create_rfq' && $_SERVER['REQUEST_
     if ($title === '') throw new Exception("Title is required.");
     if (!$due_at)      throw new Exception("A valid Due Date/Time is required.");
     if (empty($clean_items))  throw new Exception("Add at least one quotation item.");
-    if (empty($clean_items))  throw new Exception("Add at least one quotation item.");
+
+    $hasCatCol = col_exists($pdo,'rfq_items','category');
+    if (!$hasCatCol) {
+      $pdo->exec("
+        CREATE TABLE IF NOT EXISTS rfq_item_categories (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          rfq_id INT NOT NULL,
+          rfq_item_id INT NOT NULL,
+          category VARCHAR(100) NULL,
+          UNIQUE KEY uniq_item (rfq_item_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+      ");
+    }
+
+    ensure_vendor_capability_tables($pdo);
 
     $pdo->beginTransaction();
-    ensure_vendor_capability_tables($pdo);
 
     // RFQ number
     $prefix = 'RFQ-' . date('Ymd') . '-';
@@ -163,18 +196,6 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'create_rfq' && $_SERVER['REQUEST_
 
     // Items
     $line = 1;
-    $hasCatCol = col_exists($pdo,'rfq_items','category');
-    if (!$hasCatCol) {
-      $pdo->exec("
-        CREATE TABLE IF NOT EXISTS rfq_item_categories (
-          id INT AUTO_INCREMENT PRIMARY KEY,
-          rfq_id INT NOT NULL,
-          rfq_item_id INT NOT NULL,
-          category VARCHAR(100) NULL,
-          UNIQUE KEY uniq_item (rfq_item_id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-      ");
-    }
     $ii = $hasCatCol
       ? $pdo->prepare("INSERT INTO rfq_items (rfq_id,line_no,item,specs,qty,uom,category) VALUES (?,?,?,?,?,?,?)")
       : $pdo->prepare("INSERT INTO rfq_items (rfq_id,line_no,item,specs,qty,uom) VALUES (?,?,?,?,?,?)");
@@ -189,80 +210,24 @@ if (isset($_GET['ajax']) && $_GET['ajax'] === 'create_rfq' && $_SERVER['REQUEST_
       }
     }
 
-    // Invite suppliers
+    // Categories (optional)
     $categories = array_values(array_unique(array_filter(array_map(fn($r)=>trim((string)$r['category']), $clean_items))));
-    if (!$categories) throw new Exception("Select a category for each item.");
 
-    $allCats = get_all_categories($pdo);
-    $vendors = $pdo->query("SELECT id, company_name, email FROM vendors WHERE status='approved' ORDER BY company_name ASC")->fetchAll(PDO::FETCH_ASSOC);
-
-    $ri = $pdo->prepare("INSERT INTO rfq_suppliers (rfq_id,vendor_id,status) VALUES (?,?, 'invited')");
-    $ex = $pdo->prepare("INSERT INTO rfq_vendor_exclusions (rfq_id,vendor_id,reason) VALUES (?,?,?)");
-    $invitedVendorIds = [];
-
-    foreach ($vendors as $v) {
-      $vid = (int)$v['id'];
-      if ($vid <= 0) continue;
-      if (empty($allCats)) $allCats = $categories;
-      recompute_vendor_capability($pdo, $vid, $allCats);
-
-      $cap = $pdo->prepare("SELECT category, status FROM vendor_category_capability WHERE vendor_id=?");
-      $cap->execute([$vid]);
-      $capMap = [];
-      foreach ($cap->fetchAll(PDO::FETCH_ASSOC) as $row) {
-        $capMap[$row['category']] = $row['status'];
-      }
-
-      $eligible = true;
-      $missingCat = '';
-      foreach ($categories as $cat) {
-        $st = $capMap[$cat] ?? 'not_capable';
-        if (!in_array($st, ['verified','unverified'], true)) {
-          $eligible = false;
-          $missingCat = $cat;
-          break;
-        }
-      }
-
-      if ($eligible) {
-        $ri->execute([$rfq_id, $vid]);
-        $invitedVendorIds[] = $vid;
-      } else {
-        $reason = "Does not supply {$missingCat} category";
-        $ex->execute([$rfq_id, $vid, $reason]);
-      }
-    }
-
-    // ===== Notifications
-    $ni = $pdo->prepare("
-      INSERT INTO vendor_notifications (vendor_id, title, body, rfq_id, type, is_read, created_at)
-      VALUES (?, ?, ?, ?, 'rfq_invite', 0, NOW())
-    ");
-    $notifTitle = "New Quotation Request: {$rfq_no}";
-    $dueTxt     = $due_at ? date('M d, Y g:i A', strtotime($due_at)) : '';
-    $notifBody  = trim("You have been invited to quote on \"{$title}\"." . ($dueTxt ? " Due: {$dueTxt}." : ''));
-
-    foreach ($invitedVendorIds as $vid) {
-      $ni->execute([$vid, $notifTitle, $notifBody, $rfq_id]);
-    }
-    // ===== End Notifications
+    // Note: No longer auto-inviting individual vendors to 'rfq_suppliers'. 
+    // The RFQ is now public ('sent' status) and visible to all approved vendors in the portal.
 
     $pdo->commit();
-    echo json_encode(['ok'=>1,'id'=>$rfq_id,'rfq_no'=>$rfq_no,'message'=>'Quotation request created']);
+    echo json_encode(['ok'=>1,'id'=>$rfq_id,'rfq_no'=>$rfq_no,'message'=>'Quotation request posted to portal']);
   } catch (Throwable $e) {
-    if ($pdo->inTransaction()) $pdo->rollBack();
+    if ($pdo && $pdo->inTransaction()) {
+      try { $pdo->rollBack(); } catch (Throwable $rb) { /* ignore rollback error */ }
+    }
     http_response_code(400);
     echo json_encode(['error'=>$e->getMessage()]);
   }
   exit;
 }
 
-/* ---------- Load vendors ---------- */
-$vendors = [];
-try {
-  $q = $pdo->query("SELECT id, company_name, contact_person, email FROM vendors WHERE status='approved' ORDER BY company_name ASC");
-  $vendors = $q->fetchAll(PDO::FETCH_ASSOC);
-} catch (Throwable $e) {}
 
 /* ---------- Categories (from WMS) ---------- */
 $categories = [];
@@ -278,7 +243,7 @@ $rfqs = [];
 try {
   $sql = "
     SELECT
-      r.id, r.rfq_no, r.title, r.due_at, r.currency, r.status,
+      r.id, r.rfq_no, r.title, r.description, r.due_at, r.currency, r.status, r.created_at,
       (SELECT COUNT(*) FROM rfq_suppliers rs WHERE rs.rfq_id = r.id) AS invited_count,
       (SELECT COUNT(*) FROM quotes q WHERE q.rfq_id = r.id) AS quoted_count
     FROM rfqs r
@@ -286,6 +251,18 @@ try {
     LIMIT 200
   ";
   $rfqs = $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+
+  // Fetch items for previews
+  $rfqItems = [];
+  if ($rfqs) {
+    $ids = array_column($rfqs, 'id');
+    $placeholders = implode(',', array_fill(0, count($ids), '?'));
+    $st2 = $pdo->prepare("SELECT rfq_id, id, line_no, item, specs, qty, uom FROM rfq_items WHERE rfq_id IN ($placeholders) ORDER BY rfq_id, line_no ASC");
+    $st2->execute($ids);
+    foreach ($st2->fetchAll(PDO::FETCH_ASSOC) as $it) {
+      $rfqItems[(int)$it['rfq_id']][] = $it;
+    }
+  }
 } catch (Throwable $e) {}
 
 function h($s){ return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
@@ -316,43 +293,95 @@ function badge($status){
   <script src="../js/sidebar-toggle.js"></script>
 
   <style>
-    .main-content{padding:1.25rem} @media(min-width:992px){.main-content{padding:2rem}}
-    .card{border-radius:16px}
-    .btn-violet{--bs-btn-color:#fff;--bs-btn-bg:#6f42c1;--bs-btn-border-color:#6f42c1;--bs-btn-hover-color:#fff;--bs-btn-hover-bg:#5b37b1;--bs-btn-hover-border-color:#5532a6}
-    .table thead th{font-weight:600;font-size:.85rem;text-transform:uppercase;color:var(--bs-secondary-color)}
-    .metric{border:1px solid var(--bs-border-color);border-radius:14px;padding:1rem 1.25rem;background:#fff}
-    .metric .label{font-size:.8rem;color:var(--bs-secondary-color);text-transform:uppercase}
-    .metric .value{font-weight:700;font-size:1.25rem}
+    body { background: #f0f2f5; font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+    .main-content { padding: 1.25rem; }
+    @media(min-width:992px) { .main-content { padding: 1.5rem 2rem; } }
 
-    /* ====== ROCK-SOLID SCROLLABLE CREATE MODAL ====== */
-    :root{
-      /* viewport share for the modal content; tweak if you like */
-      --rfq-modal-vh: 92vh;
-      --rfq-modal-header: 64px; /* approx header height incl. padding */
-      --rfq-modal-footer: 64px; /* approx footer height incl. padding */
+    /* ─── Metric Cards ─── */
+    .metric-card {
+      background: #fff; border-radius: 12px; padding: 1.25rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,.08); border: none;
+      transition: transform .2s;
     }
-    @media (max-width: 576px){
-      :root{ --rfq-modal-vh: 96vh; }
+    .metric-card .label { font-size: .75rem; font-weight: 600; color: #65676b; text-transform: uppercase; margin-bottom: .25rem; }
+    .metric-card .value { font-size: 1.5rem; font-weight: 700; color: #1c1e21; }
+    .metric-card .icon { font-size: 1.5rem; color: #6532C9; opacity: .8; }
+
+    /* ─── Feed Layout ─── */
+    .feed-container { max-width: 800px; margin: 0 auto; }
+    
+    .feed-header {
+      background: #fff; border-radius: 12px; padding: 1rem 1.25rem;
+      margin-bottom: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,.08);
+      display: flex; align-items: center; justify-content: space-between; gap: 1rem;
     }
-    #mdlCreateRFQ .modal-dialog{ max-width: 920px; }
-    #mdlCreateRFQ .modal-content{
-      height: var(--rfq-modal-vh);
-      display:flex; flex-direction:column;
-    }
-    #mdlCreateRFQ .modal-body{
-      height: calc(var(--rfq-modal-vh) - var(--rfq-modal-header) - var(--rfq-modal-footer));
-      overflow-y: auto; /* THE important bit */
-      overscroll-behavior: contain;
+    .feed-search-wrap { flex: 1; position: relative; }
+    .feed-search-wrap ion-icon { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: #65676b; font-size: 1.1rem; }
+    .feed-search-wrap input {
+      width: 100%; border: none; background: #f0f2f5; border-radius: 20px;
+      padding: .6rem 1rem .6rem 2.8rem; font-size: .92rem; outline: none;
     }
 
-    /* Keep Detail modal scrollable as well */
-    .modal-dialog.modal-dialog-scrollable{ height: calc(100vh - 2rem); }
-    .modal-dialog-scrollable .modal-content{ max-height: 100%; display:flex; flex-direction:column; }
-    .modal-dialog-scrollable .modal-body{ overflow-y:auto; }
+    /* ─── Post Card ─── */
+    .post-card {
+      background: #fff; border-radius: 12px;
+      box-shadow: 0 1px 3px rgba(0,0,0,.08);
+      margin-bottom: 1.25rem;
+      overflow: hidden;
+    }
+    .post-header { display: flex; align-items: center; gap: .75rem; padding: 1rem 1.25rem .5rem; }
+    .post-avatar {
+      width: 44px; height: 44px; border-radius: 50%;
+      background: linear-gradient(135deg, #6532C9, #7c3aed);
+      display: grid; place-items: center; color: #fff; font-size: 1.4rem;
+    }
+    .post-user-info { flex: 1; }
+    .post-user-name { font-weight: 700; font-size: .95rem; color: #1c1e21; display: flex; align-items: center; gap: .4rem; }
+    .post-meta-line { font-size: .8rem; color: #65676b; display: flex; align-items: center; gap: .4rem; }
+    .post-status-badge { font-size: .75rem; font-weight: 600; padding: .2rem .75rem; border-radius: 20px; }
 
-    /* Inputs inside item rows */
-    .item-row .form-control{min-width:110px}
-    .vendor-list{max-height:260px;overflow:auto;border:1px solid var(--bs-border-color);border-radius:.5rem;padding:.5rem .75rem}
+    .post-body { padding: .5rem 1.25rem 1rem; }
+    .post-title { font-size: 1.1rem; font-weight: 700; color: #1c1e21; margin-bottom: .4rem; }
+    .post-desc { font-size: .92rem; color: #4b4d50; line-height: 1.5; margin-bottom: .75rem; }
+    .post-rfq-no {
+      display: inline-flex; align-items: center; gap: .3rem;
+      font-size: .78rem; font-weight: 600; color: #6532C9;
+      background: #f4f2ff; padding: .25rem .75rem; border-radius: 6px;
+      margin-bottom: .75rem;
+    }
+
+    /* Items Table in Post */
+    .post-items-table {
+      width: 100%; border-collapse: separate; border-spacing: 0;
+      border: 1px solid #e4e6eb; border-radius: 10px; overflow: hidden;
+      font-size: .88rem;
+    }
+    .post-items-table th { background: #f7f8fa; padding: .6rem .8rem; font-weight: 600; color: #65676b; text-align: left; border-bottom: 1px solid #e4e6eb; }
+    .post-items-table td { padding: .65rem .8rem; border-bottom: 1px solid #f0f2f5; color: #1c1e21; }
+    .post-items-table tr:last-child td { border-bottom: none; }
+
+    /* Footer / Engagement */
+    .post-engagement {
+      display: flex; justify-content: space-between; align-items: center;
+      padding: .6rem 1.25rem; font-size: .82rem; color: #65676b;
+      border-top: 1px solid #f0f2f5;
+    }
+    .post-actions { display: flex; border-top: 1px solid #e4e6eb; }
+    .btn-post-action {
+      flex: 1; background: none; border: none; padding: .75rem .5rem;
+      display: flex; align-items: center; justify-content: center; gap: .5rem;
+      font-weight: 600; color: #65676b; font-size: .9rem; transition: background .15s;
+    }
+    .btn-post-action:hover { background: #f0f2f5; color: #1c1e21; }
+    .btn-post-action.primary { color: #6532C9; }
+    .btn-post-action.primary:hover { background: #f4f2ff; }
+    .btn-post-action + .btn-post-action { border-left: 1px solid #e4e6eb; }
+
+    .btn-violet { background: #6532C9; color: #fff; border: none; font-weight: 600; border-radius: 8px; padding: .5rem 1.25rem; }
+    .btn-violet:hover { background: #5b21b6; color: #fff; }
+
+    #mdlCreateRFQ .modal-content { border-radius: 16px; border: none; }
+    #mdlCreateRFQ .modal-header { border-bottom: 1px solid #f0f2f5; padding: 1.25rem 1.5rem; }
   </style>
 </head>
 <body class="saas-page">
@@ -385,57 +414,144 @@ function badge($status){
       </div>
 
       <!-- Top metrics -->
-      <div class="row g-3 mb-3">
-        <div class="col-6 col-md-3"><div class="metric"><div class="label">Total Requests</div><div class="value"><?= count($rfqs) ?></div></div></div>
-        <div class="col-6 col-md-3"><div class="metric"><div class="label">Open / Sent</div><div class="value"><?= array_sum(array_map(fn($r)=>strtolower($r['status'])==='sent'?1:0,$rfqs)) ?></div></div></div>
-        <div class="col-6 col-md-3"><div class="metric"><div class="label">Awarded</div><div class="value"><?= array_sum(array_map(fn($r)=>strtolower($r['status'])==='awarded'?1:0,$rfqs)) ?></div></div></div>
-        <div class="col-6 col-md-3 text-md-end d-grid d-md-block">
-          <button class="btn btn-violet mt-3 mt-md-0" data-bs-toggle="modal" data-bs-target="#mdlCreateRFQ">
-            <ion-icon name="add-circle-outline"></ion-icon> New Quotation Request
+      <div class="row g-3 mb-4">
+        <div class="col-6 col-md-3">
+          <div class="metric-card d-flex align-items-center gap-3">
+            <div class="post-avatar" style="width:40px; height:40px; background:#f4f2ff; color:#6532C9">
+              <ion-icon name="documents-outline"></ion-icon>
+            </div>
+            <div>
+              <div class="label">Total Requests</div>
+              <div class="value"><?= count($rfqs) ?></div>
+            </div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="metric-card d-flex align-items-center gap-3">
+            <div class="post-avatar" style="width:40px; height:40px; background:#e7f6ec; color:#1a7f37">
+              <ion-icon name="send-outline"></ion-icon>
+            </div>
+            <div>
+              <div class="label">Open / Sent</div>
+              <div class="value"><?= array_sum(array_map(fn($r)=>strtolower($r['status'])==='sent'?1:0,$rfqs)) ?></div>
+            </div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3">
+          <div class="metric-card d-flex align-items-center gap-3">
+            <div class="post-avatar" style="width:40px; height:40px; background:#fff8e1; color:#f59e0b">
+              <ion-icon name="trophy-outline"></ion-icon>
+            </div>
+            <div>
+              <div class="label">Awarded</div>
+              <div class="value"><?= array_sum(array_map(fn($r)=>strtolower($r['status'])==='awarded'?1:0,$rfqs)) ?></div>
+            </div>
+          </div>
+        </div>
+        <div class="col-6 col-md-3 d-flex align-items-center justify-content-md-end">
+          <button class="btn btn-violet w-100 w-md-auto py-2 shadow-sm" data-bs-toggle="modal" data-bs-target="#mdlCreateRFQ">
+            <ion-icon name="add-circle-outline"></ion-icon> Post New Quotation
           </button>
         </div>
       </div>
 
-      <!-- RFQ list -->
-      <section class="card shadow-sm">
-        <div class="card-body">
-          <div class="d-flex justify-content-between align-items-center mb-3">
-            <h5 class="card-title mb-0">Requests for Quotation</h5>
-            <input id="tblSearch" class="form-control form-control-sm" style="max-width:300px" placeholder="Search by Quotation No or Title…">
+      <div class="feed-container">
+        <!-- Feed Header with Search -->
+        <div class="feed-header">
+          <div class="feed-search-wrap">
+            <ion-icon name="search-outline"></ion-icon>
+            <input type="text" id="tblSearch" placeholder="Search by Quotation No or Title…">
           </div>
-
-          <div class="table-responsive">
-            <table class="table table-hover align-middle mb-0" id="rfqTable">
-              <thead class="table-light">
-                <tr>
-                  <th>Quotation No</th><th>Title</th><th>Due Date</th>
-                  <th class="text-center">Invited</th><th class="text-center">Quoted</th>
-                  <th>Status</th><th class="text-end">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                <?php if (!$rfqs): ?>
-                  <tr><td colspan="7" class="text-center py-5 text-muted">No quotation requests created yet.</td></tr>
-                <?php else: foreach ($rfqs as $r): ?>
-                  <tr>
-                    <td class="fw-semibold text-primary"><?= h($r['rfq_no']) ?></td>
-                    <td><?= h($r['title']) ?></td>
-                    <td><?= $r['due_at'] ? date('M d, Y, g:i A', strtotime($r['due_at'])) : '-' ?></td>
-                    <td class="text-center"><?= (int)$r['invited_count'] ?></td>
-                    <td class="text-center"><?= (int)$r['quoted_count'] ?></td>
-                    <td><?= badge($r['status']) ?></td>
-                    <td class="text-end">
-                      <button class="btn btn-sm btn-outline-secondary" onclick="openRFQModal(<?= (int)$r['id'] ?>)">
-                        <ion-icon name="eye-outline"></ion-icon> View
-                      </button>
-                    </td>
-                  </tr>
-                <?php endforeach; endif; ?>
-              </tbody>
-            </table>
-          </div>
+          <div class="text-muted small d-none d-md-block">Showing latest <?= count($rfqs) ?> requests</div>
         </div>
-      </section>
+
+        <!-- RFQ Feed -->
+        <div id="rfqFeed">
+          <?php if (!$rfqs): ?>
+            <div class="post-card p-5 text-center text-muted">
+              <ion-icon name="document-text-outline" style="font-size:3rem; opacity:.2"></ion-icon>
+              <p class="mt-2">No quotation requests created yet.</p>
+            </div>
+          <?php else: foreach ($rfqs as $r): 
+            $items = $rfqItems[(int)$r['id']] ?? [];
+            $tr = time_remaining($r['due_at']);
+          ?>
+            <div class="post-card rfq-post" data-title="<?= h($r['title']) ?>" data-no="<?= h($r['rfq_no']) ?>">
+              <div class="post-header">
+                <div class="post-avatar">
+                  <ion-icon name="person-outline"></ion-icon>
+                </div>
+                <div class="post-user-info">
+                  <div class="post-user-name">
+                    TNVS Procurement
+                    <span class="ms-auto"><?= badge($r['status']) ?></span>
+                  </div>
+                  <div class="post-meta-line">
+                    <ion-icon name="time-outline"></ion-icon>
+                    <?= time_ago($r['created_at']) ?>
+                    <span>•</span>
+                    <ion-icon name="calendar-outline"></ion-icon>
+                    Due: <?= $r['due_at'] ? date('M d, Y', strtotime($r['due_at'])) : '-' ?>
+                  </div>
+                </div>
+              </div>
+
+              <div class="post-body">
+                <div class="post-rfq-no">
+                  <ion-icon name="finger-print-outline"></ion-icon>
+                  <?= h($r['rfq_no']) ?>
+                </div>
+                <div class="post-title"><?= h($r['title']) ?></div>
+                <?php if ($r['description']): ?>
+                  <div class="post-desc text-muted small"><?= h(mb_strimwidth($r['description'],0,180,'...')) ?></div>
+                <?php endif; ?>
+
+                <?php if ($items): ?>
+                  <table class="post-items-table mt-2">
+                    <thead>
+                      <tr><th>Item</th><th class="text-end">Qty</th></tr>
+                    </thead>
+                    <tbody>
+                      <?php foreach (array_slice($items,0,3) as $it): ?>
+                        <tr>
+                          <td><?= h($it['item']) ?> <span class="text-muted small">(<?= h($it['specs']) ?>)</span></td>
+                          <td class="text-end fw-bold">₱ <?= (float)$it['qty'] ?> <?= h($it['uom']) ?></td>
+                        </tr>
+                      <?php endforeach; ?>
+                      <?php if (count($items) > 3): ?>
+                        <tr><td colspan="2" class="text-center text-primary small fw-bold">+ <?= count($items) - 3 ?> more items</td></tr>
+                      <?php endif; ?>
+                    </tbody>
+                  </table>
+                <?php endif; ?>
+              </div>
+
+              <div class="post-engagement">
+                <div class="d-flex align-items-center gap-3">
+                  <span class="d-flex align-items-center gap-1">
+                    <ion-icon name="people-outline"></ion-icon> <?= (int)$r['invited_count'] ?> invited
+                  </span>
+                  <span class="d-flex align-items-center gap-1 text-primary fw-bold">
+                    <ion-icon name="pricetag-outline"></ion-icon> <?= (int)$r['quoted_count'] ?> bids
+                  </span>
+                </div>
+                <div class="text-<?= $tr['urgent'] ? 'danger' : 'muted' ?> fw-semibold">
+                  <?= $tr['label'] ?>
+                </div>
+              </div>
+
+              <div class="post-actions">
+                <button class="btn-post-action primary" onclick="openRFQModal(<?= (int)$r['id'] ?>)">
+                  <ion-icon name="eye-outline"></ion-icon> View & Evaluate
+                </button>
+                <button class="btn-post-action">
+                  <ion-icon name="share-social-outline"></ion-icon> Share
+                </button>
+              </div>
+            </div>
+          <?php endforeach; endif; ?>
+        </div>
+      </div>
     </div>
   </div>
 </div>
@@ -447,7 +563,7 @@ function badge($status){
       <form id="createRfqForm">
         <div class="modal-header">
           <h5 class="modal-title d-flex align-items-center gap-2">
-            <ion-icon name="add-circle-outline"></ion-icon> Create Quotation Request
+            <ion-icon name="add-circle-outline"></ion-icon> Post Quotation Request
           </h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
@@ -479,40 +595,16 @@ function badge($status){
           </button>
 
           <hr class="my-4">
-
-          <h6 class="fw-semibold mb-2">Invite Suppliers <span class="text-danger">*</span></h6>
-          <?php if (empty($vendors)): ?>
-            <div class="alert alert-warning mb-0">No approved vendors yet. Approve at least one supplier first.</div>
-          <?php else: ?>
-            <div class="text-muted small mb-2">Suppliers are auto-invited based on item category. The checklist is for review.</div>
-            <div class="d-flex gap-2 align-items-center mb-2 flex-wrap">
-              <input type="search" id="vendorSearch" class="form-control" placeholder="Filter suppliers by name/email...">
-              <div class="d-flex gap-2 ms-auto">
-                <button type="button" class="btn btn-outline-secondary btn-sm" id="btnSelectAll">Select all</button>
-                <button type="button" class="btn btn-outline-secondary btn-sm" id="btnSelectNone">Clear</button>
-              </div>
-            </div>
-            <div class="vendor-list" id="vendorList">
-              <?php foreach ($vendors as $v): ?>
-                <div class="form-check">
-                  <input class="form-check-input" type="checkbox" name="supplier_ids[]" value="<?= (int)$v['id'] ?>" id="v<?= (int)$v['id'] ?>">
-                  <label class="form-check-label" for="v<?= (int)$v['id'] ?>">
-                    <strong><?= h($v['company_name']) ?></strong>
-                    <?php if (!empty($v['contact_person'])): ?>
-                      <span class="text-muted">— <?= h($v['contact_person']) ?></span>
-                    <?php endif; ?>
-                    <div class="small text-muted"><?= h($v['email']) ?></div>
-                  </label>
-                </div>
-              <?php endforeach; ?>
-            </div>
-          <?php endif; ?>
+          <div class="alert alert-info">
+            <ion-icon name="information-circle-outline"></ion-icon>
+            This request will be posted to the <strong>Vendor Portal</strong>. All approved vendors will be able to view and submit bids.
+          </div>
         </div>
 
         <div class="modal-footer">
           <button class="btn btn-outline-secondary" data-bs-dismiss="modal" type="button">Cancel</button>
           <button class="btn btn-violet" type="submit">
-            <ion-icon name="send-outline"></ion-icon> Create &amp; Send Request
+            <ion-icon name="cloud-upload-outline"></ion-icon> Post to Portal
           </button>
         </div>
       </form>
@@ -567,12 +659,13 @@ function badge($status){
     el.addEventListener('hidden.bs.toast', ()=> el.remove());
   }
 
-  /* —— client-side table search —— */
+  /* —— client-side feed search —— */
   $('#tblSearch')?.addEventListener('input', e=>{
     const q = e.target.value.toLowerCase();
-    $$('#rfqTable tbody tr').forEach(tr=>{
-      const text = (tr.cells[0]?.innerText || '') + ' ' + (tr.cells[1]?.innerText || '');
-      tr.style.display = text.toLowerCase().includes(q) ? '' : 'none';
+    $$('.rfq-post').forEach(card=>{
+      const title = card.dataset.title.toLowerCase();
+      const rfqNo = card.dataset.no.toLowerCase();
+      card.style.display = (title.includes(q) || rfqNo.includes(q)) ? '' : 'none';
     });
   });
 
@@ -616,20 +709,6 @@ function badge($status){
   btnAdd?.addEventListener('click', addItemRow);
   if (itemsWrap && !itemsWrap.children.length) addItemRow();
 
-  /* —— Create RFQ modal: filter vendors —— */
-  $('#vendorSearch')?.addEventListener('input', e=>{
-    const q = e.target.value.toLowerCase();
-    $$('#vendorList .form-check').forEach(div=>{
-      div.style.display = div.textContent.toLowerCase().includes(q) ? '' : 'none';
-    });
-  });
-
-  $('#btnSelectAll')?.addEventListener('click', ()=>{
-    $$('#vendorList input[type="checkbox"]').forEach(cb => { cb.checked = true; });
-  });
-  $('#btnSelectNone')?.addEventListener('click', ()=>{
-    $$('#vendorList input[type="checkbox"]').forEach(cb => { cb.checked = false; });
-  });
 
   /* —— Create RFQ submit (AJAX) —— */
   $('#createRfqForm')?.addEventListener('submit', async (ev)=>{
@@ -678,7 +757,7 @@ function badge($status){
       const itemsHTML = items.length
         ? `<div class="table-responsive"><table class="table table-sm align-middle">
              <thead><tr><th>#</th><th>Item</th><th>Specs</th><th>Category</th><th class="text-end">Qty</th></tr></thead>
-             <tbody>${items.map(r=>`<tr><td>${r.line_no}</td><td>${esc(r.item)}</td><td class="text-muted">${esc(r.specs)}</td><td>${esc(r.category||'')}</td><td class="text-end">${Number(r.qty).toLocaleString()}</td></tr>`).join('')}</tbody>
+             <tbody>${items.map(r=>`<tr><td>${r.line_no}</td><td>${esc(r.item)}</td><td class="text-muted">${esc(r.specs)}</td><td>${esc(r.category||'')}</td><td class="text-end fw-bold">${Number(r.qty)} ${esc(r.uom||'')}</td></tr>`).join('')}</tbody>
            </table></div>`
         : `<div class="text-muted">No items.</div>`;
 
@@ -708,14 +787,21 @@ function badge($status){
 
       const quotesHTML = quotes.length
         ? `<div class="table-responsive"><table class="table table-sm align-middle">
-             <thead><tr><th>Supplier</th><th class="text-end">Total</th><th>Currency</th><th>Terms</th><th>Submitted</th></tr></thead>
-             <tbody>${quotes.map(q=>`<tr>
-               <td>${esc(q.supplier_name)}</td>
-               <td class="text-end">${Number(q.total||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
-               <td>${esc(q.currency||rfq.currency||'')}</td>
-               <td class="small">${esc(q.terms||'')}</td>
-               <td class="small">${esc(q.created_at||'')}</td>
-             </tr>`).join('')}</tbody>
+             <thead><tr><th>Supplier</th><th class="text-end">Total</th><th>Currency</th><th>Submitted</th><th class="text-end">Action</th></tr></thead>
+             <tbody>${quotes.map(q=>{
+               const isAwarded = (rfq.status.toLowerCase()==='awarded' && Number(q.vendor_id)===Number(rfq.awarded_vendor_id));
+               const awardBtn = (rfq.status.toLowerCase()==='sent')
+                 ? `<button class="btn btn-sm btn-violet px-3" onclick="awardQuote(${rfq.id}, ${q.vendor_id}, '${esc(q.supplier_name)}')">Award</button>`
+                 : (isAwarded ? `<span class="badge bg-success"><ion-icon name="checkmark-done-outline"></ion-icon> Winner</span>` : '');
+
+               return `<tr>
+                <td><div class="fw-bold">${esc(q.supplier_name)}</div><div class="text-muted small">${esc(q.terms||'')}</div></td>
+                <td class="text-end fw-bold text-violet">₱ ${Number(q.total||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</td>
+                <td>${esc(q.currency||rfq.currency||'')}</td>
+                <td class="small">${esc(q.created_at||'')}</td>
+                <td class="text-end">${awardBtn}</td>
+              </tr>`;
+             }).join('')}</tbody>
            </table></div>`
         : `<div class="text-muted">No quotes submitted yet.</div>`;
 
@@ -746,6 +832,27 @@ function badge($status){
         </div>`;
     }catch(e){
       body.innerHTML = `<div class="alert alert-danger">Error: ${esc(e.message||'Failed to load')}</div>`;
+    }
+  };
+
+  /* —— Award Quote —— */
+  window.awardQuote = async (rfqId, vendorId, vendorName)=>{
+    if (!confirm(`Are you sure you want to award this quotation to "${vendorName}"?\n\nThis will automatically create a draft Purchase Order.`)) return;
+    
+    try {
+      const fd = new FormData();
+      fd.append('rfq_id', rfqId);
+      fd.append('vendor_id', vendorId);
+      fd.append('mode', 'overall');
+
+      const res = await fetch('api/award_quote.php', { method:'POST', body: fd });
+      const j = await res.json();
+      if (!res.ok || j.error) throw new Error(j.error || 'Award failed');
+
+      toast(`<strong>Award Complete!</strong><br>PO #${j.po_no} has been created in draft.`, 'success', 4000);
+      setTimeout(()=> location.reload(), 1500);
+    } catch (e) {
+      toast(e.message, 'danger', 4000);
     }
   };
 })();

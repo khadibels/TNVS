@@ -25,15 +25,13 @@ try {
   if ($rfq_id <= 0)   throw new Exception('Invalid rfq_id');
   if ($vendorId <= 0) throw new Exception('Invalid vendor_id');
 
-  // RFQ + invited vendor check
+  // Get RFQ
   $rfq = $pdo->prepare("SELECT id, rfq_no, title, currency, status FROM rfqs WHERE id=?");
   $rfq->execute([$rfq_id]);
   $rfq = $rfq->fetch(PDO::FETCH_ASSOC);
   if (!$rfq) throw new Exception('RFQ not found');
 
-  $inv = $pdo->prepare("SELECT COUNT(*) FROM rfq_suppliers WHERE rfq_id=? AND vendor_id=?");
-  $inv->execute([$rfq_id,$vendorId]);
-  if (!$inv->fetchColumn()) throw new Exception('Vendor not invited to this RFQ');
+  // Verify quote exists for this vendor/RFQ
 
   $hasTotal = (bool)$pdo->query("
     SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
@@ -153,7 +151,7 @@ try {
      WHERE id=?
   ")->execute([$vendorId, (int)$quote['id'], $rfq_id]);
 
-  // Update supplier statuses
+  // Update rfq_suppliers statuses if they exist
   try {
     $pdo->prepare("UPDATE rfq_suppliers SET status='awarded' WHERE rfq_id=? AND vendor_id=?")
         ->execute([$rfq_id, $vendorId]);
@@ -163,16 +161,18 @@ try {
 
   // Notify vendors (winner + non-selected)
   try {
+    // Winner notification
     $pdo->prepare("INSERT INTO vendor_notifications (vendor_id, rfq_id, title, body, is_read, created_at)
                    VALUES (?,?,?,?,0,NOW())")
         ->execute([
           $vendorId,
           $rfq_id,
           'Quotation Approved',
-          'Congratulations! Your quotation was accepted.'
+          'Congratulations! Your quotation was accepted for ' . ($rfq['rfq_no'] ?? 'RFQ') . '.'
         ]);
 
-    $losers = $pdo->prepare("SELECT vendor_id FROM rfq_suppliers WHERE rfq_id=? AND vendor_id<>?");
+    // Loser notifications (all other bidders)
+    $losers = $pdo->prepare("SELECT DISTINCT vendor_id FROM quotes WHERE rfq_id=? AND vendor_id<>?");
     $losers->execute([$rfq_id, $vendorId]);
     $insLose = $pdo->prepare("INSERT INTO vendor_notifications (vendor_id, rfq_id, title, body, is_read, created_at)
                               VALUES (?,?,?,?,0,NOW())");
@@ -181,18 +181,18 @@ try {
         (int)$vid,
         $rfq_id,
         'Quotation Not Approved',
-        'Thank you for your submission. Your quotation was not selected.'
+        'Thank you for your submission for ' . ($rfq['rfq_no'] ?? 'RFQ') . '. Your quotation was not selected.'
       ]);
     }
   } catch (Throwable $e) { }
 
-  // Email notifications (winner + non-selected)
+  // Email notifications (winner + non-selected bidders)
   try {
     $vendorRows = $pdo->prepare("
-      SELECT v.id, v.company_name, v.contact_person, v.email
-      FROM rfq_suppliers rs
-      JOIN vendors v ON v.id = rs.vendor_id
-      WHERE rs.rfq_id=?
+      SELECT DISTINCT v.id, v.company_name, v.contact_person, v.email
+      FROM quotes q
+      JOIN vendors v ON v.id = q.vendor_id
+      WHERE q.rfq_id=?
     ");
     $vendorRows->execute([$rfq_id]);
     $rfqInfo = ['rfq_no'=>$rfq['rfq_no'] ?? '', 'title'=>$rfq['title'] ?? ''];

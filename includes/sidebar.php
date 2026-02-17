@@ -106,10 +106,7 @@
           <a class="nav-link<?= a('po_rfq') ?>" href="<?= u('procurement/rfqManagement.php') ?>">
             <ion-icon name="document-text-outline"></ion-icon><span>Quotation Management</span>
           </a>
-          <a class="nav-link<?= a('po_quotes') ?>" href="<?= u('procurement/quoteEvaluation.php') ?>">
-            <ion-icon name="pricetags-outline"></ion-icon><span>Quote Evaluation &amp; Award</span>
-          </a>
-          <a class="nav-link<?= a('po_pos') ?>" href="<?= u('procurement/po_issuance.php') ?>">
+          <a class="nav-link<?= a('po_pos') ?>" href="<?= u('procurement/poIssuance.php') ?>">
             <ion-icon name="document-text-outline"></ion-icon><span>Purchase Order Issuance</span>
           </a>
         </nav>
@@ -263,11 +260,7 @@
         <ion-icon name="document-text-outline"></ion-icon><span>Quotation Management</span>
       </a>
 
-      <a class="nav-link<?= a('po_quotes') ?>" href="<?= u('procurement/quoteEvaluation.php') ?>">
-        <ion-icon name="pricetags-outline"></ion-icon><span>Quote Evaluation & Award</span>
-      </a>
-
-      <a class="nav-link<?= a('po_pos') ?>" href="<?= u('procurement/po_issuance.php') ?>">
+      <a class="nav-link<?= a('po_pos') ?>" href="<?= u('procurement/poIssuance.php') ?>">
         <ion-icon name="file-tray-full-outline"></ion-icon><span>Purchase Order Issuance</span>
       </a>
 
@@ -479,10 +472,6 @@ if ($role === 'vendor') {
         <ion-icon name="shield-checkmark-outline"></ion-icon><span>Compliance / KYC</span>
       </a>
 
-      <div class="text-uppercase text-muted small px-2 mt-3 mb-1">Sourcing</div>
-      <a class="nav-link<?= a('rfqs') ?>" href="<?= u('vendor_portal/vendor/rfqs.php') ?>">
-        <ion-icon name="mail-open-outline"></ion-icon><span>Requests for Quotation</span>
-      </a>
       <a class="nav-link<?= a('quotes') ?>" href="<?= u('vendor_portal/vendor/my_quotes.php') ?>">
         <ion-icon name="pricetag-outline"></ion-icon><span>My Quotes / Bids</span>
       </a>
@@ -491,10 +480,6 @@ if ($role === 'vendor') {
       </a>
       <a class="nav-link<?= a('vendor_shipments') ?>" href="<?= u('vendor_portal/vendor/shipment_request.php') ?>">
         <ion-icon name="paper-plane-outline"></ion-icon><span>Shipment Requests</span>
-      </a>
-
-      <a class="nav-link<?= a('notifications') ?>" href="<?= u('vendor_portal/vendor/notifications.php') ?>">
-        <ion-icon name="notifications-outline"></ion-icon><span>Notifications</span>
       </a>
       <a class="nav-link<?= a('settings') ?>" href="<?= u('vendor_portal/vendor/settings.php') ?>">
         <ion-icon name="settings-outline"></ion-icon><span>Settings</span>

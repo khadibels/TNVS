@@ -20,24 +20,25 @@ try {
   $search = trim($_GET['search'] ?? '');
   $status = trim($_GET['status'] ?? '');
 
-  $where = ["rs.vendor_id = :vid"];
-  $args  = [':vid'=>$vendorId];
+  $where = ["r.status = 'sent'"];
+  $argsCount = [];
 
-  if ($status !== '') { $where[] = "r.status = :st"; $args[':st']=$status; }
+  if ($status !== '') { $where[] = "r.status = :st"; $argsCount[':st']=$status; }
   if ($search !== '') {
     $where[] = "(r.rfq_no LIKE :q OR r.title LIKE :q)";
-    $args[':q'] = "%$search%";
+    $argsCount[':q'] = "%$search%";
   }
   $whereSql = $where ? ('WHERE '.implode(' AND ',$where)) : '';
+
+  $args = array_merge($argsCount, [':vid1' => $vendorId, ':vid2' => $vendorId]);
 
   $sql = "
     SELECT
       r.id, r.rfq_no, r.title, r.due_at, r.currency, r.status,
       r.awarded_vendor_id,
-      rs.status AS vendor_status,
-      (SELECT COUNT(*) FROM quotes q WHERE q.rfq_id=r.id AND q.vendor_id=rs.vendor_id) AS my_quotes
-    FROM rfq_suppliers rs
-    JOIN rfqs r ON r.id = rs.rfq_id
+      (SELECT status FROM rfq_suppliers rs WHERE rs.rfq_id = r.id AND rs.vendor_id = :vid1) AS vendor_status,
+      (SELECT COUNT(*) FROM quotes q WHERE q.rfq_id=r.id AND q.vendor_id=:vid2) AS my_quotes
+    FROM rfqs r
     $whereSql
     ORDER BY r.due_at ASC, r.id DESC
     LIMIT $per OFFSET $off";
@@ -52,8 +53,8 @@ try {
     }
   }
 
-  $ct = $pdo->prepare("SELECT COUNT(*) FROM rfq_suppliers rs JOIN rfqs r ON r.id=rs.rfq_id $whereSql");
-  $ct->execute($args); $total = (int)$ct->fetchColumn();
+  $ct = $pdo->prepare("SELECT COUNT(*) FROM rfqs r $whereSql");
+  $ct->execute($argsCount); $total = (int)$ct->fetchColumn();
 
   echo json_encode([
     'data' => $rows,

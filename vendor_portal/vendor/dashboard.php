@@ -84,6 +84,14 @@ if ($rfqs) {
   }
 }
 
+// Fetch Unread Notification Count
+$unReadCount = 0;
+try {
+  $stU = $pdo->prepare("SELECT COUNT(*) FROM vendor_notifications WHERE vendor_id = :vid AND is_read = 0");
+  $stU->execute([':vid' => $VENDOR_ID]);
+  $unReadCount = (int)$stU->fetchColumn();
+} catch (Throwable $e) {}
+
 /* ---------- Helpers ---------- */
 function time_remaining(string $due): array {
   $diff = strtotime($due) - time();
@@ -266,6 +274,98 @@ function time_ago(string $dt): string {
   .post-action-btn.bid-btn.already-bid:hover { background: #e7f6ec; }
   .post-action-btn + .post-action-btn { border-left: 1px solid #e4e6eb; }
 
+  /* ─── Modal Custom Styles ─── */
+  .modal-content { border-radius: 12px; border: none; box-shadow: 0 10px 30px rgba(0,0,0,.15); }
+  .modal-header { border-bottom: 1px solid #f0f2f5; padding: 1.25rem 1.5rem; }
+  .modal-body { padding: 1.5rem; }
+  .modal-footer { border-top: 1px solid #f0f2f5; padding: 1rem 1.5rem; }
+  .modal-title { font-weight: 700; color: #1c1e21; font-size: 1.15rem; }
+  
+  .bid-item-row { 
+    background: #f8f9fa; border-radius: 10px; padding: 1rem; 
+    margin-bottom: 1rem; border: 1px solid #e9ecef;
+  }
+  .bid-item-title { font-weight: 600; color: #1c1e21; margin-bottom: .25rem; }
+  .bid-item-specs { font-size: .82rem; color: #65676b; margin-bottom: .75rem; }
+  .bid-item-inputs { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+  
+  .form-label { font-weight: 600; font-size: .85rem; color: #4b4d50; margin-bottom: .4rem; }
+  .form-control:focus { border-color: #6532C9; box-shadow: 0 0 0 0.25rem rgba(101, 50, 201, 0.15); }
+  
+  .btn-bid-submit { 
+    background: #6532C9; border: none; color: #fff; font-weight: 600; 
+    padding: .6rem 2rem; border-radius: 8px; transition: all .2s;
+  }
+  .btn-bid-submit:hover { background: #5b21b6; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(101, 50, 201, 0.3); }
+  .btn-bid-submit:disabled { opacity: .6; cursor: not-allowed; transform: none; box-shadow: none; }
+
+  /* ─── Toast Customization ─── */
+  .toast-container { z-index: 9999; }
+  .bid-toast {
+    background: #fff; border: none; border-radius: 12px;
+    box-shadow: 0 10px 40px rgba(0,0,0,.15); overflow: hidden;
+  }
+  .bid-toast .toast-header {
+    background: #6532C9; color: #fff; border: none; padding: .75rem 1rem;
+  }
+  .bid-toast .toast-header .btn-close { filter: brightness(0) invert(1); }
+  .bid-toast .toast-body { padding: 1.25rem; font-weight: 500; color: #1c1e21; }
+  .bid-toast .toast-icon { 
+    width: 32px; height: 32px; border-radius: 50%; background: #e7f6ec; 
+    color: #1a7f37; display: grid; place-items: center; font-size: 1.2rem;
+  }
+
+  /* ─── Notification Dropdown ─── */
+  .header-actions { display: flex; align-items: center; gap: .75rem; margin-right: 1.25rem; }
+  .nav-icon-btn {
+    width: 40px; height: 40px; border-radius: 50%; background: #e4e6eb;
+    display: grid; place-items: center; cursor: pointer; position: relative;
+    color: #1c1e21; transition: background .2s; border: none;
+  }
+  .nav-icon-btn:hover { background: #d8dadf; }
+  .nav-icon-btn ion-icon { font-size: 1.35rem; }
+  .nav-icon-btn .badge {
+    position: absolute; top: -2px; right: -2px;
+    background: #e41e3f; color: #fff; font-size: .65rem;
+    min-width: 18px; height: 18px; border-radius: 10px;
+    display: grid; place-items: center; border: 2px solid #fff;
+    padding: 0 4px;
+  }
+
+  .notif-dropdown {
+    position: absolute; top: 100%; right: 0; width: 360px;
+    background: #fff; border-radius: 12px; box-shadow: 0 12px 28px 0 rgba(0,0,0,0.2), 0 2px 4px 0 rgba(0,0,0,0.1);
+    margin-top: 8px; z-index: 1000; display: none; overflow: hidden;
+  }
+  .notif-dropdown.show { display: block; }
+  .notif-header { padding: .75rem 1rem; border-bottom: 1px solid #ebedf0; display: flex; align-items: center; justify-content: space-between; }
+  .notif-header h6 { margin: 0; font-weight: 700; font-size: 1.1rem; }
+  .notif-list { max-height: 400px; overflow-y: auto; }
+  .notif-item {
+    display: flex; gap: .75rem; padding: .65rem .75rem;
+    text-decoration: none; color: inherit; transition: background .2s; border-radius: 8px; margin: 4px 8px;
+  }
+  .notif-item:hover { background: #f2f2f2; }
+  .notif-item.unread { position: relative; }
+  .notif-item.unread::after {
+    content: ''; width: 8px; height: 8px; border-radius: 50%; background: #1877f2;
+    position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+  }
+  .notif-icon { 
+    width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; flex-shrink: 0;
+    background: #e7f3ff; color: #1877f2;
+  }
+  .notif-icon.award { background: #e7f6ec; color: #1a7f37; }
+  .notif-icon.bid { background: #fdf2f2; color: #d1242f; }
+  .notif-content { flex: 1; min-width: 0; }
+  .notif-title { font-size: .88rem; font-weight: 600; line-height: 1.3; margin-bottom: 2px; }
+  .notif-body { font-size: .82rem; color: #65676b; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .notif-time { font-size: .75rem; color: #1877f2; font-weight: 500; margin-top: 4px; }
+  .notif-item:not(.unread) .notif-time { color: #65676b; font-weight: 400; }
+  .notif-footer { padding: .75rem; text-align: center; border-top: 1px solid #ebedf0; }
+  .notif-footer a { font-size: .88rem; font-weight: 600; color: #1877f2; text-decoration: none; }
+  .notif-footer a:hover { text-decoration: underline; }
+
   /* ─── Empty / Loading ─── */
   .empty-feed {
     background: #fff; border-radius: 12px; text-align: center;
@@ -309,18 +409,45 @@ function time_ago(string $dt): string {
             <ion-icon name="storefront-outline"></ion-icon> Portal
           </h2>
         </div>
-        <div class="profile-menu" data-profile-menu>
-          <button class="profile-trigger" type="button" data-profile-trigger>
-            <img src="<?= htmlspecialchars(vendor_avatar_url(), ENT_QUOTES) ?>" class="rounded-circle" width="36" height="36" alt="">
-            <div class="profile-text">
-              <div class="profile-name"><?= htmlspecialchars($vendorName, ENT_QUOTES) ?></div>
-              <div class="profile-role">vendor</div>
+        
+        <div class="d-flex align-items-center">
+          <div class="header-actions">
+            <!-- Notifications Bell -->
+            <div class="position-relative">
+              <button class="nav-icon-btn" id="notifBell" aria-label="Notifications" aria-expanded="false">
+                <ion-icon name="notifications"></ion-icon>
+                <?php if ($unReadCount > 0): ?>
+                  <span class="badge" id="notifBadge"><?= $unReadCount ?></span>
+                <?php endif; ?>
+              </button>
+              
+              <div class="notif-dropdown shadow" id="notifDropdown">
+                <div class="notif-header">
+                  <h6>Notifications</h6>
+                </div>
+                <div class="notif-list" id="notifList">
+                  <div class="text-center py-4"><span class="spinner-border spinner-border-sm text-primary"></span></div>
+                </div>
+                <div class="notif-footer">
+                  <a href="#">Mark all as read</a>
+                </div>
+              </div>
             </div>
-            <ion-icon class="profile-caret" name="chevron-down-outline"></ion-icon>
-          </button>
-          <div class="profile-dropdown" data-profile-dropdown role="menu">
-            <a href="<?= $BASE ?>/vendor_portal/vendor/notifications.php" role="menuitem">Notifications</a>
-            <a href="<?= u('auth/logout.php') ?>" role="menuitem">Sign out</a>
+          </div>
+
+          <div class="profile-menu" data-profile-menu>
+            <button class="profile-trigger" type="button" data-profile-trigger>
+              <img src="<?= htmlspecialchars(vendor_avatar_url(), ENT_QUOTES) ?>" class="rounded-circle" width="36" height="36" alt="">
+              <div class="profile-text">
+                <div class="profile-name"><?= htmlspecialchars($vendorName, ENT_QUOTES) ?></div>
+                <div class="profile-role">vendor</div>
+              </div>
+              <ion-icon class="profile-caret" name="chevron-down-outline"></ion-icon>
+            </button>
+            <div class="profile-dropdown" data-profile-dropdown role="menu">
+              <a href="<?= $BASE ?>/vendor_portal/vendor/account.php" role="menuitem">My Account</a>
+              <a href="<?= u('auth/logout.php') ?>" role="menuitem">Sign out</a>
+            </div>
           </div>
         </div>
       </div>
@@ -402,7 +529,7 @@ function time_ago(string $dt): string {
                     </div>
                   </div>
                   <div class="item-right">
-                    <div class="item-qty-val"><?= htmlspecialchars($it['qty']) ?></div>
+                    <div class="item-qty-val">₱ <?= (float)$it['qty'] ?></div>
                     <div class="item-qty-uom"><?= htmlspecialchars($it['uom']) ?></div>
                   </div>
                 </div>
@@ -425,20 +552,20 @@ function time_ago(string $dt): string {
             <!-- Action Buttons (like FB Like/Comment/Share) -->
             <div class="post-actions">
               <?php if ($quoted): ?>
-                <a href="<?= $BASE ?>/vendor_portal/vendor/rfqs.php?open=<?= (int)$rfq['id'] ?>" class="post-action-btn bid-btn already-bid">
+                <button type="button" class="post-action-btn bid-btn already-bid" disabled>
                   <ion-icon name="checkmark-circle"></ion-icon>
                   Bid Submitted
-                </a>
+                </button>
               <?php else: ?>
-                <a href="<?= $BASE ?>/vendor_portal/vendor/rfqs.php?open=<?= (int)$rfq['id'] ?>" class="post-action-btn bid-btn">
+                <button type="button" class="post-action-btn bid-btn" onclick="openBidModal(<?= (int)$rfq['id'] ?>)">
                   <ion-icon name="pricetag-outline"></ion-icon>
                   Bid
-                </a>
+                </button>
               <?php endif; ?>
-              <a href="<?= $BASE ?>/vendor_portal/vendor/rfqs.php?open=<?= (int)$rfq['id'] ?>" class="post-action-btn">
+              <button type="button" class="post-action-btn" onclick="openBidModal(<?= (int)$rfq['id'] ?>)">
                 <ion-icon name="eye-outline"></ion-icon>
                 View Details
-              </a>
+              </button>
               <button class="post-action-btn" onclick="sharePost('<?= htmlspecialchars($rfq['rfq_no']) ?>', '<?= htmlspecialchars(addslashes($rfq['title'])) ?>')">
                 <ion-icon name="share-social-outline"></ion-icon>
                 Share
@@ -482,7 +609,234 @@ function time_ago(string $dt): string {
   </div>
 </div>
 
+<!-- Bidding Modal -->
+<div class="modal fade" id="bidModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title d-flex align-items-center gap-2" id="bidModalHeader">
+          <ion-icon name="pricetag-outline"></ion-icon> <span>Submit Quote / Bid</span>
+        </h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <div id="bidRfqInfo" class="mb-4">
+          <div class="d-flex justify-content-between align-items-start mb-2">
+            <h4 id="bidRfqTitle" class="fw-bold m-0"></h4>
+            <span id="bidRfqNo" class="badge bg-light text-primary border px-3 py-2"></span>
+          </div>
+          <p id="bidRfqDesc" class="text-muted small"></p>
+        </div>
+
+        <form id="bidForm">
+          <input type="hidden" name="rfq_id" id="bidRfqId">
+          
+          <div id="bidItemsList" class="mb-4">
+            <!-- Items populated by JS -->
+          </div>
+
+          <div class="row g-3">
+            <div class="col-md-6">
+              <label class="form-label text-muted small">Currency</label>
+              <div id="bidCurrencyDisplay" class="fw-bold">₱ (PHP)</div>
+              <input type="hidden" id="bidCurrency" value="PHP">
+            </div>
+            <div class="col-md-6">
+              <label class="form-label text-muted small">Lead Time (Days)</label>
+              <div id="bidLeadTimeDisplay" class="fw-bold d-none"></div>
+              <input type="number" name="lead_time_days" id="bidLeadTimeInput" class="form-control" required min="1" placeholder="e.g. 7">
+            </div>
+            <div class="col-12">
+              <label class="form-label text-muted small">Additional Terms / Notes</label>
+              <div id="bidTermsDisplay" class="fw-bold d-none" style="white-space:pre-wrap"></div>
+              <textarea name="terms" id="bidTermsInput" class="form-control" rows="3" placeholder="Specify any terms or special conditions..."></textarea>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer" id="bidModalFooter">
+        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" form="bidForm" id="btnSubmitBid" class="btn-bid-submit">
+          Post My Bid
+        </button>
+      </div>
+      <div class="modal-footer d-none" id="viewModalFooter">
+        <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast Notification Container -->
+<div class="toast-container position-fixed bottom-0 end-0 p-3">
+  <div id="bidSuccessToast" class="toast bid-toast" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="toast-header">
+      <strong class="me-auto d-flex align-items-center gap-2">
+        <ion-icon name="notifications-outline"></ion-icon>
+        <span id="toastTitleText">Notification</span>
+      </strong>
+      <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+    <div class="toast-body d-flex align-items-start gap-3">
+        <div class="toast-icon">
+            <ion-icon name="checkmark-circle"></ion-icon>
+        </div>
+        <div id="toastMsgText">Your bid has been submitted.</div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
 <script>
+const esc = s => String(s??'').replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[m]));
+
+document.addEventListener('DOMContentLoaded', () => {
+    bidModal = new bootstrap.Modal(document.getElementById('bidModal'));
+});
+
+async function openBidModal(rfqId) {
+    const modalEl = document.getElementById('bidModal');
+    const itemsList = document.getElementById('bidItemsList');
+    itemsList.innerHTML = '<div class="text-center py-4"><div class="spinner-border text-primary" role="status"></div><p class="mt-2 text-muted">Loading details...</p></div>';
+    
+    bidModal.show();
+
+    try {
+        const res = await fetch(`api/rfq_detail.php?id=${rfqId}`);
+        const json = await res.json();
+        
+        if (!res.ok) throw new Error(json.error || 'Failed to load details');
+
+        document.getElementById('bidRfqTitle').textContent = json.rfq.title;
+        document.getElementById('bidRfqNo').textContent = json.rfq.rfq_no;
+        document.getElementById('bidRfqDesc').textContent = json.rfq.description;
+        document.getElementById('bidRfqId').value = rfqId;
+        document.getElementById('bidCurrency').value = json.rfq.currency;
+        document.getElementById('bidCurrencyDisplay').textContent = json.rfq.currency;
+
+        const hasBid = json.my_quotes && json.my_quotes.length > 0;
+        const bid = hasBid ? json.my_quotes[0] : null;
+
+        // Toggle UI mode
+        document.getElementById('bidModalHeader').innerHTML = hasBid 
+            ? `<ion-icon name="document-text-outline"></ion-icon> <span>Quotation Details</span>`
+            : `<ion-icon name="pricetag-outline"></ion-icon> <span>Submit Quote / Bid</span>`;
+        
+        document.getElementById('bidModalFooter').classList.toggle('d-none', hasBid);
+        document.getElementById('viewModalFooter').classList.toggle('d-none', !hasBid);
+
+        // Form fields vs Display fields
+        document.getElementById('bidLeadTimeInput').classList.toggle('d-none', hasBid);
+        document.getElementById('bidLeadTimeDisplay').classList.toggle('d-none', !hasBid);
+        document.getElementById('bidLeadTimeDisplay').textContent = bid ? `${bid.lead_time_days} days` : '';
+        
+        document.getElementById('bidTermsInput').classList.toggle('d-none', hasBid);
+        document.getElementById('bidTermsDisplay').classList.toggle('d-none', !hasBid);
+        document.getElementById('bidTermsDisplay').textContent = bid ? bid.terms : 'No extra terms.';
+
+        itemsList.innerHTML = '';
+        json.items.forEach(it => {
+            const row = document.createElement('div');
+            row.className = 'bid-item-row';
+            const priceVal = (hasBid && it.my_price) ? it.my_price : '';
+            row.innerHTML = `
+                <div class="bid-item-title">${esc(it.item)}</div>
+                <div class="bid-item-specs text-truncate">${esc(it.specs || 'No specifications provided')}</div>
+                <div class="bid-item-inputs">
+                    <div>
+                        <label class="form-label d-block text-muted small">Quantity</label>
+                        <div class="fw-bold">${Number(it.qty)} ${esc(it.uom)}</div>
+                    </div>
+                    <div>
+                        <label class="form-label text-muted small">Unit Price (₱)</label>
+                        ${hasBid 
+                          ? `<div class="fw-bold text-violet">₱ ${Number(it.my_price||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</div>`
+                          : `<div class="input-group input-group-sm">
+                               <span class="input-group-text bg-light">₱</span>
+                               <input type="number" name="items[${it.id}]" class="form-control" required step="0.01" min="0.01">
+                             </div>`
+                        }
+                    </div>
+                </div>
+            `;
+            itemsList.appendChild(row);
+        });
+
+    } catch (err) {
+        itemsList.innerHTML = `<div class="alert alert-danger">${err.message}</div>`;
+    }
+}
+
+document.getElementById('bidForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('btnSubmitBid');
+    const originalText = btn.innerHTML;
+    
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Posting...';
+
+    try {
+        const fd = new FormData(e.target);
+        const res = await fetch('api/quote_submit.php', {
+            method: 'POST',
+            body: fd
+        });
+        const json = await res.json();
+
+        if (!res.ok) throw new Error(json.error || 'Submission failed');
+
+        // Success!
+        bidModal.hide();
+        
+        // Show success and reload or update UI
+        const rfqId = document.getElementById('bidRfqId').value;
+        const postCard = document.getElementById(`post-${rfqId}`);
+        if (postCard) {
+            const bidBtn = postCard.querySelector('.bid-btn');
+            if (bidBtn) {
+                bidBtn.outerHTML = `
+                    <button type="button" class="post-action-btn bid-btn already-bid" disabled>
+                        <ion-icon name="checkmark-circle"></ion-icon>
+                        Bid Submitted
+                    </button>
+                `;
+            }
+        }
+        
+        showToast('Bid Complete', 'Your quotation has been successfully posted to the portal.');
+
+    } catch (err) {
+        showToast('Submission Failed', err.message, 'danger');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+    }
+});
+
+function showToast(title, message, type = 'success') {
+    const toastEl = document.getElementById('bidSuccessToast');
+    const toastTitle = document.getElementById('toastTitleText');
+    const toastMsg = document.getElementById('toastMsgText');
+    const toastIcon = toastEl.querySelector('.toast-icon');
+    
+    toastTitle.textContent = title;
+    toastMsg.textContent = message;
+    
+    if (type === 'danger') {
+        toastIcon.style.background = '#ffeef0';
+        toastIcon.style.color = '#d1242f';
+        toastIcon.innerHTML = '<ion-icon name="alert-circle"></ion-icon>';
+    } else {
+        toastIcon.style.background = '#e7f6ec';
+        toastIcon.style.color = '#1a7f37';
+        toastIcon.innerHTML = '<ion-icon name="checkmark-circle"></ion-icon>';
+    }
+
+    const t = new bootstrap.Toast(toastEl, { delay: 4000 });
+    t.show();
+}
+
 function sharePost(rfqNo, title) {
   const text = `Check out this procurement request: ${rfqNo} — ${title}`;
   if (navigator.share) {
@@ -494,6 +848,83 @@ function sharePost(rfqNo, title) {
     prompt('Copy this link:', window.location.href);
   }
 }
+
+  /* ─── Notifications Logic ─── */
+  (function() {
+    const $ = s => document.querySelector(s);
+    const bell = $('#notifBell'), dropdown = $('#notifDropdown'), list = $('#notifList'), badge = $('#notifBadge');
+    if (!bell) return;
+
+    let isOpen = false;
+
+    async function loadNotifs() {
+      try {
+        const res = await fetch('api/notifications_list.php');
+        const j = await res.json();
+        if (!j.data || !j.data.length) {
+          list.innerHTML = `<div class="text-center text-muted py-5 px-3 small">No notifications yet.</div>`;
+          return;
+        }
+        list.innerHTML = j.data.slice(0, 10).map(n => {
+          const isAward = (n.title||'').toLowerCase().includes('approved');
+          const isBid   = (n.title||'').toLowerCase().includes('bid') || (n.title||'').toLowerCase().includes('quotation');
+          const icon    = isAward ? 'trophy' : (isBid ? 'pricetag' : 'notifications');
+          const cls     = isAward ? 'award' : (isBid ? 'bid' : '');
+          
+          return `
+            <a href="#" class="notif-item ${n.is_read ? '' : 'unread'}" data-nid="${n.id}" data-rfq="${n.rfq_id || ''}">
+              <div class="notif-icon ${cls}"><ion-icon name="${icon}"></ion-icon></div>
+              <div class="notif-content">
+                <div class="notif-title">${esc(n.title)}</div>
+                <div class="notif-body">${esc(n.body)}</div>
+                <div class="notif-time">${new Date(n.created_at).toLocaleDateString()}</div>
+              </div>
+            </a>`;
+        }).join('');
+      } catch (e) {
+        list.innerHTML = `<div class="p-3 text-danger small">Failed to load notifications.</div>`;
+      }
+    }
+
+    bell.addEventListener('click', e => {
+      e.stopPropagation();
+      isOpen = !isOpen;
+      dropdown.classList.toggle('show', isOpen);
+      bell.setAttribute('aria-expanded', String(isOpen));
+      if (isOpen) {
+        loadNotifs();
+        // Mark all as read when opening (optional, or mark individually)
+        markAllRead();
+      }
+    });
+
+    async function markAllRead() {
+      try {
+        await fetch('api/notifications_mark.php', { method: 'POST', body: new URLSearchParams({ all: '1' }) });
+        if (badge) badge.remove();
+      } catch (e) {}
+    }
+
+    document.addEventListener('click', e => {
+      if (isOpen && !dropdown.contains(e.target) && !bell.contains(e.target)) {
+        isOpen = false;
+        dropdown.classList.remove('show');
+        bell.setAttribute('aria-expanded', 'false');
+      }
+      
+      const item = e.target.closest('.notif-item');
+      if (item) {
+        e.preventDefault();
+        const rfqId = item.dataset.rfq;
+        if (rfqId) {
+          // Open the RFQ modal on the dashboard if it exists
+          if (window.openBidModal) window.openBidModal(rfqId);
+        }
+        isOpen = false;
+        dropdown.classList.remove('show');
+      }
+    });
+  })();
 </script>
 <script src="<?= $BASE ?>/js/profile-dropdown.js"></script>
 </body>

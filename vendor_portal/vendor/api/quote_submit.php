@@ -25,26 +25,42 @@ $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
 
 try {
   $rfq_id = (int)($_POST['rfq_id'] ?? 0);
-  $total  = (float)($_POST['total']   ?? 0);
   $terms  = trim((string)($_POST['terms'] ?? ''));
   $lead   = isset($_POST['lead_time_days']) ? (int)$_POST['lead_time_days'] : null;
 
-  // Optional per-line prices submitted as price[<line_no>] => unit_price
-  $prices = (isset($_POST['price']) && is_array($_POST['price'])) ? $_POST['price'] : [];
+  // Items prices submitted as items[<item_id>] => unit_price
+  $items = (isset($_POST['items']) && is_array($_POST['items'])) ? $_POST['items'] : [];
 
   if ($rfq_id <= 0) throw new Exception('Invalid RFQ');
-  if ($total  <= 0) throw new Exception('Total required');
 
-  // Ensure vendor is invited to this RFQ
-  $chk = $pdo->prepare("SELECT 1 FROM rfq_suppliers WHERE rfq_id=? AND vendor_id=?");
-  $chk->execute([$rfq_id, $vendorId]);
-  if (!$chk->fetchColumn()) throw new Exception('Not authorized for this RFQ');
-
-  // Get RFQ meta
+  // Get RFQ meta and items to calculate total
   $st = $pdo->prepare("SELECT status, due_at, currency, awarded_vendor_id FROM rfqs WHERE id=?");
   $st->execute([$rfq_id]);
   $rfq = $st->fetch(PDO::FETCH_ASSOC);
   if (!$rfq) throw new Exception('RFQ not found');
+
+  // Fetch RFQ items to get quantities for total calculation
+  $iq = $pdo->prepare("SELECT id, qty FROM rfq_items WHERE rfq_id=?");
+  $iq->execute([$rfq_id]);
+  $rfq_item_data = $iq->fetchAll(PDO::FETCH_ASSOC);
+  $qtyMap = [];
+  foreach ($rfq_item_data as $rid) {
+    $qtyMap[(int)$rid['id']] = (float)$rid['qty'];
+  }
+
+  // Calculate Total
+  $calculatedTotal = 0;
+  foreach ($items as $itemId => $price) {
+    $itemId = (int)$itemId;
+    $price  = (float)$price;
+    if ($price > 0 && isset($qtyMap[$itemId])) {
+      $calculatedTotal += ($price * $qtyMap[$itemId]);
+    }
+  }
+
+  if ($calculatedTotal <= 0 && !empty($rfq_item_data)) {
+    throw new Exception('Please provide pricing for at least one item.');
+  }
 
   $status = strtolower((string)$rfq['status']);
   $dueAt  = $rfq['due_at'] ? strtotime($rfq['due_at']) : null;
@@ -54,13 +70,8 @@ try {
   if ($status === 'awarded' && (int)$rfq['awarded_vendor_id'] && (int)$rfq['awarded_vendor_id'] !== $vendorId) {
     throw new Exception('RFQ already awarded to another vendor');
   }
-  // Only allow quoting while globally "sent" (buyer published) and before due date
-  if ($status !== 'sent') {
-    throw new Exception('RFQ not open for quotes');
-  }
-  if ($dueAt && $now > $dueAt) {
-    throw new Exception('RFQ past due date');
-  }
+  if ($status !== 'sent') throw new Exception('RFQ not open for quotes');
+  if ($dueAt && $now > $dueAt) throw new Exception('RFQ past due date');
 
   $pdo->beginTransaction();
 
@@ -69,35 +80,27 @@ try {
     INSERT INTO quotes (rfq_id, vendor_id, total, currency, terms, lead_time_days, created_at)
     VALUES (?,?,?,?,?,?,NOW())
   ");
-  $ins->execute([$rfq_id, $vendorId, $total, $rfq['currency'], $terms, $lead]);
+  $ins->execute([$rfq_id, $vendorId, $calculatedTotal, $rfq['currency'], $terms, $lead]);
   $quoteId = (int)$pdo->lastInsertId();
 
-  // Per-line prices (map line_no -> rfq_item_id, then insert without line_no column)
-  if (!empty($prices)) {
-    // Build map: line_no => rfq_items.id
-    $it = $pdo->prepare("SELECT id, line_no FROM rfq_items WHERE rfq_id=?");
-    $it->execute([$rfq_id]);
-    $map = [];
-    foreach ($it->fetchAll(PDO::FETCH_ASSOC) as $row) {
-      $map[(int)$row['line_no']] = (int)$row['id'];
-    }
-
+  // Insert quote items
+  if (!empty($items)) {
     $qi = $pdo->prepare("
       INSERT INTO quote_items (quote_id, rfq_item_id, unit_price)
       VALUES (?,?,?)
     ");
 
-    foreach ($prices as $lineNo => $price) {
-      $lineNo = (int)$lineNo;
+    foreach ($items as $itemId => $price) {
+      $itemId = (int)$itemId;
       $price  = (float)$price;
-      if ($lineNo > 0 && $price > 0 && isset($map[$lineNo])) {
-        $qi->execute([$quoteId, $map[$lineNo], $price]);
+      if ($price > 0 && isset($qtyMap[$itemId])) {
+        $qi->execute([$quoteId, $itemId, $price]);
       }
     }
   }
 
   $pdo->commit();
-  echo json_encode(['ok' => 1, 'id' => $quoteId]);
+  echo json_encode(['ok' => 1, 'id' => $quoteId, 'total' => $calculatedTotal]);
 } catch (Throwable $e) {
   if ($pdo && $pdo->inTransaction()) $pdo->rollBack();
   http_response_code(400);
