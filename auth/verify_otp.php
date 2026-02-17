@@ -23,7 +23,7 @@ $pdo = db('auth');
 $error = '';
 $message = '';
 $issuedAt = (int)($pending['issued_at'] ?? time());
-$remainingSeconds = max(0, 600 - (time() - $issuedAt));
+$remainingSeconds = max(0, 180 - (time() - $issuedAt));
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = trim((string)($_POST['action'] ?? 'verify'));
@@ -44,7 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['otp_pending']['issued_at'] = time();
             $pending = $_SESSION['otp_pending'];
             $issuedAt = (int)$pending['issued_at'];
-            $remainingSeconds = max(0, 600 - (time() - $issuedAt));
+            $remainingSeconds = max(0, 180 - (time() - $issuedAt));
             $message = 'A new OTP was sent to your email.';
         }
     } else {
@@ -206,11 +206,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
       <p>Secure sign-in confirmation</p>
     </div>
     <div class="body">
-      <p>Enter the 6-digit code sent to your email. The code is valid for 10 minutes.</p>
+      <p>Enter the 6-digit code sent to your email. The code is valid for 3 minutes.</p>
       <div class="email">Email: <?= htmlspecialchars((string)$pending['email']) ?></div>
       <div class="meta">
         <span>One-time code</span>
-        <span class="timer">Expires in <span id="otpTimer">10:00</span></span>
+        <span class="timer">Expires in <span id="otpTimer">3:00</span></span>
       </div>
 
       <?php if ($message !== ''): ?><div class="msg"><?= htmlspecialchars($message) ?></div><?php endif; ?>

@@ -75,7 +75,7 @@ function otp_send_email(string $email, string $name, string $otpCode): bool {
               <div style="margin:0 0 14px;padding:14px 16px;border:1px dashed #bfa8f6;background:#f8f4ff;border-radius:12px;text-align:center;">
                 <span style="font-size:34px;font-weight:800;letter-spacing:8px;color:#3f2a96;">' . $safeCode . '</span>
               </div>
-              <p style="margin:0 0 10px;font-size:14px;color:#4f4574;">This code expires in <strong>10 minutes</strong>.</p>
+              <p style="margin:0 0 10px;font-size:14px;color:#4f4574;">This code expires in <strong>3 minutes</strong>.</p>
               <p style="margin:0;font-size:13px;color:#6f6694;">If you did not request this login, you can safely ignore this email.</p>
             </td>
           </tr>
@@ -90,7 +90,7 @@ function otp_send_email(string $email, string $name, string $otpCode): bool {
   </table>
 </body>
 </html>';
-        $mail->AltBody = "TNVS Admin Verification\n\nYour OTP code is: {$otpCode}\nThis code expires in 10 minutes.\nIf you did not request this login, ignore this email.";
+        $mail->AltBody = "TNVS Admin Verification\n\nYour OTP code is: {$otpCode}\nThis code expires in 3 minutes.\nIf you did not request this login, ignore this email.";
 
         return $mail->send();
     } catch (Exception $e) {
@@ -106,7 +106,7 @@ function otp_create(PDO $pdo, int $userId, string $email, string $ip): array {
     $code = otp_generate_code();
     $ins = $pdo->prepare("
         INSERT INTO auth_login_otp (user_id, email, otp_code, expires_at, ip)
-        VALUES (?, ?, ?, DATE_ADD(NOW(), INTERVAL 10 MINUTE), ?)
+        VALUES (?, ?, ?, DATE_ADD(NOW(), INTERVAL 3 MINUTE), ?)
     ");
     $ins->execute([$userId, $email, $code, $ip]);
     $otpId = (int)$pdo->lastInsertId();

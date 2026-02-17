@@ -465,10 +465,10 @@ if ($role === 'vendor') {
       <img src="<?= u('img/logo.png') ?>" id="logo" class="img-fluid me-2" style="height:55px" alt="Logo">
     </div>
 
-    <h6 class="text-uppercase mb-2">Vendor Portal</h6>
+    <h6 class="text-uppercase mb-2">Portal</h6>
     <nav class="nav flex-column px-2 mb-4">
-      <a class="nav-link<?= a('dashboard') ?>" href="<?= u('vendor_portal/vendor/dashboard.php') ?>">
-        <ion-icon name="home-outline"></ion-icon><span>Dashboard</span>
+      <a class="nav-link<?= a('portal') ?>" href="<?= u('vendor_portal/vendor/dashboard.php') ?>">
+        <ion-icon name="storefront-outline"></ion-icon><span>Portal</span>
       </a>
 
       <div class="text-uppercase text-muted small px-2 mt-3 mb-1">Account</div>
